@@ -447,7 +447,15 @@ const $ = (sel) => document.querySelector(sel);
 const STARTERS = ['Review this code for bugs', 'Refactor for readability', 'Explain this file', 'Summarize logs', 'Write tests for this'];
 
 let state = null;
-let selectedCombo = localStorage.getItem('sui.combo') ?? null;
+// B8.2: the choice belongs to the thread, so it survives a reload. A stale value
+// is discarded rather than left to break the selector.
+let selectedCombo = (() => {
+  try {
+    return localStorage.getItem('sui.combo');
+  } catch {
+    return null; // private mode
+  }
+})();
 const thread = $('#thread');
 
 function toast(message) {
@@ -793,8 +801,13 @@ function renderTopology(combos, pool) {
 
   combos.forEach((c, i) => {
     const y = pos(i);
-    parts.push(`<rect class="node combo" x="${leftX}" y="${y}" width="${nodeW}" height="${nodeH}" rx="7" />`);
-    parts.push(`<text x="${leftX + 10}" y="${y + 17}">${escapeXml(c.id)}</text>`);
+    parts.push(
+      `<g class="combo-node" data-combo="${escapeXml(c.id)}" role="button" tabindex="0" aria-label="${escapeXml(c.label ?? c.id)}: ${escapeXml(c.strategy)} route with ${c.targets.length} targets">`,
+      `<title>${escapeXml(c.label ?? c.id)} — ${escapeXml(c.strategy)}, ${c.targets.length} targets: ${escapeXml(c.targets.join(' → '))}</title>`,
+      `<rect class="node combo" x="${leftX}" y="${y}" width="${nodeW}" height="${nodeH}" rx="7" />`,
+      `<text x="${leftX + 10}" y="${y + 17}">${escapeXml(c.id)}</text>`,
+      `</g>`,
+    );
   });
 
   pool.forEach((m, i) => {

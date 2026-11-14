@@ -16,7 +16,7 @@
  */
 
 import { ConfigError, ExhaustedError, ProviderError, SuiError } from '@sui/core';
-import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, providerHasCredentials, providerMeetsPrivacyTier, resolveCombo } from '@sui/core';
+import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, providerHasCredentials, providerMeetsPrivacyTier, resolveCombo, tierRank } from '@sui/core';
 import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
 import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
@@ -220,7 +220,17 @@ export class Router {
       usable.push(entry);
     }
 
+    // B3.1: free targets before paid ones, whatever order they were declared in.
+    // A combo can opt out; the gateway default is on, because a paid key that
+    // happens to be first in a list should not be the thing that spends money.
+    const freeFirst = combo.freeFirst ?? this.config.routing?.freeFirst !== false;
     let ordered = usable;
+    if (freeFirst && usable.length > 1) {
+      ordered = usable
+        .map((target, index) => ({ target, index, rank: tierRank(target.model, this.config) }))
+        .sort((a, b) => (a.rank !== b.rank ? a.rank - b.rank : a.index - b.index))
+        .map((x) => x.target);
+    }
 
     // B9.3: fallback learning. Opt-in per combo, because reordering changes what
     // answers your traffic and that should be a decision, not a surprise.
@@ -464,6 +474,8 @@ export class Router {
       promptTokens,
       keyMeta: input.keyMeta,
       allowAvoid: Boolean(input.allowAvoid),
+      // plan() has always supported an exclusion list; nothing could reach it
+      exclude: input.exclude ?? [],
     });
 
     const cacheKey = this.cache?.enabled && !streamed ? ResponseCache.key({ ...body, combo: comboName }) : null;

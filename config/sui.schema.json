@@ -328,6 +328,10 @@
                 "default": 120
               }
             }
+          },
+          "freeFirst": {
+            "type": "boolean",
+            "description": "Opt this combo out of free-first ordering."
           }
         }
       }
@@ -704,6 +708,17 @@
             "strict"
           ],
           "default": "any"
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "B3.1 free-first: a free target ranks before a paid one unless a combo opts out.",
+      "properties": {
+        "freeFirst": {
+          "type": "boolean",
+          "default": true
         }
       }
     }

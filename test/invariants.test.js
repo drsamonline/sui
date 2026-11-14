@@ -66,7 +66,15 @@ test('I4: opening the gate makes the paid target available again', async () => {
 
   const { router } = makeRouter(config);
   assert.equal(providerHasCredentials(config.providers.paid, {}, config), true);
-  const res = await router.chat({ combo: 'paidcombo', body: ask() });
+
+  // B3.1: free-first ordering means the free target still answers first — the
+  // gate makes the paid target *available*, not preferred. Availability is what
+  // this invariant is about.
+  const plan = router.plan('paidcombo', {});
+  assert.deepEqual(plan.ordered.map((t) => t.modelId), ['mock-a', 'paid-model']);
+
+  // with the free target excluded, the paid one answers, which is the proof
+  const res = await router.chat({ combo: 'paidcombo', body: ask(), exclude: ['mock-a'] });
   assert.equal(res.meta.modelId, 'paid-model');
 });
 

@@ -108,7 +108,9 @@ const record = (check, problems, okDetail) => {
   const problems = [];
   for (const key of keys) {
     if (['path', 'env'].includes(key) || outputs.has(key)) continue;
-    const used = others.includes(`config.${key}`) || others.includes(`.${key}?.`) || others.includes(`${key}:`);
+    // a key is read if anything accesses it as a property, on any object — not
+    // only on `config`. Combo-level keys like freeFirst are read as combo.freeFirst.
+    const used = new RegExp(`\\.${key}\\b`).test(others) || others.includes(`${key}:`);
     if (!used) problems.push(`config.${key} is never read outside config.js`);
   }
   record('config keys → readers', problems, `${keys.size} keys read`);

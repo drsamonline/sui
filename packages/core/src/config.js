@@ -116,6 +116,8 @@ export function normalizeConfig(raw, opts = {}) {
       // B4.5: do not compress the prefix a provider would cache.
       preserveCachedPrefix: raw.compression?.preserveCachedPrefix !== false,
     },
+    // B3.1: free before paid, unless a combo says otherwise.
+    routing: { freeFirst: raw.routing?.freeFirst !== false },
     // B6.5: privacy tiers. 'any' by default — the tier is a decision, not a default.
     privacy: {
       defaultTier: PRIVACY_TIERS.includes(raw.privacy?.defaultTier) ? raw.privacy.defaultTier : 'any',
@@ -337,6 +339,21 @@ export function privacyRefusal(provider, tier) {
 }
 
 /**
+ * B3.1 — the free-first rule.
+ *
+ * A free target ranks before a paid one, always, unless a combo opts out. This is
+ * the invariant that stops a gateway from quietly spending money because a paid
+ * key happened to be declared first.
+ *
+ * @param {any} model
+ * @param {any} config
+ */
+export function tierRank(model, config) {
+  const provider = config?.providers?.[model?.provider];
+  return provider?.tier === 'paid' || provider?.paid === true ? 1 : 0;
+}
+
+/**
  * Can this provider be called at all?
  *
  * `apiKeyEnv: null` is an explicit "this endpoint needs no key" (Ollama, vLLM,
@@ -427,6 +444,7 @@ export function resolveCombo(config, comboName) {
     // behaves unexpectedly.
     learning: combo.learning ?? null,
     cascade: combo.cascade ?? null,
+    freeFirst: combo.freeFirst,
     maxCostPer1k: combo.maxCostPer1k ?? null,
     targets,
   };
@@ -479,6 +497,7 @@ export function sanitizeConfig(config) {
     verification: config.verification,
     canary: config.canary,
     privacy: config.privacy,
+    routing: config.routing,
     apiKeyCount: config.apiKeys.length,
   };
 }

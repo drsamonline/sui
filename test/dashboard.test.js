@@ -115,3 +115,16 @@ test('the compression view is present and says nothing is sent', () => {
   assert.match(html, /id="compress-run"/);
   assert.match(html, /protected spans intact/);
 });
+
+test('the combo choice is remembered for the thread and a stale value is discarded', () => {
+  assert.match(html, /localStorage\.getItem\('sui\.combo'\)/);
+  assert.match(html, /localStorage\.setItem\('sui\.combo'/);
+  assert.match(html, /private mode/);
+  assert.match(html, /combos\.some\(\(c\) => c\.id === selectedCombo\)/);
+});
+
+test('topology nodes are focusable, describe themselves and name their order', () => {
+  assert.match(html, /class="combo-node" data-combo=/);
+  assert.match(html, /role="button" tabindex="0"/);
+  assert.match(html, /<title>.*targets:/);
+});

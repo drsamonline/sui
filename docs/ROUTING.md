@@ -321,6 +321,23 @@ Skipped groq-70b: quota window closed, reopens in 24s
 | Cleared when the window passes | with a log line, so a reopen is visible |
 | `router.quotaSnapshot()` and `sui.quotaWindows` in `/api/status` | you can see what is closed and for how long |
 
+## Free-first ordering
+
+A free target ranks before a paid one, always, unless a combo opts out. This is the rule that stops a gateway from quietly spending money because a paid key happened to be declared first in a list.
+
+```json
+"routing": { "freeFirst": true },
+"combos": { "coding": { "freeFirst": false } }
+```
+
+| Rule | Why |
+|---|---|
+| Free before paid, regardless of declaration order | the cheapest thing that works is the default |
+| Declared order is preserved **within** a tier | the rule reorders tiers, not your intent |
+| A combo can opt out (`freeFirst: false`) | sometimes the strong model is the point |
+| The gateway can turn it off (`routing.freeFirst`) | one switch for a paid-only deployment |
+| Health still beats tier | a resting free target loses to an available paid one (I14) |
+
 ## Speculative cascade
 
 Send the cheap model the easy questions and the strong model the hard ones, decided before the request leaves the gateway.
