@@ -128,3 +128,31 @@ test('topology nodes are focusable, describe themselves and name their order', (
   assert.match(html, /role="button" tabindex="0"/);
   assert.match(html, /<title>.*targets:/);
 });
+
+/* ------------------------------------------------ B8.6/B8.7 accessibility */
+
+test('a skip link leads to the main landmark', () => {
+  assert.match(html, /<a class="skip-link" href="#main">Skip to content<\/a>/);
+  assert.match(html, /<main class="wrap" id="main" tabindex="-1">/);
+});
+
+test('the playground inputs have real labels, not just placeholders', () => {
+  assert.match(html, /<label for="prompt" class="sr-only">Your message<\/label>/);
+  assert.match(html, /<label for="combo" class="sr-only">Model<\/label>/);
+  assert.match(html, /aria-describedby="combo-meta"/);
+});
+
+test('the answer region is a polite live region that reports when it is busy', () => {
+  assert.match(html, /id="thread"[^>]*aria-live="polite"/);
+  assert.match(html, /aria-relevant="additions text"/);
+  assert.match(html, /setAttribute\('aria-busy', 'true'\)/);
+  assert.match(html, /setAttribute\('aria-busy', 'false'\)/);
+});
+
+test('no positive tabindex anywhere: the tab order is the document order', () => {
+  assert.equal(/tabindex="[1-9]/.test(html), false);
+});
+
+test('motion is reduced when the reader asks for it', () => {
+  assert.match(html, /@media \(prefers-reduced-motion: reduce\)/);
+});

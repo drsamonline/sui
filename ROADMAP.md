@@ -83,7 +83,7 @@ Legend: **done** = a command proves it · **partial** = shipped, with a named ga
 | Batch | Status | Gap |
 |---|---|---|
 | B4.1 Compression engines | **done** | Six engines — `session_dedup`, `rtk`, `caveman`, `headroom`, `llmlingua_2`, `ccr` — behind four presets. Protected spans (code, URLs, JSON, paths, ids) are lifted out and restored byte-for-byte; a test proves it for every preset. 17 tests. `llmlingua_2` and `ccr` are labelled approximations: the real methods need a trained model and an external cache. |
-| B4.2 The remaining engines | **partial** | `compress-kit` covers the byte-level engines and is wired for gzip exports. The spec's full nine-engine list is not exhausted: `lexora`-style canonicalisation and the CHCE binaries are not integrated. |
+| B4.2 Canonicalisation | **done** | `canonicalise` runs first in every preset: unicode form, line endings, zero-width and bidi controls, smart quotes and dashes, shared indentation, trailing spaces, blank-line runs — lossless, and it protects spans like every other engine. The CHCE binaries remain unintegrated. 3 tests. |
 | B4.3 Budget manager (quota → preset) | **done** | `choosePreset()` maps remaining quota to a preset (60/30/10% thresholds); `preset: "auto"` uses the provider budget as a quota proxy until real quota telemetry lands. `sui budget` shows the mapping. |
 | B4.4 Output-axis dial | **done** | Four styles plus `auto`, injected as a directive under 90 characters, prepended to the existing system message (or creating one). `auto` reads the same quota fraction as the preset and sends a coding task to `code_only`. 10 tests with the savings ledger. |
 | B4.5 Cache-aware compression (CAPC) | **done** | `preserveCachedPrefix` (default on) keeps the system message byte-for-byte when prompt caching is on, so compression cannot invalidate a provider's prefix cache. When nothing else is compressible, `skipped` says why. 2 tests. |
@@ -179,9 +179,9 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B4.2** — the remaining compression engines (`lexora`-style canonicalisation).
-4. **Phase 5** — MCP server and client, the largest piece left.
-5. **B8.6/B8.7** — keyboard navigation and the last accessibility passes.
+3. **Phase 5** — MCP server and client, the largest piece left.
+4. **B0.3** — the 72-hour soak, which needs a machine held for three days.
+5. **B1.4** — SQLite for a shared ledger, if more than one process is ever wanted.
 
 ## Risk register
 

@@ -315,3 +315,38 @@ test('POST /api/compress refuses an unknown preset and empty text', async () => 
   assert.equal(empty.status, 400);
   await gw.close();
 });
+
+/* ------------------------------------------- B4.2 canonicalise */
+
+test('canonicalise is lossless in meaning and strict about form', async () => {
+  const { canonicalise } = await import('@sui/compression');
+  const messy = 'The \u2018handler\u2019 returns ok\u2014nothing else.\u200b\r\n\r\n\r\n\r\n    const x = 1;\r\n    const y = 2;\r\n\r\n\r\nSee \u201chttps://example.com\u201d.   \n\n\n\nEnd.';
+  const result = canonicalise(messy);
+
+  assert.ok(result.droppedChars > 0);
+  assert.match(result.text, /The 'handler' returns ok-nothing else\./, 'smart quotes and the em dash are normalised');
+  assert.equal(result.text.includes('\u200b'), false, 'zero-width characters are removed');
+  assert.equal(result.text.includes('\r'), false, 'line endings are unified');
+  assert.equal(/ {2,}$/m.test(result.text), false, 'trailing spaces are gone');
+  assert.equal(result.text.includes('\n\n\n'), false, 'runs of blank lines collapse');
+  // dedent removes the indentation *every* line shares; here the prose starts at
+  // column 0, so the code keeps its four spaces — that is correct, not a miss
+  assert.match(result.text, /^    const x = 1;$/m, 'mixed indentation is preserved as written');
+
+  const indented = '    const a = 1;\n    const b = 2;\n    return a + b;';
+  const dedented = canonicalise(indented).text;
+  assert.match(dedented, /^const a = 1;$/m, 'a uniformly indented block is dedented');
+});
+
+test('every preset starts with canonicalise, so nothing is compressed before it is tidy', async () => {
+  const { PRESETS } = await import('@sui/compression');
+  for (const [name, preset] of Object.entries(PRESETS)) {
+    assert.equal(preset.engines[0], 'canonicalise', `${name} must canonicalise first`);
+  }
+});
+
+test('canonicalise does not damage protected spans', () => {
+  const code = '```js\nconst a = 1;\n```';
+  const result = compress(`${'prose '.repeat(60)}\n\n${code}`, { preset: 'lite' });
+  assert.ok(result.text.includes('const a = 1;'), 'the code block is untouched');
+});

@@ -225,12 +225,15 @@ Two rules hold across every engine:
 
 | Engine | What it actually does | Honest label |
 |---|---|---|
+| `canonicalise` | unicode form, line endings, zero-width and bidi characters, smart quotes and dashes, shared indentation, trailing spaces, blank-line runs — **lossless** | deterministic |
 | `session_dedup` | drops paragraphs that repeat an earlier one (never a block containing a protected span) | deterministic |
 | `rtk` | collapses repeated tokens and punctuation runs (`very very very very` → `very ×4`) | deterministic |
 | `caveman` | strips function words from prose, keeping sentence-initial words and bracketed code | deterministic |
 | `headroom` | keeps head and tail, drops the middle, atomically so a protected span is never split | deterministic |
 | `llmlingua_2` | keeps sentences carrying rare terms plus the last sentence, drops the rest | **approximation** — the real method needs a trained model |
 | `ccr` | hides the tail behind a signed `[sui:recall <token>]` marker, retrievable from an in-memory store | **approximation** — no external cache |
+
+Every preset starts with `canonicalise`: normalise before dropping anything, the way `lexora` does. Less to carry means the later engines have less to get wrong.
 
 | Preset | Target | Floor | Engines |
 |---|---|---|---|

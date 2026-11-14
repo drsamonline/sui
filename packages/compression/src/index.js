@@ -23,13 +23,17 @@
 
 import { createHmac, randomUUID } from 'node:crypto';
 
-export const ENGINES = ['session_dedup', 'rtk', 'headroom', 'caveman', 'llmlingua_2', 'ccr'];
+export const ENGINES = ['canonicalise', 'session_dedup', 'rtk', 'headroom', 'caveman', 'llmlingua_2', 'ccr'];
 
 export const PRESETS = {
-  lite: { target: 0.15, floor: 0.02, engines: ['session_dedup', 'rtk'] },
-  standard: { target: 0.3, floor: 0.05, engines: ['session_dedup', 'rtk', 'llmlingua_2'] },
-  aggressive: { target: 0.5, floor: 0.1, engines: ['session_dedup', 'rtk', 'llmlingua_2', 'caveman'] },
-  ultra: { target: 0.75, floor: 0.2, engines: ['session_dedup', 'rtk', 'llmlingua_2', 'caveman', 'headroom', 'ccr'] },
+  lite: { target: 0.15, floor: 0.02, engines: ['canonicalise', 'session_dedup', 'rtk'] },
+  standard: { target: 0.3, floor: 0.05, engines: ['canonicalise', 'session_dedup', 'rtk', 'llmlingua_2'] },
+  aggressive: { target: 0.5, floor: 0.1, engines: ['canonicalise', 'session_dedup', 'rtk', 'llmlingua_2', 'caveman'] },
+  ultra: {
+    target: 0.75,
+    floor: 0.2,
+    engines: ['canonicalise', 'session_dedup', 'rtk', 'llmlingua_2', 'caveman', 'headroom', 'ccr'],
+  },
 };
 
 export const OUTPUT_STYLES = ['off', 'auto', 'terse', 'explanatory', 'bullet', 'code_only'];
@@ -173,6 +177,41 @@ function matchBracket(text, start) {
 }
 
 /* -------------------------------------------------------------------- engines */
+
+/**
+ * B4.2 — canonicalise before compressing, the way `lexora` does.
+ *
+ * Lossless normalisation: unicode form, line endings, zero-width characters,
+ * smart quotes and dashes, ragged indentation, trailing spaces, repeated blank
+ * lines. None of it changes what the text says, and every byte removed is a byte
+ * the later engines do not have to reason about.
+ */
+export function canonicalise(text) {
+  const before = text.length;
+  let out = String(text)
+    .normalize('NFKC')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u200b-\u200f\u202a-\u202e\ufeff]/g, '') // zero-width and bidi controls
+    .replace(/[\u2018\u2019\u201b]/g, "'")
+    .replace(/[\u201c\u201d\u201f]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/[\u00a0\u2007\u202f]/g, ' ') // non-breaking spaces
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n');
+
+  // dedent: drop the indentation every non-empty line shares
+  const lines = out.split('\n').filter((l) => l.trim());
+  const indent = lines.length ? Math.min(...lines.map((l) => l.match(/^[ \t]*/)?.[0].length ?? 0)) : 0;
+  if (indent > 0) out = out.split('\n').map((l) => l.slice(Math.min(indent, l.length))).join('\n');
+
+  const dropped = Math.max(0, before - out.length);
+  return {
+    text: out,
+    droppedChars: dropped,
+    note: dropped ? `normalised ${dropped} chars (unicode, quotes, indentation, blank lines)` : 'already canonical',
+  };
+}
 
 /**
  * Drop paragraphs that repeat something already said. A conversation resent in
@@ -536,6 +575,9 @@ export function compress(text, opts = {}) {
     if (current.length <= masked.length * (1 - target)) break;
     let result;
     switch (engine) {
+      case 'canonicalise':
+        result = canonicalise(current);
+        break;
       case 'session_dedup':
         result = sessionDedup(current, opts);
         break;

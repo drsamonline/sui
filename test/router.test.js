@@ -30,7 +30,10 @@ test('fallback: the healthy primary answers and nothing else is tried', async ()
 
 test('circuit breaker: repeated failures rest a target instead of retrying it', async () => {
   const upstream = await startFakeUpstream({ fail: true });
-  const { router, breaker } = makeRouter(testConfig({ fakeUrl: upstream.url }));
+  const config = testConfig({ fakeUrl: upstream.url });
+  // a long cooldown, so a slow machine cannot let the breaker half-open mid-test
+  config.breaker = { failures: 2, cooldownMs: 60_000 };
+  const { router, breaker } = makeRouter(config);
 
   for (let i = 0; i < 2; i++) {
     await router.chat({ combo: 'chain', body: ask(`turn ${i}`) });

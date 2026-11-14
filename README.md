@@ -37,7 +37,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Four strategies** over virtual model names: `fallback`, `weighted` (per-arm attribution), `cheapest` (quality floor + cost cap), `latency` (measured p50).
 - **Circuit breaker** per target, three states, lazy recovery, invariant-correct tripping.
 - **Budgets** — daily and per provider, checked before the call, skipped with a reason rather than failed with a stack trace.
-- **Prompt compression** — six engines behind four presets, with code, URLs and JSON preserved byte-for-byte; the preset is chosen from remaining quota. Off by default; `sui compress` shows you the result first.
+- **Prompt compression** — seven engines, canonicalisation first behind four presets, with code, URLs and JSON preserved byte-for-byte; the preset is chosen from remaining quota. Off by default; `sui compress` shows you the result first.
 - **Tenant console** — `sui tenants` and `GET /api/tenants` show what each key spent, what is left and what it may reach; caps can be changed live.
 - **Attribution** — `x-sui-user` and `x-sui-tool` charge each turn to a person and a tool, with `sui cost --by user|tool`.
 - **Free-first ordering** — a free target ranks before a paid one regardless of declaration order, with a per-combo opt-out.
