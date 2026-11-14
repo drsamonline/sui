@@ -426,6 +426,7 @@ export function resolveCombo(config, comboName) {
     // silently loses its learning policy and nobody finds out until traffic
     // behaves unexpectedly.
     learning: combo.learning ?? null,
+    cascade: combo.cascade ?? null,
     maxCostPer1k: combo.maxCostPer1k ?? null,
     targets,
   };

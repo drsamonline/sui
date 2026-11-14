@@ -175,7 +175,7 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
 3. **B9.5** — provider token refresh for OAuth-style providers.
 4. **B8.2/B8.3** — the dashboard gaps (model selector persistence, topology detail).
-5. **B3.5 speculative cascade** — a 50 ms classifier that picks the cheap path first.
+5. **B3.1** — free-first tier ordering across a whole combo.
 
 ## Risk register
 

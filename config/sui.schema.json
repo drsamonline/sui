@@ -300,6 +300,34 @@
                 "default": 86400000
               }
             }
+          },
+          "cascade": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "B3.5 speculative cascade: pick targets from a sub-50ms classification of the prompt.",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false
+              },
+              "simple": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "complex": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "longWords": {
+                "type": "integer",
+                "minimum": 20,
+                "default": 120
+              }
+            }
           }
         }
       }

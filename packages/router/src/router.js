@@ -20,6 +20,7 @@ import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, provider
 import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
 import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
+import { classifyPrompt } from './classify.js';
 import { checkGrounding, scoreAnswer, shouldEscalate, verdict as verifyVerdict } from '@sui/verify';
 import { createAdapter, displayName } from '@sui/providers';
 import { checkPrompt, clampMaxTokens, inspectToolChannel } from '@sui/guardrails';
@@ -92,7 +93,22 @@ export class Router {
    */
   plan(comboName, opts = {}) {
     const privacyTier = opts.privacyTier ?? this.config.privacy?.defaultTier ?? 'any';
-    const combo = resolveCombo(this.config, comboName);
+    let combo = resolveCombo(this.config, comboName);
+
+    // B3.5: a cascade combo chooses its own targets from the prompt's shape.
+    let cascade = null;
+    if (combo.cascade?.enabled) {
+      const decision = classifyPrompt(opts.promptText ?? '', { maxMs: 50, longWords: combo.cascade.longWords });
+      const chosen = decision.complexity === 'complex' ? combo.cascade.complex : combo.cascade.simple;
+      if (Array.isArray(chosen) && chosen.length) {
+        const mapped = chosen.map((id) => combo.targets.find((t) => t.modelId === id)).filter(Boolean);
+        // A cascade list that names models the combo does not have must not empty
+        // the route: keep the declared order and say so in the signals.
+        if (mapped.length) combo = { ...combo, targets: mapped };
+        else cascade = { ...decision, signals: [...decision.signals, `cascade list "${chosen.join(', ')}" matched no target — using the declared order`] };
+      }
+      cascade = cascade ?? decision;
+    }
     const promptTokens = opts.promptTokens ?? 0;
     const exclude = new Set(opts.exclude ?? []);
     /** @type {Array<{modelId: string, provider: string, reason: string}>} */
@@ -256,7 +272,17 @@ export class Router {
       ordered = [primary, ...usable.filter((t) => t.modelId !== primary.modelId).sort((a, b) => b.weight - a.weight)];
     }
 
-    return { combo, ordered, resting, skipped, spentToday, dailyBudget, privacyTier, learned: Boolean(combo.learning?.enabled) };
+    return {
+      combo,
+      ordered,
+      resting,
+      skipped,
+      spentToday,
+      dailyBudget,
+      privacyTier,
+      learned: Boolean(combo.learning?.enabled),
+      cascade,
+    };
   }
 
   /**
@@ -432,7 +458,8 @@ export class Router {
     const effectiveMessages = compressed.messages;
     const promptTokens = estimateTokens(effectiveMessages.map((m) => m.content).join('\n'));
 
-    const { combo, ordered, resting, skipped, privacyTier, learned } = this.plan(comboName, {
+    const { combo, ordered, resting, skipped, privacyTier, learned, cascade } = this.plan(comboName, {
+      promptText,
       privacyTier: input.privacyTier,
       promptTokens,
       keyMeta: input.keyMeta,
@@ -627,6 +654,7 @@ export class Router {
               strategy: combo.strategy,
               privacyTier,
               learned,
+              cascade,
               considered: [
                 ...ordered.map((t) => ({ modelId: t.modelId, provider: t.providerId, outcome: t.modelId === modelId ? 'answered' : 'available' })),
                 ...resting.map((t) => ({ modelId: t.modelId, provider: t.providerId, outcome: 'resting' })),

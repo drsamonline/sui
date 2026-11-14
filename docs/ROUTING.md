@@ -321,6 +321,29 @@ Skipped groq-70b: quota window closed, reopens in 24s
 | Cleared when the window passes | with a log line, so a reopen is visible |
 | `router.quotaSnapshot()` and `sui.quotaWindows` in `/api/status` | you can see what is closed and for how long |
 
+## Speculative cascade
+
+Send the cheap model the easy questions and the strong model the hard ones, decided before the request leaves the gateway.
+
+```json
+"combos": {
+  "chat-default": {
+    "strategy": "fallback",
+    "targets": ["groq-70b", "gemini-flash"],
+    "cascade": { "enabled": true, "simple": ["groq-70b"], "complex": ["gemini-flash"] }
+  }
+}
+```
+
+The classifier is deterministic and has no model of its own — a classifier that costs a request has defeated the point of saving one. It answers in **well under 50 ms** (3 ms on a 20,000-word prompt) from six signals: length, code, schema, multi-step markers, arithmetic, and multiple questions.
+
+| Outcome | When |
+|---|---|
+| `simple` | no work markers, or a short single-question lookup |
+| `complex` | any work marker: code, schema, "first … then", "prove", "why does", a long prompt |
+
+`sui.route.cascade` carries the decision, the signals and the time it took. A cascade list that names models the combo does not have is ignored with a signal rather than emptying the route.
+
 ## Fallback learning
 
 A combo can reorder itself from what the ledger has measured, instead of what you guessed when you wrote it.

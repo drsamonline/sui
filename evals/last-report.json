@@ -1,11 +1,11 @@
 {
   "mode": "self-test",
-  "ranAt": "2026-11-14T15:19:24.602Z",
+  "ranAt": "2026-11-14T15:25:29.377Z",
   "combo": null,
   "passRate": 1,
   "passed": 56,
   "total": 56,
   "mismatches": [],
   "note": "Harness self-test: graders were checked against fixture answers. No model was called.",
-  "generatedAt": "2026-11-14T15:19:24.603Z"
+  "generatedAt": "2026-11-14T15:25:29.378Z"
 }
