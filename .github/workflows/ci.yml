@@ -67,11 +67,34 @@ jobs:
           name: soak-report
           path: soak.json
 
+  # `secrets` is not an available context in a job-level `if` — using it there
+  # makes the workflow INVALID, so GitHub rejects the whole file at parse time and
+  # every push fails in 0s with "workflow file issue" (runs 43584645299,
+  # 43584348384, 43583779987). The key is therefore read in a step, which does
+  # have `secrets`, and published as a job output.
+  eval-keys:
+    runs-on: ubuntu-latest
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - id: check
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$GROQ_API_KEY" ] || [ -n "$GEMINI_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No provider key configured — the eval job will be skipped."
+          fi
+
   eval:
     # Runs only when a provider key exists, because a free-tier eval with no
     # free tier is theatre. Add GROQ_API_KEY (or any key) as a repository secret.
+    needs: eval-keys
+    if: needs.eval-keys.outputs.present == 'true'
     runs-on: ubuntu-latest
-    if: ${{ secrets.GROQ_API_KEY != '' || secrets.GEMINI_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
