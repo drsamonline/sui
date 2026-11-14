@@ -38,6 +38,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Circuit breaker** per target, three states, lazy recovery, invariant-correct tripping.
 - **Budgets** — daily and per provider, checked before the call, skipped with a reason rather than failed with a stack trace.
 - **Prompt compression** — six engines behind four presets, with code, URLs and JSON preserved byte-for-byte; the preset is chosen from remaining quota. Off by default; `sui compress` shows you the result first.
+- **Quota windows** — a `429` with `Retry-After` closes that target for exactly that long, instead of guessing from failures.
 - **Two-tier cache** — exact hash, plus an optional lexical tier (`ml-kit` tf-idf at 0.98) for near-duplicate prompts; `cacheKind` says which one answered.
 - **Native prompt caching** — stable-prefix detection with the hint each provider understands (Anthropic breakpoint, OpenAI cache key), and a `volatile` list naming what breaks the cache.
 - **Per-key limits** — each key is a tenant: combo/model allow-lists, daily spend cap, token-bucket rate limit, its own guardrails.

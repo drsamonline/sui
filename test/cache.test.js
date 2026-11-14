@@ -72,3 +72,34 @@ test('the router records which tier answered', async () => {
   assert.equal(third.meta.cached, true, 'the semantic tier should catch it');
   assert.equal(third.meta.cacheKind, 'semantic');
 });
+
+/* ------------------------------------------------- B4.7 the embedding tier */
+
+test('the hashing embedding separates near-duplicates from unrelated prompts', async () => {
+  const { embed, cosine } = await import('@sui/telemetry/src/embedding.js');
+  const a = embed('what does a circuit breaker do in a gateway');
+  assert.ok(cosine(a, embed('what does a circuit breaker do in a gateway?')) > 0.99);
+  assert.ok(cosine(a, embed('explain what a circuit breaker does in a gateway')) > 0.8);
+  assert.ok(cosine(a, embed('how do I bake sourdough bread')) < 0.4);
+});
+
+test('the embedding tier hits a near-duplicate and ignores an unrelated prompt', () => {
+  const cache = new ResponseCache({ semantic: { enabled: true, tier: 'embedding' }, semanticThreshold: 0.9, now: () => 1000 });
+  const prompt = 'summarise the health check handler for the load balancer';
+  cache.set('k1', value('summary'), { promptText: prompt });
+
+  const near = cache.get('nope', 'summarise the health check handler for the load balancer please');
+  assert.ok(near, 'a near-duplicate should hit');
+  assert.equal(near.kind, 'embedding');
+  assert.ok(near.score >= 0.9);
+
+  assert.equal(cache.get('nope2', 'how do I configure nginx upstreams'), null);
+});
+
+test('the embedding tier still respects expiry', () => {
+  let clock = 1000;
+  const cache = new ResponseCache({ semantic: { enabled: true, tier: 'embedding' }, semanticThreshold: 0.9, ttlMs: 5000, now: () => clock });
+  cache.set('k1', value('summary'), { promptText: 'summarise the health check handler' });
+  clock += 6000;
+  assert.equal(cache.get('nope', 'summarise the health check handler'), null);
+});

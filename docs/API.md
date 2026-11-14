@@ -142,6 +142,12 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## Quota windows in `/api/status`
+
+```json
+"quotaWindows": [{ "modelId": "groq-70b", "reopensInMs": 24310, "reopensAt": 1763000243100 }]
+```
+
 ## POST /api/compress
 
 B10.4 — what a preset would do to a prompt. Computed locally; the text is used and dropped, never stored, logged or sent to a provider.

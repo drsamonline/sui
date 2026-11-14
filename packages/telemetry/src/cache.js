@@ -15,6 +15,7 @@
 
 import { createHash } from 'node:crypto';
 import { loadKit } from '@sui/kits';
+import { cosine, embed } from './embedding.js';
 
 export class ResponseCache {
   /**
@@ -29,7 +30,10 @@ export class ResponseCache {
     this.enabled = opts.enabled ?? true;
     this.now = opts.now ?? Date.now;
     this.semanticEnabled = Boolean(opts.semantic?.enabled);
-    this.semanticThreshold = Number(opts.semantic?.threshold ?? 0.98);
+    // read from the nested block or the flat option, so both call styles behave
+    this.semanticThreshold = Number(opts.semantic?.threshold ?? opts.semanticThreshold ?? 0.98);
+    // B4.7: 'lexical' (tf-idf from ml-kit) or 'embedding' (hashed vectors, no model)
+    this.semanticTier = (opts.semantic?.tier ?? opts.semanticTier) === 'embedding' ? 'embedding' : 'lexical';
 
     /** @type {Map<string, {value: any, expiresAt: number, promptText: string|null}>} */
     this.map = new Map();
@@ -106,6 +110,7 @@ export class ResponseCache {
       value,
       expiresAt: this.now() + this.ttlMs,
       promptText: this.semanticEnabled ? meta.promptText ?? null : null,
+      vector: this.semanticEnabled && this.semanticTier === 'embedding' && meta.promptText ? embed(meta.promptText) : null,
     });
     this._indexDirty = true;
   }
@@ -116,29 +121,48 @@ export class ResponseCache {
    */
   #semanticLookup(query) {
     if (!this.semanticEnabled || !query) return null;
+
+    // B4.7: two tiers behind the same seam. Lexical is tf-idf from ml-kit;
+    // embedding is hashed vectors, which cost no model and no quota.
+    if (this.semanticTier === 'embedding') {
+      const queryVector = embed(query);
+      let best = null;
+      let bestScore = 0;
+      for (const [key, entry] of this.map) {
+        if (entry.expiresAt <= this.now() || !entry.promptText) continue;
+        const score = cosine(queryVector, entry.vector ?? (entry.vector = embed(entry.promptText)));
+        if (score > bestScore) {
+          bestScore = score;
+          best = { key, entry };
+        }
+      }
+      if (best && bestScore >= this.semanticThreshold) {
+        return { value: best.entry.value, kind: 'embedding', score: Math.round(bestScore * 1000) / 1000 };
+      }
+      return null;
+    }
+
     const index = this.#ensureIndex();
     if (!index || !index.keys.length) return null;
 
-    const MLKit = loadKit('ml-kit');
-    const results = MLKit.search(index.index, query, 3);
-    for (const r of results) {
-      if (r.score < this.semanticThreshold) continue;
-      const key = index.keys[r.i];
-      if (!key) continue;
-      const entry = this.map.get(key);
-      if (!entry || entry.expiresAt <= this.now()) continue;
-      return { value: entry.value, kind: 'semantic' };
-    }
-    return null;
+    const hits = index.search(query, 1);
+    if (!hits.length) return null;
+    const top = hits[0];
+    if (top.score < this.semanticThreshold) return null;
+
+    const key = index.keys[top.i ?? top.index];
+    const entry = key ? this.map.get(key) : null;
+    if (!entry || entry.expiresAt <= this.now()) return null;
+    return { value: entry.value, kind: 'semantic', score: Math.round(top.score * 1000) / 1000 };
   }
 
+  /** Build (or reuse) the tf-idf index over the cached prompts. */
   #ensureIndex() {
     if (!this._indexDirty && this._index) return this._index;
     const keys = [];
     const docs = [];
-    for (const [key, entry] of this.map.entries()) {
+    for (const [key, entry] of this.map) {
       if (!entry.promptText) continue;
-      if (entry.expiresAt <= this.now()) continue;
       keys.push(key);
       docs.push(entry.promptText);
     }
@@ -148,7 +172,7 @@ export class ResponseCache {
       return this._index;
     }
     const MLKit = loadKit('ml-kit');
-    this._index = { index: MLKit.tfidf(docs), keys };
+    this._index = { index: MLKit.tfidf(docs), keys, search: (q, k) => MLKit.search(this._index.index, q, k) };
     this._indexDirty = false;
     return this._index;
   }

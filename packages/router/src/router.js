@@ -51,6 +51,8 @@ export class Router {
     this.random = deps.random ?? Math.random;
     this.logger = deps.logger ?? { debug() {}, info() {}, warn() {} };
     this.canary = deps.canary ?? null;
+    /** @type {Map<string, {until: number, note: string}>} B9.4: provider quota windows */
+    this.quotaResets = new Map();
     /** @type {Map<string, any>} */
     this.adapters = new Map();
   }
@@ -127,6 +129,18 @@ export class Router {
         skipped.push({ modelId, provider: providerId, reason: 'terms of service marked avoid (never auto-routed)' });
         continue;
       }
+      // B9.4: a provider that told us when to come back is not tried before then.
+      const reset = this.quotaResets.get(modelId);
+      if (reset) {
+        if (reset.until > this.now()) {
+          const waitS = Math.max(1, Math.ceil((reset.until - this.now()) / 1000));
+          skipped.push({ modelId, provider: providerId, reason: `quota window closed, reopens in ${waitS}s` });
+          continue;
+        }
+        this.quotaResets.delete(modelId);
+        this.logger.info?.(`${displayName(providerId)} (${modelId}) quota window reopened`);
+      }
+
       // B6.5: checked before credentials, because sending a prompt to a provider
       // that trains on it is not recoverable.
       if (!providerMeetsPrivacyTier(provider, privacyTier)) {
@@ -330,6 +344,16 @@ export class Router {
     if (!settings.enabled && resolvedStyle === 'off') return { messages: next, meta: null };
     meta.skipped = skipped;
     return { messages: styled, meta };
+  }
+
+  /** B9.4: the quota windows currently being honoured. */
+  quotaSnapshot() {
+    const now = this.now();
+    return [...this.quotaResets.entries()].map(([modelId, reset]) => ({
+      modelId,
+      reopensInMs: Math.max(0, reset.until - now),
+      reopensAt: reset.until,
+    }));
   }
 
   /** How many targets are currently resting — the signal that a failure is an outage. */
@@ -763,6 +787,13 @@ export class Router {
           // candidate. If other targets are already resting, this is an outage
           // and rolling the candidate back would blame it for someone else's
           // downtime.
+          // B9.4: honour a stated quota window instead of guessing from failures.
+          if (e?.retryAfterMs > 0) {
+            const until = this.now() + e.retryAfterMs;
+            this.quotaResets.set(modelId, { until, note: `${Math.round(e.retryAfterMs / 1000)}s` });
+            this.logger.warn(`${displayName(providerId)} (${modelId}) closed its quota window for ${Math.round(e.retryAfterMs / 1000)}s`);
+          }
+
           if (canaryPick?.arm === 'candidate') {
             const othersResting = this.breaker.snapshot().filter((b) => b.state === 'open' && b.key !== modelId).length;
             const verdict = this.canary.observe({ ok: false, latencyMs, outage: othersResting > 0 });

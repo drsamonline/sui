@@ -357,6 +357,9 @@ async function fetchJson(url, init, provider, providerId, modelName) {
 
   if (!res.ok) {
     const detail = await safeText(res);
+    // B9.4: a 429 that says when to come back is a fact worth keeping. Without
+    // it we would keep knocking on a door that is closed for an hour.
+    const retryAfterMs = parseRetryAfter(res.headers, detail);
     throw new ProviderError(explainHttpError(providerId, res.status, detail), {
       code: `http_${res.status}`,
       status: res.status,
@@ -364,9 +367,29 @@ async function fetchJson(url, init, provider, providerId, modelName) {
       provider: providerId,
       model: modelName,
       detail: detail.slice(0, 500),
+      ...(retryAfterMs ? { retryAfterMs } : {}),
     });
   }
   return res;
+}
+
+/** `Retry-After` in seconds, or a reset timestamp in the error body. */
+export function parseRetryAfter(headers, detail = '') {
+  const header = headers?.get?.('retry-after');
+  if (header) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds) && seconds > 0) return Math.round(seconds * 1000);
+    const date = Date.parse(header);
+    if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  }
+  // some providers put the wait in the body instead of the header
+  const body = /retry[-_ ]after[^0-9]{0,10}(\d+(?:\.\d+)?)\s*(ms|s|seconds?)?/i.exec(String(detail));
+  if (body) {
+    const value = Number(body[1]);
+    const unit = (body[2] ?? 's').toLowerCase();
+    return Math.round(unit.startsWith('ms') ? value : value * 1000);
+  }
+  return 0;
 }
 
 function explainHttpError(providerId, status, detail) {

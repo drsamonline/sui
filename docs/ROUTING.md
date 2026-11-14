@@ -306,6 +306,21 @@ A key is a tenant. Its limits are checked before a provider is chosen, so a chea
 
 The limiter is a token bucket **in memory**, per process. A shared limiter needs a shared store — Phase 9.
 
+## Quota windows
+
+A `429` that says when to come back is a fact, not a guess. When a provider sends `Retry-After` — as seconds, an HTTP date, or in the body — Sui closes that target for exactly that long:
+
+```
+Skipped groq-70b: quota window closed, reopens in 24s
+```
+
+| Rule | Why |
+|---|---|
+| Honoured before the breaker | a quota window is a fact; the breaker is an inference from failures |
+| It is **not** a breaker trip (I13) | a 429 is not a health signal |
+| Cleared when the window passes | with a log line, so a reopen is visible |
+| `router.quotaSnapshot()` and `sui.quotaWindows` in `/api/status` | you can see what is closed and for how long |
+
 ## Fallback learning
 
 A combo can reorder itself from what the ledger has measured, instead of what you guessed when you wrote it.

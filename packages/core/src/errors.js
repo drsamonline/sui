@@ -34,10 +34,11 @@ export class SuiError extends Error {
 export class ProviderError extends SuiError {
   /**
    * @param {string} message
-   * @param {{code?: string, status?: number, retryable?: boolean, provider?: string, model?: string, detail?: string, cause?: unknown}} [opts]
+   * @param {{code?: string, status?: number, retryable?: boolean, provider?: string, model?: string, detail?: string, retryAfterMs?: number, cause?: unknown}} [opts]
    */
   constructor(message, opts = {}) {
     super(message, { status: 502, code: opts.code ?? 'provider_error', ...opts });
+    this.retryAfterMs = Number(opts.retryAfterMs ?? 0) || 0;
     this.name = 'ProviderError';
     this.provider = opts.provider ?? null;
     this.model = opts.model ?? null;

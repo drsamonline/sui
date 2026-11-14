@@ -132,6 +132,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B10.5 eval reports — done**: `GET /api/evals` serves `evals/last-report.json`, and the dashboard shows the last run with its mode. A self-test report is labelled as a harness check, because it proves the graders grade and says nothing about a model.
 
+**B9.4 quota windows — done**: a `429` with `Retry-After` (seconds, an HTTP date, or in the body) closes that target for exactly that long, is reported in the skip reason, is **not** a breaker trip, and reopens with a log line. `quotaWindows` in `/api/status`. 5 tests.
+
 **B7.6 grounding check — done**: `verification.grounding` (`off`/`warn`/`block`) checks that every URL, quoted span of 8+ characters and unit-bearing number in the answer appears in the context it was given. Ungrounded answers take a 0.45 confidence penalty, which usually escalates them. With no context it reports `checked: false` rather than passing silently. 5 tests.
 
 **B9.6 worker hardening — done**: a tick that arrives while the previous one runs is **skipped, not queued** (a slow probe must not become two); a failing job backs off by doubling up to 16x and resets on the first success; the first tick is jittered so a restart does not fire every job at once. `skipped` and `failures` are on the job snapshot. 2 tests.
@@ -171,9 +173,9 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
-4. **B9.4/B9.5** — quota reset detection and provider token refresh.
-5. **B8.2/B8.3** — the dashboard gaps (model selector persistence, topology detail).
+3. **B9.5** — provider token refresh for OAuth-style providers.
+4. **B8.2/B8.3** — the dashboard gaps (model selector persistence, topology detail).
+5. **B3.5 speculative cascade** — a 50 ms classifier that picks the cheap path first.
 
 ## Risk register
 
