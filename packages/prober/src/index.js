@@ -1,0 +1,417 @@
+/**
+ * @sui/prober — the canary prober (B2.3).
+ *
+ * This is the batch that makes "verified before use" mean something. A catalogue
+ * entry is an identity; a probed entry is a route. Nothing here runs on the
+ * request path (I1): probes happen on a schedule, results are read from memory.
+ *
+ * Three levels, because "the endpoint answered" and "the endpoint can do what we
+ * need" are different facts:
+ *
+ *   liveness    does the API respond at all
+ *   readiness   does a minimal chat completion come back with usable text
+ *   suitability does it actually stream, honour a JSON request, accept tools —
+ *               only for the capabilities the entry claims
+ *
+ * Fixtures are tiny, versioned, synthetic and side-effect free: no customer
+ * content, no write tools, nothing that could mutate state upstream.
+ */
+
+import { poolKey } from '@sui/catalog';
+
+/** Bump when a fixture changes, so probe history stays comparable. */
+export const PROBE_FIXTURE_VERSION = '1.0.0';
+
+export const FIXTURES = {
+  readiness: {
+    messages: [{ role: 'user', content: 'Reply with the single word: ready' }],
+    max_tokens: 8,
+  },
+  jsonSchema: {
+    messages: [{ role: 'user', content: 'Return JSON with exactly one key "ok", set to true.' }],
+    max_tokens: 40,
+    response_format: { type: 'json_object' },
+  },
+  tools: {
+    messages: [{ role: 'user', content: 'Call the get_time tool for the city Pune.' }],
+    max_tokens: 60,
+    tools: [
+      {
+        type: 'function',
+        function: {
+          name: 'get_time',
+          description: 'Return the current time for a city. Read-only.',
+          parameters: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+        },
+      },
+    ],
+  },
+};
+
+const DEFAULT_TIMEOUT_MS = 8000;
+
+/**
+ * Probe one catalogue entry.
+ *
+ * @param {any} entry a normalised catalogue entry
+ * @param {{fetchImpl?: typeof fetch, timeoutMs?: number, now?: () => number, capabilities?: string[]}} [opts]
+ */
+export async function probeTarget(entry, opts = {}) {
+  const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const now = opts.now ?? Date.now;
+  const checkedAt = now();
+
+  const key = entry.pool_key ?? poolKey(entry);
+  const base = entry.base_url ? String(entry.base_url).replace(/\/+$/, '') : null;
+
+  /** @type {{liveness: any, readiness: any, suitability: Record<string, any>}} */
+  const levels = { liveness: null, readiness: null, suitability: {} };
+
+  if (!base) {
+    return {
+      pool_key: key,
+      provider: entry.provider,
+      checkedAt,
+      fixtureVersion: PROBE_FIXTURE_VERSION,
+      ok: false,
+      verified: false,
+      latencyMs: 0,
+      levels,
+      reasons: ['no endpoint to probe (base_url is null — the identity is unresolved)'],
+    };
+  }
+
+  const headers = { 'content-type': 'application/json' };
+  if (entry.auth === 'key' && entry.key_env && process.env[entry.key_env]) {
+    headers.authorization = `Bearer ${process.env[entry.key_env]}`;
+  }
+
+  const started = now();
+  const reasons = [];
+
+  // ---- liveness -----------------------------------------------------------
+  levels.liveness = await timed(async () => {
+    const res = await fetchImpl(`${base}/models`, { method: 'GET', headers, signal: AbortSignal.timeout(timeoutMs) });
+    return { ok: res.ok, status: res.status, note: res.ok ? 'answered /models' : `HTTP ${res.status}` };
+  });
+
+  // ---- readiness ----------------------------------------------------------
+  // If liveness did not even reach the host, readiness cannot tell us anything
+  // new: it would only spend another timeout to say the same thing.
+  const reachedHost = levels.liveness.status !== undefined || levels.liveness.ok === true;
+  let sample = '';
+  if (!reachedHost) {
+    levels.readiness = { ok: false, note: 'not attempted: endpoint unreachable', ms: 0 };
+    reasons.push(`liveness: ${levels.liveness.note}`);
+    return {
+      pool_key: key,
+      provider: entry.provider,
+      checkedAt,
+      fixtureVersion: PROBE_FIXTURE_VERSION,
+      ok: false,
+      verified: false,
+      latencyMs: now() - started,
+      levels,
+      reasons,
+    };
+  }
+  levels.readiness = await timed(async () => {
+    const res = await fetchImpl(`${base}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: entry.probe_model ?? entry.model_family ?? 'default', ...FIXTURES.readiness }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return { ok: false, status: res.status, note: `HTTP ${res.status}: ${firstLine(body)}` };
+    }
+    const json = await res.json().catch(() => null);
+    sample = json?.choices?.[0]?.message?.content ?? '';
+    const ok = typeof sample === 'string' && sample.trim().length > 0;
+    return { ok, status: res.status, note: ok ? 'returned text' : 'empty completion' };
+  });
+
+  if (!levels.readiness.ok) reasons.push(`readiness: ${levels.readiness.note}`);
+
+  // ---- suitability --------------------------------------------------------
+  const capabilities = opts.capabilities ?? entry.capabilities ?? [];
+  if (levels.readiness.ok) {
+    if (capabilities.includes('streaming')) {
+      levels.suitability.streaming = await probeStreaming({ fetchImpl, base, headers, entry, timeoutMs });
+      if (!levels.suitability.streaming.ok) reasons.push(`streaming: ${levels.suitability.streaming.note}`);
+    }
+    if (capabilities.includes('json_schema')) {
+      levels.suitability.json_schema = await probeJson({ fetchImpl, base, headers, entry, timeoutMs });
+      if (!levels.suitability.json_schema.ok) reasons.push(`json_schema: ${levels.suitability.json_schema.note}`);
+    }
+    if (capabilities.includes('tools')) {
+      levels.suitability.tools = await probeTools({ fetchImpl, base, headers, entry, timeoutMs });
+      if (!levels.suitability.tools.ok) reasons.push(`tools: ${levels.suitability.tools.note}`);
+    }
+  }
+
+  const ok =
+    levels.liveness.ok &&
+    levels.readiness.ok &&
+    Object.values(levels.suitability).every((s) => s.ok);
+
+  return {
+    pool_key: key,
+    provider: entry.provider,
+    checkedAt,
+    fixtureVersion: PROBE_FIXTURE_VERSION,
+    ok,
+    // "verified" is stricter than "ok": a probe that only proves liveness does
+    // not prove the route can carry a conversation.
+    verified: ok && levels.readiness.ok,
+    latencyMs: now() - started,
+    sample: sample.slice(0, 40),
+    levels,
+    reasons,
+  };
+}
+
+/** Streaming must be a real event sequence, not one blob pretending to be SSE. */
+async function probeStreaming({ fetchImpl, base, headers, entry, timeoutMs }) {
+  return timed(async () => {
+    const res = await fetchImpl(`${base}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: modelFor(entry), stream: true, ...FIXTURES.readiness }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return { ok: false, status: res.status, note: `HTTP ${res.status}` };
+    if (!res.body) return { ok: false, status: res.status, note: 'no response body to stream' };
+
+    let frames = 0;
+    let deltas = 0;
+    let done = false;
+    let buffer = '';
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (frames < 200) {
+      const { done: finished, value } = await reader.read();
+      if (finished) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const block = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        for (const line of block.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          const data = line.slice(5).trim();
+          frames += 1;
+          if (data === '[DONE]') {
+            done = true;
+            continue;
+          }
+          try {
+            const payload = JSON.parse(data);
+            if (payload.choices?.[0]?.delta?.content) deltas += 1;
+          } catch {
+            /* a keepalive frame is not a failure */
+          }
+        }
+      }
+      if (done) break;
+    }
+    try {
+      await reader.cancel();
+    } catch {
+      /* already closed */
+    }
+
+    const ok = frames > 0 && deltas > 0;
+    return {
+      ok,
+      status: res.status,
+      note: ok ? `${frames} frames, ${deltas} content deltas` : `${frames} frames, ${deltas} content deltas — not a real stream`,
+      frames,
+      deltas,
+    };
+  });
+}
+
+/** A JSON request has to come back as JSON, not as a promise to be JSON. */
+async function probeJson({ fetchImpl, base, headers, entry, timeoutMs }) {
+  return timed(async () => {
+    const res = await fetchImpl(`${base}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: modelFor(entry), ...FIXTURES.jsonSchema }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return { ok: false, status: res.status, note: `HTTP ${res.status}` };
+    const json = await res.json().catch(() => null);
+    const content = json?.choices?.[0]?.message?.content ?? '';
+    const fenced = String(content).match(/```(?:json)?\s*([\s\S]*?)```/);
+    const body = (fenced ? fenced[1] : content).trim();
+    try {
+      const parsed = JSON.parse(body);
+      return { ok: typeof parsed === 'object' && parsed !== null, status: res.status, note: 'returned parseable JSON' };
+    } catch {
+      return { ok: false, status: res.status, note: 'returned text that is not JSON' };
+    }
+  });
+}
+
+/**
+ * Tools: the check is that the request is *accepted* and the response has a valid
+ * shape — not that the model chose to call the tool. Refusing to call a tool is a
+ * legitimate answer; a 400 is not.
+ */
+async function probeTools({ fetchImpl, base, headers, entry, timeoutMs }) {
+  return timed(async () => {
+    const res = await fetchImpl(`${base}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: modelFor(entry), ...FIXTURES.tools }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return { ok: false, status: res.status, note: `HTTP ${res.status} — tools rejected` };
+    const json = await res.json().catch(() => null);
+    const message = json?.choices?.[0]?.message;
+    const ok = Boolean(message && (Array.isArray(message.tool_calls) || typeof message.content === 'string'));
+    return { ok, status: res.status, note: ok ? 'tool schema accepted' : 'response had neither tool_calls nor content' };
+  });
+}
+
+function modelFor(entry) {
+  return entry.probe_model ?? entry.model_family ?? 'default';
+}
+
+async function timed(fn) {
+  const t0 = performance.now();
+  try {
+    const result = await fn();
+    return { ...result, ms: Math.round(performance.now() - t0) };
+  } catch (err) {
+    const e = /** @type {any} */ (err);
+    const timedOut = e?.name === 'TimeoutError' || e?.name === 'AbortError';
+    return { ok: false, note: timedOut ? 'timed out' : `unreachable: ${e?.message ?? e}`, ms: Math.round(performance.now() - t0) };
+  }
+}
+
+function firstLine(s) {
+  return String(s ?? '').split('\n')[0].slice(0, 120);
+}
+
+/**
+ * The prober: state, thresholds and the schedule.
+ *
+ * `auto_disable_after_failures` and `auto_re_enable_on_recovery` are the two
+ * behaviours that keep a free tier honest: a broken route leaves the pool after
+ * three consecutive failures, and comes back the moment a probe succeeds.
+ */
+export class Prober {
+  /**
+   * @param {{
+   *   entries: any[], intervalMs?: number, failuresBeforeDisable?: number,
+   *   fetchImpl?: typeof fetch, timeoutMs?: number, now?: () => number,
+   *   onResult?: (result: any, state: any) => void
+   * }} opts
+   */
+  constructor(opts) {
+    this.entries = opts.entries ?? [];
+    this.intervalMs = opts.intervalMs ?? 3600_000;
+    this.failuresBeforeDisable = opts.failuresBeforeDisable ?? 3;
+    this.fetchImpl = opts.fetchImpl ?? globalThis.fetch;
+    this.timeoutMs = opts.timeoutMs;
+    this.now = opts.now ?? Date.now;
+    this.onResult = opts.onResult ?? null;
+
+    /** @type {Map<string, any>} */
+    this.state = new Map();
+    for (const entry of this.entries) {
+      const key = entry.pool_key ?? poolKey(entry);
+      this.state.set(key, {
+        pool_key: key,
+        provider: entry.provider,
+        status: 'unverified',
+        failures: 0,
+        lastProbeAt: null,
+        lastOkAt: null,
+        lastResult: null,
+        history: [],
+      });
+    }
+    this.timer = null;
+    this.runs = 0;
+  }
+
+  /** Probe everything once, in parallel, and fold the results into state. */
+  async runOnce() {
+    this.runs += 1;
+    const results = await Promise.all(
+      this.entries.map((entry) => probeTarget(entry, { fetchImpl: this.fetchImpl, timeoutMs: this.timeoutMs, now: this.now })),
+    );
+
+    for (const result of results) {
+      const key = result.pool_key;
+      const current = this.state.get(key) ?? { pool_key: key, provider: result.provider, failures: 0, history: [] };
+      current.lastProbeAt = result.checkedAt;
+      current.lastResult = result;
+      current.history = [...(current.history ?? []), { at: result.checkedAt, ok: result.ok, latencyMs: result.latencyMs }].slice(-24);
+
+      if (result.ok) {
+        current.failures = 0;
+        current.status = 'healthy';
+        current.lastOkAt = result.checkedAt;
+      } else {
+        current.failures += 1;
+        current.status = current.failures >= this.failuresBeforeDisable ? 'disabled' : 'degraded';
+      }
+      this.state.set(key, current);
+      this.onResult?.(result, current);
+    }
+    return results;
+  }
+
+  /** The probe map the catalogue's scoring function expects. */
+  probeMap() {
+    /** @type {Record<string, any>} */
+    const map = {};
+    for (const [key, s] of this.state.entries()) {
+      map[key] = {
+        ok: s.status === 'healthy',
+        latencyMs: s.lastResult?.latencyMs ?? null,
+        checkedAt: s.lastProbeAt,
+      };
+    }
+    return map;
+  }
+
+  /** Snapshot for the dashboard and `sui probe --json`. */
+  snapshot() {
+    return [...this.state.values()].map((s) => ({
+      pool_key: s.pool_key,
+      provider: s.provider,
+      status: s.status,
+      failures: s.failures,
+      lastProbeAt: s.lastProbeAt,
+      lastOkAt: s.lastOkAt,
+      latencyMs: s.lastResult?.latencyMs ?? null,
+      reasons: s.lastResult?.reasons ?? [],
+      suitability: s.lastResult?.levels?.suitability ?? {},
+    }));
+  }
+
+  /** Start the schedule. Returns this, so it can be chained or stopped. */
+  start() {
+    if (this.timer) return this;
+    this.runOnce().catch(() => {});
+    this.timer = setInterval(() => {
+      this.runOnce().catch(() => {});
+    }, this.intervalMs);
+    this.timer.unref?.();
+    return this;
+  }
+
+  stop() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
+}

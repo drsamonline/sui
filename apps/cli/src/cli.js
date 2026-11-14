@@ -20,7 +20,7 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
-import { cmdCatalog, cmdConfig, cmdKits, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { cmdCatalog, cmdConfig, cmdKits, cmdProbe, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
 import { kitStatus } from '@sui/kits';
 import { ConfigError } from '@sui/core';
 
@@ -41,6 +41,8 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdKeys(flags, args);
     case 'catalog':
       return cmdCatalog(flags, args);
+    case 'probe':
+      return cmdProbe(flags, args);
     case 'vault':
       return cmdVault(flags, args);
     case 'config':
@@ -496,6 +498,7 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui tools           point a coding tool here              --set <tool-id>
   npx sui migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
   npx sui catalog [q]    the provider catalogue, and what is still unverified
+  npx sui probe [name]   liveness, readiness and suitability checks (B2.3)
   npx sui vault <cmd>    init | set <provider> | list | remove <provider> | status
   npx sui config <cmd>   show | get <path> | set <path> <value> | unset <path>
   npx sui tokens --check WCAG AA on the dashboard tokens, computed by tokens-kit

@@ -45,6 +45,9 @@ jobs:
       - name: Catalogue builds from app-endpoints
         run: node scripts/build-catalog.mjs
 
+      - name: Prober reports honestly with no endpoints resolved
+        run: node apps/cli/bin/sui.js probe --json | head -40
+
   soak:
     runs-on: ubuntu-latest
     steps:

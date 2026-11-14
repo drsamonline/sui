@@ -14,6 +14,7 @@ import { ConfigError, defaultConfigPath, normalizeConfig, sanitizeConfig, suiHom
 import { dedupeEntries, loadSeed, summarise } from '@sui/catalog';
 import { loadKit, kitStatus } from '@sui/kits';
 import { createVault } from '@sui/vault';
+import { Prober, PROBE_FIXTURE_VERSION } from '@sui/prober';
 import { table } from './cli.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -362,6 +363,65 @@ export function cmdKits(flags) {
   );
   console.log('');
   console.log('Licence: each kit carries its own LICENSE in vendor/kits/. See docs/legal/LICENSE_INVENTORY.md.');
+}
+
+/* ------------------------------------------------------------------- probe */
+
+/**
+ * `sui probe [provider] [--interval <ms>]` — the canary prober (B2.3).
+ *
+ * Only entries with a base_url can be probed; the rest are identities, and the
+ * report says so rather than inventing a result.
+ */
+export async function cmdProbe(flags, args) {
+  const entries = loadCatalogue();
+  const wanted = args[0] ?? flags.provider;
+  const selected = wanted ? entries.filter((e) => e.provider === wanted) : entries;
+
+  if (!selected.length) {
+    throw new ConfigError(`No catalogue entry called "${wanted}". Run \`sui catalog\` for the list.`);
+  }
+
+  const probeable = selected.filter((e) => e.base_url);
+  const identities = selected.filter((e) => !e.base_url);
+
+  console.log('');
+  console.log(`Probing ${probeable.length} of ${selected.length} entries (fixtures v${PROBE_FIXTURE_VERSION})`);
+  if (identities.length) {
+    console.log(`${identities.length} have no base_url yet — an identity is not an endpoint, so they are not probed.`);
+  }
+  console.log('');
+
+  const prober = new Prober({ entries: probeable, timeoutMs: Number(flags.timeout ?? 8000) });
+  const results = await prober.runOnce();
+
+  if (flags.json) {
+    console.log(JSON.stringify({ fixtureVersion: PROBE_FIXTURE_VERSION, results, state: prober.snapshot() }, null, 2));
+    return;
+  }
+
+  if (!results.length) {
+    console.log('Nothing to probe. Add a base_url to a catalogue entry, or run `sui catalog` to see what is waiting.');
+    return;
+  }
+
+  const rows = results.map((r) => [
+    r.provider,
+    r.ok ? 'ok' : 'fail',
+    r.levels.liveness?.ok ? 'yes' : 'no',
+    r.levels.readiness?.ok ? 'yes' : 'no',
+    Object.entries(r.levels.suitability).map(([k, v]) => `${k}:${v.ok ? 'ok' : 'no'}`).join(' ') || '—',
+    `${r.latencyMs} ms`,
+    r.reasons.length ? r.reasons.join('; ').slice(0, 60) : '',
+  ]);
+  console.log(table(['provider', 'result', 'live', 'ready', 'suitable', 'latency', 'why not'], rows));
+
+  const ok = results.filter((r) => r.ok).length;
+  console.log('');
+  console.log(`${ok} of ${results.length} probed entries are verified.`);
+  if (!ok) {
+    console.log('Nothing is routable yet. That is the honest state, not a bug: a route becomes verified by answering.');
+  }
 }
 
 /* ------------------------------------------------------------------ exports */

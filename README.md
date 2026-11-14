@@ -41,7 +41,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
 - **Dashboard** — token-based design system, budget bar, routing-pool topology, breaker states, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token.
 - **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.
-- **Catalogue** — 26 entries from the fleet's `app-endpoints` dataset and a hand-written seed, every one an unverified identity until a probe says otherwise; `sui catalog <query>` searches it.
+- **Catalogue + canary prober** — 26 entries, every one an unverified identity until a probe says otherwise; `sui probe` checks liveness, readiness and suitability (streaming, JSON, tools) with versioned synthetic fixtures, disables a route after three failures and re-enables it on recovery.
 - **Onboarding** with tool detection and one-click config; **migration** from 9router / OmniRoute / HubGate with a preview diff and a post-import smoke test.
 - **Eval harness** — 50-prompt golden set, nine deterministic graders, a self-test that proves the graders grade, and a regression gate against `evals/baseline.json`.
 - **Soak harness** — measures the gateway's own overhead (server-side, not client sockets) and gates p95 against the 15ms budget.
@@ -63,6 +63,7 @@ npx sui keys hash          # replace plaintext API keys with SHA-256
 npx sui vault init         # sealed storage for paid credentials  (set · list · remove · status)
 npx sui config set budgets.dailyUsd 7    # edit config, validated before writing
 npx sui catalog <query>    # the catalogue, and what is still unverified
+npx sui probe [name]       # liveness, readiness, suitability — and what failed
 npx sui tokens --check     # WCAG AA on the dashboard tokens, computed by tokens-kit
 npx sui kits               # the vendored kits and whether they load
 ```
@@ -91,6 +92,7 @@ packages/
   sdk/          JavaScript client
   kits/         loader for the vendored kits (isolated VM context)
   vault/        AES-256-GCM sealed paid credentials
+  prober/       liveness, readiness and suitability checks
 evals/          50-prompt golden set, graders, runner, baseline
 scripts/        soak harness
 config/         annotated config + JSON schema
@@ -103,7 +105,7 @@ npm workspaces, Node 20+, **zero runtime dependencies**. No build step.
 ## Commands that prove things
 
 ```bash
-npm test         # 146 tests: routing, invariants, security, dashboard, catalog, sdk, vault, kits, evals
+npm test         # 161 tests: routing, invariants, security, dashboard, catalog, sdk, vault, kits, prober, evals
 npm run eval:self  # prove the graders grade (50 must-pass, 6 must-fail)
 npm run eval     # 50 prompts against a real combo, regression-gated
 npm run soak     # 1,200 requests, p95 overhead against the 15ms budget

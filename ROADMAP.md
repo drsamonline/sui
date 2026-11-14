@@ -4,7 +4,7 @@
 
 This is the working plan: twelve phases, sixty batches, in dependency order. Every batch has a status, and a status is only `done` when a command in this repository proves it — a test, an eval run, or a soak report. Nothing here is marked done because it was written.
 
-Last updated: 2026-11-14 · 146 tests green · eval self-test green · soak p95 2.57ms against a 15ms budget · 7 kits vendored and wired.
+Last updated: 2026-11-14 · 161 tests green · eval self-test green · soak p95 1.13ms against a 15ms budget · 7 kits vendored · prober built.
 
 ---
 
@@ -22,7 +22,7 @@ Three rules keep it honest:
 |---|---|
 | Runtime | Node 20+, ESM, **zero runtime dependencies** |
 | Layout | npm workspaces: `apps/{gateway,dashboard,cli}` · `packages/{core,providers,router,telemetry,catalog,guardrails,sdk}` |
-| Tests | 146 passing, no network, no keys (`npm test`) |
+| Tests | 161 passing, no network, no keys (`npm test`) |
 | Eval | 50-prompt golden set, 56-check self-test, regression gate against `evals/baseline.json` |
 | Soak | `npm run soak` — 1,200 requests, p95 2.57ms overhead, no unhandled errors |
 | Security | Host-header allowlist, SHA-256 key hashes with constant-time compare, no default password, no JWT, paid vault sealed with AES-256-GCM |
@@ -60,7 +60,7 @@ Legend: **done** = a command proves it · **partial** = shipped, with a named ga
 |---|---|---|
 | B2.1 `packages/catalog` | **partial** | Schema, dedupe by `pool_key`, ToS states, retention levels, capability list, scoring, plus a generated set. **26 entries today (11 hand-written + 15 from app-endpoints); target is 500+, and none has a verified URL.** |
 | B2.2 Catalog sync worker | **partial** | `scripts/build-catalog.mjs` ingests the fleet's `app-endpoints` dataset (2,214 APIs → 1,103 keyless → 15 model-ish, HTTPS, no-key entries) and writes `packages/catalog/generated.json`. One source, run by hand; four sources and a schedule remain. |
-| B2.3 Canary prober | todo | Three levels (liveness/readiness/suitability) with per-capability fixtures. Scoring function is ready; nothing calls it on a schedule. |
+| B2.3 Canary prober | **done** | `packages/prober`: three levels (liveness, readiness, suitability), per-capability fixtures that are versioned, synthetic and side-effect free, auto-disable after 3 consecutive failures, auto re-enable on recovery, capped history, and `sui probe [provider]`. 15 tests, including one that catches a provider faking a stream with a single frame. Not yet scheduled by `sui start` — that is B9.1. |
 | B2.4 ToS policy engine | **partial** | `tos: allowed\|review\|avoid` is enforced in routing (I12) and audited. No ingestion, no review workflow, no per-provider policy documents. |
 | B2.5 Keyless providers wired | **blocked** | Pollinations, OVHcloud, LLM7, Kilo are in the seed as identities with `base_url: null, needs_probe: true`. Shipping an unverified URL would violate the positioning; the prober (B2.3) has to resolve them, and their ToS must be read before customer prompts go near them. |
 | B2.6 Local runtime discovery | **partial** | Loopback literals only (Ollama `127.0.0.1:11434`, LM Studio `127.0.0.1:1234`) in the seed, and onboarding probes reachability. No discovery loop, no llama.cpp. |
@@ -142,7 +142,7 @@ All todo: worker scheduler, canary + SLO rollback, fallback learning, quota rese
 
 ## The next five batches, in dependency order
 
-1. **B2.3 canary prober** — nothing else in Phase 2 is real without it, and it is what turns 26 unverified identities into routable providers. Fixtures are tiny and versioned; three levels; auto-disable after 3 failures.
+1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
 3. **B4.1 the nine compression engines** — now unblocked by the owner authorisation. `lexora`'s canonicalise-then-compress is the model for `session_dedup` + `ccr`.
 4. **B3.3 empty-turn retry + first-chunk clone** — the streaming gaps that make a free tier feel broken.
