@@ -110,7 +110,7 @@
   </div>
 
   <div class="strip">
-    <div class="stat"><div class="k">tests</div><div class="v num">175</div><div class="f">no network, no keys</div></div>
+    <div class="stat"><div class="k">tests</div><div class="v num">192</div><div class="f">no network, no keys</div></div>
     <div class="stat"><div class="k">p95 overhead</div><div class="v num">1.13<span style="font-size:var(--fs-16)"> ms</span></div><div class="f">budget 15 ms</div></div>
     <div class="stat"><div class="k">invariants</div><div class="v num">15</div><div class="f">each with a test</div></div>
     <div class="stat"><div class="k">verified routes</div><div class="v num">0</div><div class="f">26 await a probe</div></div>
@@ -136,6 +136,7 @@ node apps/cli/bin/sui.js init</code></pre>
           <li>Per-target circuit breaker, three states</li>
           <li>Budgets per day and per provider</li>
           <li>Two-tier cache: exact, plus lexical similarity</li>
+          <li>Quota-aware prompt compression, six engines, code preserved</li>
         </ul>
       </div>
       <div class="card">
@@ -187,7 +188,8 @@ node apps/cli/bin/sui.js init</code></pre>
         <tr><td>Canary prober</td><td><span class="pill done">done</span></td><td>3 levels, 16 tests, auto disable</td></tr>
         <tr><td>Worker scheduler</td><td><span class="pill done">done</span></td><td>prober + cache sweep, /api/workers</td></tr>
         <tr><td>Empty-turn retry</td><td><span class="pill done">done</span></td><td>retry once, then fail over</td></tr>
-        <tr><td>Compression engines</td><td><span class="pill">not started</span></td><td>unblocked, batch B4.1</td></tr>
+        <tr><td>Compression engines</td><td><span class="pill done">done</span></td><td>6 engines, 4 presets, 17 tests</td></tr>
+        <tr><td>Quota budget manager</td><td><span class="pill done">done</span></td><td>60/30/10% thresholds</td></tr>
         <tr><td>MCP / A2A / agents</td><td><span class="pill">not started</span></td><td>Phase 5</td></tr>
         <tr><td>Weather Map, Savings Ledger, explain-my-route</td><td><span class="pill">not started</span></td><td>Phases 7 and 10</td></tr>
       </tbody>
@@ -202,7 +204,7 @@ node apps/cli/bin/sui.js init</code></pre>
         <ul>
           <li>No catalogue entry has a resolved endpoint, so nothing is verified yet</li>
           <li>No first-chunk clone: a mid-stream drop is reported, never spliced</li>
-          <li>No compression, no MCP, no red-team self-test</li>
+          <li>No MCP, no red-team self-test, no cache-aware compression</li>
           <li>No tenant console or per-user cost attribution</li>
           <li>No npm package; run from source</li>
         </ul>

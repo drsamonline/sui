@@ -40,6 +40,7 @@ OpenAI-compatible.
 | `sui.verified` | bool | `true` when a real upstream answered (mock and local-unverified are `false`) |
 | `sui.cached` | bool | served from the response cache |
 | `sui.cacheKind` | `"exact"` \| `"semantic"` \| null | which cache tier answered |
+| `sui.compression` | object \| null | `{preset, reason, ratio, savedChars, steps}` when compression ran |
 | `sui.latencyMs` | number | full turn |
 | `sui.ttftMs` | number \| null | time to first token, streaming only |
 | `sui.costUsd` | number | computed from the model's declared prices |

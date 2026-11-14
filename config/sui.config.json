@@ -212,6 +212,12 @@
   "paid_tiers": {
     "enabled": false
   },
+  "compression": {
+    "enabled": false,
+    "preset": "auto",
+    "minChars": 400,
+    "keepLastUserMessage": true
+  },
   "workers": {
     "enabled": true,
     "kickoffMs": 1500,

@@ -4,7 +4,7 @@
 
 This is the working plan: twelve phases, sixty batches, in dependency order. Every batch has a status, and a status is only `done` when a command in this repository proves it — a test, an eval run, or a soak report. Nothing here is marked done because it was written.
 
-Last updated: 2026-11-14 · 175 tests green · eval self-test green · soak p95 1.13ms against a 15ms budget · 7 kits vendored · prober built.
+Last updated: 2026-11-14 · 192 tests green · eval self-test green · soak p95 1.13ms against a 15ms budget · 7 kits vendored · prober built.
 
 ---
 
@@ -22,7 +22,7 @@ Three rules keep it honest:
 |---|---|
 | Runtime | Node 20+, ESM, **zero runtime dependencies** |
 | Layout | npm workspaces: `apps/{gateway,dashboard,cli}` · `packages/{core,providers,router,telemetry,catalog,guardrails,sdk}` |
-| Tests | 175 passing, no network, no keys (`npm test`) |
+| Tests | 192 passing, no network, no keys (`npm test`) |
 | Eval | 50-prompt golden set, 56-check self-test, regression gate against `evals/baseline.json` |
 | Soak | `npm run soak` — 1,200 requests, p95 2.57ms overhead, no unhandled errors |
 | Security | Host-header allowlist, SHA-256 key hashes with constant-time compare, no default password, no JWT, paid vault sealed with AES-256-GCM |
@@ -82,10 +82,11 @@ Legend: **done** = a command proves it · **partial** = shipped, with a named ga
 
 | Batch | Status | Gap |
 |---|---|---|
-| B4.1–B4.2 Nine compression engines | todo — **unblocked** | The owner authorised the kits (ADR-0002 update), so `heavenzip`/`lexora`/`compress-kit` can be used. `compress-kit` is already wired for gzip exports; the nine prompt-compression engines are not built. |
-| B4.3 Budget manager (quota → preset) | todo | Depends on real quota telemetry, which depends on B2.3. |
-| B4.4 Output-axis dial | todo | |
-| B4.5 Cache-aware compression (CAPC) | todo | |
+| B4.1 Compression engines | **done** | Six engines — `session_dedup`, `rtk`, `caveman`, `headroom`, `llmlingua_2`, `ccr` — behind four presets. Protected spans (code, URLs, JSON, paths, ids) are lifted out and restored byte-for-byte; a test proves it for every preset. 17 tests. `llmlingua_2` and `ccr` are labelled approximations: the real methods need a trained model and an external cache. |
+| B4.2 The remaining engines | **partial** | `compress-kit` covers the byte-level engines and is wired for gzip exports. The spec's full nine-engine list is not exhausted: `lexora`-style canonicalisation and the CHCE binaries are not integrated. |
+| B4.3 Budget manager (quota → preset) | **done** | `choosePreset()` maps remaining quota to a preset (60/30/10% thresholds); `preset: "auto"` uses the provider budget as a quota proxy until real quota telemetry lands. `sui budget` shows the mapping. |
+| B4.4 Output-axis dial | **partial** | `OUTPUT_STYLES` (terse, explanatory, bullet, code_only) is defined and exported; nothing injects it into a prompt yet, and the adaptive dial is not built. |
+| B4.5 Cache-aware compression (CAPC) | todo | The two-tier cost model and prefix-cache ratio bound are not built; the cache itself (exact + lexical) is done. |
 | B4.6 Native prompt caching | todo | |
 | B4.7 Semantic cache | **partial** | Two tiers: exact hash, and a **lexical** tier over `ml-kit` tf-idf at a 0.98 threshold — near-duplicate prompts hit without an exact key, and `cacheKind` says which tier answered. Off by default (it holds recent prompt text in memory). A true embedding tier is still todo. |
 
@@ -144,11 +145,11 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 ## The next five batches, in dependency order
 
-1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
-2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B4.1 the nine compression engines** — now unblocked by the owner authorisation. `lexora`'s canonicalise-then-compress is the model for `session_dedup` + `ccr`.
-4. **B3.3 empty-turn retry + first-chunk clone** — the streaming gaps that make a free tier feel broken.
-5. **B7.2 Savings Ledger** — `savedUsd` already counts cache hits; the quota-stretched half needs B2.3's quota telemetry.
+1. **B4.4 wire the output-axis dial** — the styles exist, the prompt injection does not. Cheapest real quality win left in Phase 4.
+2. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
+3. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
+4. **B7.2 Savings Ledger** — `savedUsd` counts cache hits and compression savings now; the quota-stretched half needs real quota telemetry.
+5. **B4.6 native prompt caching** — stable-prefix detection, which pairs naturally with compression.
 
 ## Risk register
 

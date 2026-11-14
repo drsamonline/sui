@@ -110,6 +110,46 @@ The lexical tier keeps recent prompt text **in memory only** — that is why it 
 
 Turn it off when you are measuring latency, or when prompts contain data that should not sit in memory.
 
+## Compression
+
+Off by default. Compression changes what the model sees, so it is a decision, not a default.
+
+```json
+"compression": { "enabled": true, "preset": "auto", "minChars": 400, "keepLastUserMessage": true }
+```
+
+Two rules hold across every engine:
+
+1. **Protected spans are never touched.** Fenced code, inline code, URLs, email addresses, file paths, commit-ish ids and JSON blocks are lifted out before any engine runs and restored byte-for-byte. A compressor that breaks a code block has cost more than it saved. A test asserts this for every preset.
+2. **A floor, not a target.** Each preset has a ratio it aims for and a floor it will not cross (hard cap 80%). If more than 80% of a prompt is protected spans, it says `nothing to do` and returns the prompt unchanged.
+
+| Engine | What it actually does | Honest label |
+|---|---|---|
+| `session_dedup` | drops paragraphs that repeat an earlier one (never a block containing a protected span) | deterministic |
+| `rtk` | collapses repeated tokens and punctuation runs (`very very very very` → `very ×4`) | deterministic |
+| `caveman` | strips function words from prose, keeping sentence-initial words and bracketed code | deterministic |
+| `headroom` | keeps head and tail, drops the middle, atomically so a protected span is never split | deterministic |
+| `llmlingua_2` | keeps sentences carrying rare terms plus the last sentence, drops the rest | **approximation** — the real method needs a trained model |
+| `ccr` | hides the tail behind a signed `[sui:recall <token>]` marker, retrievable from an in-memory store | **approximation** — no external cache |
+
+| Preset | Target | Floor | Engines |
+|---|---|---|---|
+| `lite` | 15% | 2% | session_dedup → rtk |
+| `standard` | 30% | 5% | + llmlingua_2 |
+| `aggressive` | 50% | 10% | + caveman |
+| `ultra` | 75% | 20% | + headroom → ccr |
+
+**The budget manager (B4.3)** picks the preset from what is left of the quota: over 60% left → `lite`, over 30% → `standard`, over 10% → `aggressive`, below that → `ultra`. In `preset: "auto"` the router uses the provider's daily budget as the quota proxy until real quota telemetry lands.
+
+Try it before switching it on:
+
+```bash
+sui compress ./prompt.txt --preset aggressive
+sui budget --fraction 0.15
+```
+
+The last user message is never compressed (`keepLastUserMessage`), because that is the question.
+
 ## Guardrails
 
 ```json

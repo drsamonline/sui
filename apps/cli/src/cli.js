@@ -21,7 +21,7 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
-import { cmdCatalog, cmdConfig, cmdKits, cmdProbe, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdKits, cmdProbe, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
 import { kitStatus } from '@sui/kits';
 import { ConfigError } from '@sui/core';
 
@@ -52,6 +52,10 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdCatalog(flags, args);
     case 'probe':
       return cmdProbe(flags, args);
+    case 'compress':
+      return cmdCompress(flags, args);
+    case 'budget':
+      return cmdBudget(flags);
     case 'vault':
       return cmdVault(flags, args);
     case 'config':
@@ -516,6 +520,8 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
   npx sui catalog [q]    the provider catalogue, and what is still unverified
   npx sui probe [name]   liveness, readiness and suitability checks (B2.3)
+  npx sui compress <file|-> [--preset lite|standard|aggressive|ultra] [--text "…"]
+  npx sui budget         which preset the remaining quota would choose
   npx sui vault <cmd>    init | set <provider> | list | remove <provider> | status
   npx sui config <cmd>   show | get <path> | set <path> <value> | unset <path>
   npx sui tokens --check WCAG AA on the dashboard tokens, computed by tokens-kit
@@ -530,7 +536,7 @@ Docs:                     docs/ARCHITECTURE.md, docs/ROUTING.md, docs/MIGRATION.
 /* ------------------------------------------------------------------- helpers */
 
 /** Flags that take a value, so `--config ./x.json` works as well as `--config=./x.json`. */
-const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q']);
+const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout']);
 
 function parse(argv) {
   const args = [];

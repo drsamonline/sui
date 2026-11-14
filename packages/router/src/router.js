@@ -18,8 +18,10 @@
 import { ConfigError, ExhaustedError, ProviderError, SuiError } from '@sui/core';
 import { estimatedCost, estimateTokens, providerHasCredentials, resolveCombo } from '@sui/core';
 import { ResponseCache } from '@sui/telemetry';
+import { RecallStore } from '@sui/compression';
 import { createAdapter, displayName } from '@sui/providers';
 import { checkPrompt, clampMaxTokens } from '@sui/guardrails';
+import { choosePreset, compress as compressText } from '@sui/compression';
 
 /**
  * @typedef {{
@@ -191,6 +193,80 @@ export class Router {
     return { combo, ordered, resting, skipped, spentToday, dailyBudget };
   }
 
+  /**
+   * Compress everything except the last user message.
+   *
+   * The preset is chosen from the provider budget as a quota proxy until real
+   * quota telemetry lands (B2.3 follow-on): a provider at 90% of its daily cap
+   * is a provider whose remaining tokens are worth more.
+   *
+   * @param {Array<{role: string, content: string}>} messages
+   * @param {string} comboName
+   */
+  #compressContext(messages, comboName) {
+    const settings = this.config.compression;
+    if (!settings?.enabled) return { messages, meta: null };
+
+    const lastUserIndex = settings.keepLastUserMessage
+      ? messages.map((m) => m.role).lastIndexOf('user')
+      : -1;
+
+    let preset = settings.preset;
+    let presetReason = null;
+    if (preset === 'auto') {
+      const quota = this.#quotaFraction(comboName);
+      const chosen = choosePreset({ fraction: quota });
+      preset = chosen.preset;
+      presetReason = chosen.reason;
+    }
+
+    const store = this.recallStore ?? (this.recallStore = new RecallStore({ secret: this.config.recallSecret }));
+
+    let originalChars = 0;
+    let compressedChars = 0;
+    const steps = [];
+    const next = messages.map((message, index) => {
+      if (index === lastUserIndex) return message;
+      if (typeof message.content !== 'string' || message.content.length < settings.minChars) return message;
+      const result = compressText(message.content, { preset, store });
+      originalChars += result.originalChars;
+      compressedChars += result.compressedChars;
+      for (const step of result.steps) if (step.droppedChars) steps.push({ ...step, message: index });
+      return { ...message, content: result.text };
+    });
+
+    if (!steps.length) {
+      return {
+        messages: next,
+        meta: { preset, reason: presetReason, ratio: 0, savedChars: 0, steps: [] },
+      };
+    }
+
+    return {
+      messages: next,
+      meta: {
+        preset,
+        reason: presetReason,
+        ratio: originalChars ? Math.round(((originalChars - compressedChars) / originalChars) * 1000) / 1000 : 0,
+        savedChars: Math.max(0, originalChars - compressedChars),
+        steps,
+      },
+    };
+  }
+
+  /** 1 = plenty of budget left, 0 = none. Used to pick a compression preset. */
+  #quotaFraction(comboName) {
+    const combo = this.config.combos?.[comboName];
+    const providerId = combo ? this.config.models?.[combo.targets?.[0]]?.provider : null;
+    const cap = providerId ? this.config.budgets?.perProvider?.[providerId] : null;
+    if (cap == null) {
+      const daily = this.config.budgets?.dailyUsd;
+      if (daily == null) return 1;
+      return Math.max(0, 1 - this.ledger.todaySpendUsd() / Number(daily));
+    }
+    return Math.max(0, 1 - this.ledger.providerSpendToday(providerId) / Number(cap));
+  }
+
   #estimateCost(model, promptTokens) {
     const blended = (Number(model.costPer1kIn ?? 0) + Number(model.costPer1kOut ?? 0)) / 2;
     return (blended * Math.max(promptTokens, 1)) / 1000;
@@ -218,10 +294,14 @@ export class Router {
     const comboName = input.combo;
     const messages = normaliseMessages(body.messages);
     const promptText = messages.map((m) => m.content).join('\n');
-    const promptTokens = estimateTokens(promptText);
     const streamed = Boolean(body.stream);
 
     checkPrompt({ messages, guardrails: this.config.guardrails });
+
+    // B4.1: compress the older context, never the question being asked.
+    const compressed = this.#compressContext(messages, comboName);
+    const effectiveMessages = compressed.messages;
+    const promptTokens = estimateTokens(effectiveMessages.map((m) => m.content).join('\n'));
 
     const { combo, ordered, resting, skipped } = this.plan(comboName, {
       promptTokens,
@@ -303,7 +383,7 @@ export class Router {
           const result = await adapter.chat(
             {
               model: model.model,
-              messages,
+              messages: effectiveMessages,
               stream: streamed,
               temperature: body.temperature,
               max_tokens: clampMaxTokens(body.max_tokens, this.config.guardrails),
@@ -389,6 +469,7 @@ export class Router {
             strategy: combo.strategy,
             attempts,
             escalation: usedResting ? 'I14 — every healthy target failed, a resting one was tried' : null,
+            compression: compressed.meta,
           };
 
           this.ledger.record({

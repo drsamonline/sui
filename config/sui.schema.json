@@ -438,6 +438,36 @@
           }
         }
       }
+    },
+    "compression": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Prompt compression. Off by default: it changes what the model sees.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "preset": {
+          "enum": [
+            "auto",
+            "lite",
+            "standard",
+            "aggressive",
+            "ultra"
+          ],
+          "default": "auto"
+        },
+        "minChars": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 400
+        },
+        "keepLastUserMessage": {
+          "type": "boolean",
+          "default": true
+        }
+      }
     }
   }
 }

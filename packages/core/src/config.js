@@ -99,6 +99,14 @@ export function normalizeConfig(raw, opts = {}) {
       logPrompts: raw.guardrails?.logPrompts ?? false,
       redactPiiInLogs: raw.guardrails?.redactPiiInLogs ?? true,
     },
+    // B4.1/B4.3: prompt compression. Off by default — it changes what the model
+    // sees, so it is a decision, not a default.
+    compression: {
+      enabled: raw.compression?.enabled === true,
+      preset: raw.compression?.preset ?? 'auto',
+      minChars: Number(raw.compression?.minChars ?? 400),
+      keepLastUserMessage: raw.compression?.keepLastUserMessage !== false,
+    },
     // B9.1: background jobs. Off-path by construction — nothing here may run
     // during a request (I1).
     workers: {
@@ -371,6 +379,7 @@ export function sanitizeConfig(config) {
     guardrails: config.guardrails,
     paidTiers: { enabled: config.paidTiers?.enabled === true },
     workers: config.workers,
+    compression: config.compression,
     apiKeyCount: config.apiKeys.length,
   };
 }

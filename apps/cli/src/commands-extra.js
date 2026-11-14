@@ -15,6 +15,7 @@ import { dedupeEntries, loadSeed, summarise } from '@sui/catalog';
 import { loadKit, kitStatus } from '@sui/kits';
 import { createVault } from '@sui/vault';
 import { Prober, PROBE_FIXTURE_VERSION } from '@sui/prober';
+import { PRESETS, RecallStore, choosePreset, compress } from '@sui/compression';
 import { table } from './cli.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -363,6 +364,72 @@ export function cmdKits(flags) {
   );
   console.log('');
   console.log('Licence: each kit carries its own LICENSE in vendor/kits/. See docs/legal/LICENSE_INVENTORY.md.');
+}
+
+/* ----------------------------------------------------------------- compress */
+
+/**
+ * `sui compress <file> [--preset ultra]` — see exactly what a preset would do to
+ * a prompt before you turn compression on for real traffic.
+ */
+export function cmdCompress(flags, args) {
+  const preset = String(flags.preset ?? 'standard');
+  if (!PRESETS[preset]) throw new ConfigError(`Unknown preset "${preset}". Use: ${Object.keys(PRESETS).join(', ')}.`);
+
+  let text;
+  if (typeof flags.text === 'string') text = flags.text;
+  else if (args[0] && args[0] !== '-') {
+    const path = args[0];
+    if (!existsSync(path)) throw new ConfigError(`No file at ${path}.`);
+    text = readFileSync(path, 'utf8');
+  } else {
+    text = readFileSync(0, 'utf8'); // stdin
+  }
+
+  if (!text.trim()) throw new ConfigError('Nothing to compress. Pass a file, --text "…", or pipe something in.');
+
+  const store = new RecallStore({ secret: process.env.SUI_RECALL_SECRET ?? 'sui-cli' });
+  const result = compress(text, { preset, store });
+
+  if (flags.json) {
+    console.log(JSON.stringify({ ...result, text: undefined, textChars: result.text.length }, null, 2));
+    return;
+  }
+
+  console.log('');
+  console.log(`preset ${preset} — ${result.originalChars} → ${result.compressedChars} chars (${Math.round(result.ratio * 100)}% smaller)`);
+  console.log('');
+  if (result.skipped) {
+    console.log(`  nothing to do: ${result.skipped}`);
+    return;
+  }
+  console.log(table(['engine', 'what it did', 'chars'], result.steps.map((s) => [s.engine, s.note, String(s.droppedChars)])));
+
+  if (result.tokens.length) {
+    console.log('');
+    console.log(`recall tokens: ${result.tokens.join(', ')} (the dropped text is in memory for this process only)`);
+  }
+
+  if (flags.out) {
+    writeFileSync(String(flags.out), result.text);
+    console.log('');
+    console.log(`written: ${flags.out}`);
+    return;
+  }
+  console.log('');
+  console.log('--- compressed prompt ---');
+  console.log(result.text);
+}
+
+/** `sui budget` — what preset the quota would pick right now. */
+export function cmdBudget(flags) {
+  const fraction = Number(flags.fraction ?? 1);
+  const chosen = choosePreset({ fraction });
+  console.log('');
+  console.log(`quota fraction ${fraction} → preset ${chosen.preset}`);
+  console.log(`  ${chosen.reason}`);
+  console.log('');
+  console.log(table(['preset', 'target', 'floor', 'engines'], Object.entries(PRESETS).map(([name, p]) => [name, `${Math.round(p.target * 100)}%`, `${Math.round(p.floor * 100)}%`, p.engines.join(' → ')])));
 }
 
 /* ------------------------------------------------------------------- probe */

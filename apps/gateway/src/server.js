@@ -289,6 +289,7 @@ export function provenance(meta) {
     verified: meta.verified,
     cached: meta.cached,
     cacheKind: meta.cacheKind ?? null,
+    compression: meta.compression ?? null,
     latencyMs: meta.latencyMs,
     ttftMs: meta.ttftMs,
     costUsd: meta.costUsd,
