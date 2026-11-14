@@ -106,6 +106,8 @@ export function normalizeConfig(raw, opts = {}) {
       preset: raw.compression?.preset ?? 'auto',
       minChars: Number(raw.compression?.minChars ?? 400),
       keepLastUserMessage: raw.compression?.keepLastUserMessage !== false,
+      // B4.4: the output axis. 'off' by default — a directive changes the answer.
+      outputStyle: raw.compression?.outputStyle ?? 'off',
     },
     // B9.1: background jobs. Off-path by construction — nothing here may run
     // during a request (I1).

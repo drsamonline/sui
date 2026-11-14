@@ -216,7 +216,8 @@
     "enabled": false,
     "preset": "auto",
     "minChars": 400,
-    "keepLastUserMessage": true
+    "keepLastUserMessage": true,
+    "outputStyle": "off"
   },
   "workers": {
     "enabled": true,

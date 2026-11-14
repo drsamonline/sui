@@ -21,7 +21,7 @@ import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
 import { createAdapter, displayName } from '@sui/providers';
 import { checkPrompt, clampMaxTokens } from '@sui/guardrails';
-import { choosePreset, compress as compressText } from '@sui/compression';
+import { applyStyle, choosePreset, chooseStyle, compress as compressText } from '@sui/compression';
 
 /**
  * @typedef {{
@@ -203,9 +203,12 @@ export class Router {
    * @param {Array<{role: string, content: string}>} messages
    * @param {string} comboName
    */
-  #compressContext(messages, comboName) {
-    const settings = this.config.compression;
-    if (!settings?.enabled) return { messages, meta: null };
+  #shapeContext(messages, comboName) {
+    const settings = this.config.compression ?? {};
+    const style = settings.outputStyle ?? 'off';
+    const wantsStyle = style !== 'off';
+
+    if (!settings.enabled && !wantsStyle) return { messages, meta: null };
 
     const lastUserIndex = settings.keepLastUserMessage
       ? messages.map((m) => m.role).lastIndexOf('user')
@@ -225,7 +228,7 @@ export class Router {
     let originalChars = 0;
     let compressedChars = 0;
     const steps = [];
-    const next = messages.map((message, index) => {
+    const next = (settings.enabled ? messages : messages).map((message, index) => {
       if (index === lastUserIndex) return message;
       if (typeof message.content !== 'string' || message.content.length < settings.minChars) return message;
       const result = compressText(message.content, { preset, store });
@@ -235,23 +238,28 @@ export class Router {
       return { ...message, content: result.text };
     });
 
-    if (!steps.length) {
-      return {
-        messages: next,
-        meta: { preset, reason: presetReason, ratio: 0, savedChars: 0, steps: [] },
-      };
+    // B4.4: the output axis. 'auto' follows the same quota reading as the preset.
+    let resolvedStyle = style;
+    let styleReason = null;
+    if (style === 'auto') {
+      const chosen = chooseStyle({ fraction: this.#quotaFraction(comboName), taskHint: messages[messages.length - 1]?.content });
+      resolvedStyle = chosen.style;
+      styleReason = chosen.reason;
     }
+    const styled = resolvedStyle !== 'off' ? applyStyle(next, resolvedStyle) : next;
 
-    return {
-      messages: next,
-      meta: {
-        preset,
-        reason: presetReason,
-        ratio: originalChars ? Math.round(((originalChars - compressedChars) / originalChars) * 1000) / 1000 : 0,
-        savedChars: Math.max(0, originalChars - compressedChars),
-        steps,
-      },
+    const meta = {
+      preset: settings.enabled ? preset : null,
+      reason: presetReason,
+      style: resolvedStyle === 'off' ? null : resolvedStyle,
+      styleReason,
+      ratio: originalChars ? Math.round(((originalChars - compressedChars) / originalChars) * 1000) / 1000 : 0,
+      savedChars: Math.max(0, originalChars - compressedChars),
+      steps,
     };
+
+    if (!steps.length && resolvedStyle === 'off') return { messages: next, meta: null };
+    return { messages: styled, meta };
   }
 
   /** 1 = plenty of budget left, 0 = none. Used to pick a compression preset. */
@@ -298,8 +306,9 @@ export class Router {
 
     checkPrompt({ messages, guardrails: this.config.guardrails });
 
-    // B4.1: compress the older context, never the question being asked.
-    const compressed = this.#compressContext(messages, comboName);
+    // B4.1/B4.4: compress the older context, never the question being asked,
+    // then shape the output axis if it is on.
+    const compressed = this.#shapeContext(messages, comboName);
     const effectiveMessages = compressed.messages;
     const promptTokens = estimateTokens(effectiveMessages.map((m) => m.content).join('\n'));
 
@@ -448,6 +457,10 @@ export class Router {
           const costUsd = estimatedCost(model, result.usage.prompt_tokens, result.usage.completion_tokens);
           const verified = adapter.type !== 'mock';
 
+          // B7.2: what the compression saved, valued at this model's input price.
+          const savedTokens = Math.ceil((compressed.meta?.savedChars ?? 0) / 4);
+          const savedUsd = savedTokens ? Math.round((Number(model.costPer1kIn ?? 0) * savedTokens) / 1000 * 1e6) / 1e6 : 0;
+
           this.breaker.recordSuccess(modelId);
           if (target.restingFallback) usedResting = true;
 
@@ -470,6 +483,7 @@ export class Router {
             attempts,
             escalation: usedResting ? 'I14 — every healthy target failed, a resting one was tried' : null,
             compression: compressed.meta,
+            savedUsd,
           };
 
           this.ledger.record({
@@ -488,6 +502,9 @@ export class Router {
             verified,
             promptText,
             streamed,
+            compressionSavedTokens: savedTokens,
+            compressionSavedUsd: savedUsd,
+            compressionPreset: compressed.meta?.preset ?? null,
           });
 
           if (cacheKey) {

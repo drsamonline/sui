@@ -39,6 +39,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Budgets** — daily and per provider, checked before the call, skipped with a reason rather than failed with a stack trace.
 - **Prompt compression** — six engines behind four presets, with code, URLs and JSON preserved byte-for-byte; the preset is chosen from remaining quota. Off by default; `sui compress` shows you the result first.
 - **Two-tier cache** — exact hash, plus an optional lexical tier (`ml-kit` tf-idf at 0.98) for near-duplicate prompts; `cacheKind` says which one answered.
+- **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
 - **Dashboard** — token-based design system, budget bar, routing-pool topology, breaker states, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token.
 - **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.
@@ -68,6 +69,7 @@ npx sui catalog <query>    # the catalogue, and what is still unverified
 npx sui probe [name]       # liveness, readiness, suitability — and what failed
 npx sui compress <file>    # see what a preset does to a prompt before enabling it
 npx sui budget             # which preset the remaining quota would choose
+npx sui savings            # what cache hits and compression did not spend
 npx sui tokens --check     # WCAG AA on the dashboard tokens, computed by tokens-kit
 npx sui kits               # the vendored kits and whether they load
 ```
@@ -110,7 +112,7 @@ npm workspaces, Node 20+, **zero runtime dependencies**. No build step.
 ## Commands that prove things
 
 ```bash
-npm test         # 192 tests: routing, invariants, security, dashboard, catalog, sdk, vault, kits, prober, evals
+npm test         # 202 tests: routing, invariants, security, dashboard, catalog, sdk, vault, kits, prober, evals
 npm run eval:self  # prove the graders grade (50 must-pass, 6 must-fail)
 npm run eval     # 50 prompts against a real combo, regression-gated
 npm run soak     # 1,200 requests, p95 overhead against the 15ms budget

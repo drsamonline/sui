@@ -88,6 +88,20 @@ export function createSuiServer(deps) {
         });
         return res.end(ledger.csv());
       }
+      if (req.method === 'GET' && path === '/api/savings') {
+        const since = sinceParam(url);
+        const agg = ledger.aggregate({ since });
+        return sendJson(res, 200, {
+          since: agg.since,
+          savings: agg.totals.savings,
+          spentUsd: agg.totals.costUsd,
+          turns: agg.totals.turns,
+          // what the same turns would have cost without cache hits and compression
+          avoidedShare: agg.totals.costUsd + agg.totals.savings.totalUsd
+            ? Math.round((agg.totals.savings.totalUsd / (agg.totals.costUsd + agg.totals.savings.totalUsd)) * 1000) / 1000
+            : 0,
+        });
+      }
       if (req.method === 'GET' && path === '/api/traces') {
         return sendJson(res, 200, { prompts: ledger.promptUsage(50), note: 'Hashes only. Prompt text is never stored unless guardrails.logPrompts is on.' });
       }

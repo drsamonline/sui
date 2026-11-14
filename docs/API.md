@@ -40,7 +40,8 @@ OpenAI-compatible.
 | `sui.verified` | bool | `true` when a real upstream answered (mock and local-unverified are `false`) |
 | `sui.cached` | bool | served from the response cache |
 | `sui.cacheKind` | `"exact"` \| `"semantic"` \| null | which cache tier answered |
-| `sui.compression` | object \| null | `{preset, reason, ratio, savedChars, steps}` when compression ran |
+| `sui.compression` | object \| null | `{preset, reason, style, styleReason, ratio, savedChars, steps}` when compression or the output axis ran |
+| `sui.savedUsd` | number | what this turn's compression saved, at the model's input price |
 | `sui.latencyMs` | number | full turn |
 | `sui.ttftMs` | number \| null | time to first token, streaming only |
 | `sui.costUsd` | number | computed from the model's declared prices |
@@ -136,6 +137,21 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 ```
 
 Served with `content-disposition: attachment`.
+
+## GET /api/savings
+
+B7.2 — what cache hits and compression did not spend.
+
+```json
+{ "since": 1762992000000,
+  "savings": { "cacheUsd": 0.003, "compressionUsd": 0.001, "totalUsd": 0.004,
+               "tokensSaved": 100, "cacheHits": 1, "compressedTurns": 1 },
+  "spentUsd": 0.004,
+  "turns": 2,
+  "avoidedShare": 0.5 }
+```
+
+`avoidedShare` is `saved / (spent + saved)` — the honest framing: of what these turns would have cost, this much did not happen.
 
 ## GET /api/traces
 

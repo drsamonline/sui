@@ -466,6 +466,18 @@
         "keepLastUserMessage": {
           "type": "boolean",
           "default": true
+        },
+        "outputStyle": {
+          "enum": [
+            "off",
+            "auto",
+            "terse",
+            "explanatory",
+            "bullet",
+            "code_only"
+          ],
+          "default": "off",
+          "description": "B4.4 output axis: a short directive that shapes the answer's length and form."
         }
       }
     }

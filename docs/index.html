@@ -110,7 +110,7 @@
   </div>
 
   <div class="strip">
-    <div class="stat"><div class="k">tests</div><div class="v num">192</div><div class="f">no network, no keys</div></div>
+    <div class="stat"><div class="k">tests</div><div class="v num">202</div><div class="f">no network, no keys</div></div>
     <div class="stat"><div class="k">p95 overhead</div><div class="v num">1.13<span style="font-size:var(--fs-16)"> ms</span></div><div class="f">budget 15 ms</div></div>
     <div class="stat"><div class="k">invariants</div><div class="v num">15</div><div class="f">each with a test</div></div>
     <div class="stat"><div class="k">verified routes</div><div class="v num">0</div><div class="f">26 await a probe</div></div>
@@ -137,6 +137,7 @@ node apps/cli/bin/sui.js init</code></pre>
           <li>Budgets per day and per provider</li>
           <li>Two-tier cache: exact, plus lexical similarity</li>
           <li>Quota-aware prompt compression, six engines, code preserved</li>
+          <li>Savings ledger: dollars avoided, tokens never sent</li>
         </ul>
       </div>
       <div class="card">
@@ -190,8 +191,9 @@ node apps/cli/bin/sui.js init</code></pre>
         <tr><td>Empty-turn retry</td><td><span class="pill done">done</span></td><td>retry once, then fail over</td></tr>
         <tr><td>Compression engines</td><td><span class="pill done">done</span></td><td>6 engines, 4 presets, 17 tests</td></tr>
         <tr><td>Quota budget manager</td><td><span class="pill done">done</span></td><td>60/30/10% thresholds</td></tr>
+        <tr><td>Output axis + savings ledger</td><td><span class="pill done">done</span></td><td>4 styles, /api/savings</td></tr>
         <tr><td>MCP / A2A / agents</td><td><span class="pill">not started</span></td><td>Phase 5</td></tr>
-        <tr><td>Weather Map, Savings Ledger, explain-my-route</td><td><span class="pill">not started</span></td><td>Phases 7 and 10</td></tr>
+        <tr><td>Weather Map, explain-my-route</td><td><span class="pill">not started</span></td><td>Phases 7 and 10</td></tr>
       </tbody>
     </table>
   </section>

@@ -476,6 +476,7 @@ function renderKpis(totals, cache) {
     ['spend', money(totals.costUsd), `${num(totals.promptTokens)} in / ${num(totals.completionTokens)} out`],
     ['p50 latency', ms(totals.p50LatencyMs), `p95 ${ms(totals.p95LatencyMs)}`],
     ['cache hit', `${Math.round(cache.hitRate * 100)}%`, `${cache.entries} entries`],
+    ['saved', money(totals.savings?.totalUsd ?? 0), `${num(totals.savings?.tokensSaved ?? 0)} tokens not sent`],
   ].map(([label, value, foot]) => `
     <div class="kpi"><div class="label">${label}</div><div class="value">${value}</div><div class="foot">${foot}</div></div>`).join('');
 }

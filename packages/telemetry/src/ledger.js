@@ -89,6 +89,10 @@ export class Ledger {
       promptHash: entry.promptHash ?? (entry.promptText ? this.hashPrompt(entry.promptText) : ''),
       promptChars: entry.promptChars ?? (entry.promptText ? entry.promptText.length : 0),
       streamed: entry.streamed ?? false,
+      // B7.2: what compression saved on this turn, valued at the model's price.
+      compressionPreset: entry.compressionPreset ?? null,
+      compressionSavedTokens: entry.compressionSavedTokens ?? 0,
+      compressionSavedUsd: entry.compressionSavedUsd ?? 0,
     };
     this.records.push(rec);
     if (this.records.length > this.maxRecords) this.records.shift();
@@ -139,6 +143,8 @@ export class Ledger {
       // A turn is a request that produced an answer. A failed attempt is
       // recorded too (it is how failover is auditable), but it is not a turn.
       turns: rows.filter((r) => r.ok).length,
+      // B7.2 Savings Ledger: dollars not spent, and the tokens that bought them.
+      savings: { cacheUsd: 0, compressionUsd: 0, totalUsd: 0, tokensSaved: 0, cacheHits: 0, compressedTurns: 0 },
       attempts: rows.length,
       ok: rows.filter((r) => r.ok).length,
       failed: rows.filter((r) => !r.ok).length,
@@ -166,7 +172,16 @@ export class Ledger {
       totals.costUsd += r.costUsd;
       totals.promptTokens += r.promptTokens;
       totals.completionTokens += r.completionTokens;
-      if (r.cached) totals.savedUsd += r.costUsd;
+      if (r.cached) {
+        totals.savedUsd += r.costUsd;
+        totals.savings.cacheUsd += r.costUsd;
+        totals.savings.cacheHits += 1;
+      }
+      if (r.compressionSavedUsd) {
+        totals.savings.compressionUsd += r.compressionSavedUsd;
+        totals.savings.tokensSaved += r.compressionSavedTokens ?? 0;
+        totals.savings.compressedTurns += 1;
+      }
 
       bump(byProvider, r.provider, r);
       bump(byModel, r.modelId, r);
@@ -182,7 +197,11 @@ export class Ledger {
       .sort((a, b) => a - b);
     const ttfts = rows.filter((r) => r.ok && r.ttftMs != null).map((r) => /** @type {number} */ (r.ttftMs));
     totals.costUsd = round6(totals.costUsd);
-    totals.savedUsd = round6(totals.savedUsd);
+    totals.savings.cacheUsd = round6(totals.savings.cacheUsd);
+    totals.savings.compressionUsd = round6(totals.savings.compressionUsd);
+    totals.savings.totalUsd = round6(totals.savings.cacheUsd + totals.savings.compressionUsd);
+    // `savedUsd` predates the savings block and is kept for older readers.
+    totals.savedUsd = round6(totals.savings.totalUsd);
     totals.avgLatencyMs = latencies.length ? Math.round(mean(latencies)) : 0;
     totals.p50LatencyMs = quantile(latencies, 0.5);
     totals.p95LatencyMs = quantile(latencies, 0.95);
@@ -227,12 +246,14 @@ export class Ledger {
       'timestamp_iso', 'provider', 'model', 'model_id', 'combo', 'arm', 'ok', 'error',
       'prompt_tokens', 'completion_tokens', 'cost_usd', 'latency_ms', 'ttft_ms',
       'cached', 'verified', 'streamed', 'prompt_hash', 'prompt_chars',
+      'compression_preset', 'compression_saved_tokens', 'compression_saved_usd',
     ].join(',');
     const lines = this.records.map((r) =>
       [
         new Date(r.ts).toISOString(), r.provider, r.model, r.modelId, r.combo, r.arm ?? '',
         r.ok, r.error ?? '', r.promptTokens, r.completionTokens, r.costUsd, r.latencyMs,
         r.ttftMs ?? '', r.cached, r.verified, r.streamed, r.promptHash, r.promptChars,
+        r.compressionPreset ?? '', r.compressionSavedTokens ?? 0, r.compressionSavedUsd ?? 0,
       ]
         .map((v) => (typeof v === 'string' && /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v))
         .join(','),

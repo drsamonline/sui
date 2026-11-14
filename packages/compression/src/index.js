@@ -32,7 +32,61 @@ export const PRESETS = {
   ultra: { target: 0.75, floor: 0.2, engines: ['session_dedup', 'rtk', 'llmlingua_2', 'caveman', 'headroom', 'ccr'] },
 };
 
-export const OUTPUT_STYLES = ['terse', 'explanatory', 'bullet', 'code_only'];
+export const OUTPUT_STYLES = ['off', 'auto', 'terse', 'explanatory', 'bullet', 'code_only'];
+
+/**
+ * The output axis: a short instruction, not a rewrite of the user's prompt.
+ *
+ * These are deliberately terse — a directive that costs 200 tokens to save 300
+ * is not a saving. Each is under 90 characters.
+ */
+export const STYLE_DIRECTIVES = {
+  terse: 'Answer in as few words as possible. No preamble.',
+  explanatory: 'Give the answer, then one short paragraph explaining why.',
+  bullet: 'Answer as a short bullet list. No preamble.',
+  code_only: 'Return only code. No prose, no explanation, no fences.',
+};
+
+/**
+ * B4.4 — the adaptive dial.
+ *
+ * Scarce quota wants fewer output tokens, so the style tightens as the quota
+ * empties. `explanatory` is only chosen when there is room to pay for it.
+ *
+ * @param {{fraction?: number, taskHint?: string}} [input]
+ * @returns {{style: keyof typeof STYLE_DIRECTIVES, reason: string}}
+ */
+export function chooseStyle(input = {}) {
+  const fraction = input.fraction ?? 1;
+  const hint = String(input.taskHint ?? '').toLowerCase();
+
+  if (/\b(code|function|refactor|test|regex|sql)\b/.test(hint)) {
+    return { style: 'code_only', reason: 'the task looks like code, so prose is noise' };
+  }
+  if (fraction > 0.6) return { style: 'explanatory', reason: `${Math.round(fraction * 100)}% of quota left — room to explain` };
+  if (fraction > 0.3) return { style: 'terse', reason: `${Math.round(fraction * 100)}% of quota left — keep it short` };
+  return { style: 'bullet', reason: `${Math.round(fraction * 100)}% of quota left — bullets cost less than paragraphs` };
+}
+
+/**
+ * Put the directive in front of the system message, without losing what was
+ * already there.
+ * @param {Array<{role: string, content: string}>} messages
+ * @param {string} style
+ */
+export function applyStyle(messages, style) {
+  const directive = STYLE_DIRECTIVES[style];
+  if (!directive) return messages;
+
+  const out = [...messages];
+  const systemIndex = out.findIndex((m) => m.role === 'system');
+  if (systemIndex === -1) {
+    out.unshift({ role: 'system', content: directive });
+  } else {
+    out[systemIndex] = { ...out[systemIndex], content: `${directive}\n\n${out[systemIndex].content}` };
+  }
+  return out;
+}
 
 /** Never compress past this, whatever the preset asks for. */
 const HARD_MAX_RATIO = 0.8;

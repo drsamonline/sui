@@ -366,6 +366,47 @@ export function cmdKits(flags) {
   console.log('Licence: each kit carries its own LICENSE in vendor/kits/. See docs/legal/LICENSE_INVENTORY.md.');
 }
 
+/* ------------------------------------------------------------------ savings */
+
+/** `sui savings` — B7.2: what cache hits and compression did not spend. */
+export async function cmdSavings(flags) {
+  const gateway = await createGateway({ configPath: flags.config, ledgerFile: undefined });
+  const { ledger } = gateway;
+  const since = flags.all ? 0 : startOfToday();
+  const agg = ledger.aggregate({ since });
+  const s = agg.totals.savings;
+
+  if (flags.json) {
+    console.log(JSON.stringify({ since: agg.since, savings: s, spentUsd: agg.totals.costUsd, turns: agg.totals.turns }, null, 2));
+    return;
+  }
+
+  const wouldHaveCost = agg.totals.costUsd + s.totalUsd;
+  console.log('');
+  console.log('Savings ledger');
+  console.log('');
+  console.log(table(
+    ['what', 'value'],
+    [
+      ['spent', `$${agg.totals.costUsd.toFixed(4)}`],
+      ['saved by cache', `$${s.cacheUsd.toFixed(4)} (${s.cacheHits} hit${s.cacheHits === 1 ? '' : 's'})`],
+      ['saved by compression', `$${s.compressionUsd.toFixed(4)} (${s.compressedTurns} turn${s.compressedTurns === 1 ? '' : 's'})`],
+      ['total saved', `$${s.totalUsd.toFixed(4)}`],
+      ['tokens not sent', s.tokensSaved.toLocaleString('en-IN')],
+      ['would have cost', `$${wouldHaveCost.toFixed(4)}`],
+      ['share avoided', wouldHaveCost ? `${Math.round((s.totalUsd / wouldHaveCost) * 100)}%` : '—'],
+    ],
+  ));
+  console.log('');
+  console.log(flags.all ? 'All time.' : 'Today. Use --all for everything in the ledger.');
+}
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 /* ----------------------------------------------------------------- compress */
 
 /**

@@ -139,6 +139,22 @@ Two rules hold across every engine:
 | `aggressive` | 50% | 10% | + caveman |
 | `ultra` | 75% | 20% | + headroom → ccr |
 
+**The output axis (B4.4)** shapes the answer, not the prompt:
+
+```json
+"compression": { "outputStyle": "auto" }
+```
+
+| Style | Directive |
+|---|---|
+| `terse` | answer in as few words as possible, no preamble |
+| `explanatory` | the answer, then one short paragraph on why |
+| `bullet` | a short bullet list, no preamble |
+| `code_only` | code only, no prose, no fences |
+| `auto` | chosen from the remaining quota; a coding task gets `code_only` |
+
+Each directive is under 90 characters — one that costs 200 tokens to save 300 is not a saving. The directive is prepended to the existing system message, or becomes one if there is none.
+
 **The budget manager (B4.3)** picks the preset from what is left of the quota: over 60% left → `lite`, over 30% → `standard`, over 10% → `aggressive`, below that → `ultra`. In `preset: "auto"` the router uses the provider's daily budget as the quota proxy until real quota telemetry lands.
 
 Try it before switching it on:
