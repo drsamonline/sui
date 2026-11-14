@@ -41,6 +41,8 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Two-tier cache** — exact hash, plus an optional lexical tier (`ml-kit` tf-idf at 0.98) for near-duplicate prompts; `cacheKind` says which one answered.
 - **Native prompt caching** — stable-prefix detection with the hint each provider understands (Anthropic breakpoint, OpenAI cache key), and a `volatile` list naming what breaks the cache.
 - **Per-key limits** — each key is a tenant: combo/model allow-lists, daily spend cap, token-bucket rate limit, its own guardrails.
+- **Verification escalation** — answers scored by seven deterministic signals; below 0.7 the router escalates once, and a weak answer is never presented as verified.
+- **Explain my route** — every response carries the strategy and each target's outcome; `sui explain` narrates it without sending anything.
 - **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
 - **Dashboard** — token-based design system, budget bar, routing-pool topology, breaker states, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token.
@@ -72,6 +74,7 @@ npx sui probe [name]       # liveness, readiness, suitability — and what faile
 npx sui compress <file>    # see what a preset does to a prompt before enabling it
 npx sui budget             # which preset the remaining quota would choose
 npx sui savings            # what cache hits and compression did not spend
+npx sui explain [combo]    # why a route would go where it goes
 npx sui tokens --check     # WCAG AA on the dashboard tokens, computed by tokens-kit
 npx sui kits               # the vendored kits and whether they load
 ```
@@ -103,6 +106,7 @@ packages/
   prober/       liveness, readiness and suitability checks
   compression/  six engines, four presets, the quota budget manager
   promptcache/  stable-prefix detection and per-provider cache hints
+  verify/       reference-free confidence scoring, fail-closed
 evals/          50-prompt golden set, graders, runner, baseline
 scripts/        soak harness
 config/         annotated config + JSON schema

@@ -20,6 +20,7 @@ import { estimatedCost, estimateTokens, isPaidProvider, providerHasCredentials, 
 import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
 import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
+import { scoreAnswer, shouldEscalate, verdict as verifyVerdict } from '@sui/verify';
 import { createAdapter, displayName } from '@sui/providers';
 import { checkPrompt, clampMaxTokens } from '@sui/guardrails';
 import { applyStyle, choosePreset, chooseStyle, compress as compressText } from '@sui/compression';
@@ -360,6 +361,10 @@ export class Router {
     const attempts = [];
     let lastError = null;
     let usedResting = false;
+    const verification = this.config.verification ?? {};
+    let escalationsLeft = Number(verification.maxEscalations ?? 1);
+    /** @type {{result: any, meta: any}|null} */
+    let bestLow = null;
 
     // Healthy targets first; the held-back ones only if every healthy target
     // failed. This is the I14 escape hatch, and it is recorded when used.
@@ -495,7 +500,16 @@ export class Router {
             attempts,
             escalation: usedResting ? 'I14 — every healthy target failed, a resting one was tried' : null,
             compression: compressed.meta,
+            verification: null,
             savedUsd,
+            route: {
+              strategy: combo.strategy,
+              considered: [
+                ...ordered.map((t) => ({ modelId: t.modelId, provider: t.providerId, outcome: t.modelId === modelId ? 'answered' : 'available' })),
+                ...resting.map((t) => ({ modelId: t.modelId, provider: t.providerId, outcome: 'resting' })),
+                ...skipped.map((s) => ({ modelId: s.modelId, provider: s.provider, outcome: 'skipped', reason: s.reason })),
+              ],
+            },
             promptCache: cache.detected
               ? {
                   warm: cache.warm,
@@ -531,6 +545,63 @@ export class Router {
             promptCacheWarm: cache.warm,
             apiKey: input.keyMeta?.name ?? null,
           });
+
+          // B3.4: score the answer, and escalate if it is not convincing.
+          if (verification.enabled) {
+            const score = scoreAnswer({
+              text: result.text,
+              prompt: promptText,
+              finishReason: result.finishReason,
+              wantsJson: body.response_format?.type === 'json_object',
+            });
+            const v = verifyVerdict({ ...score, threshold: Number(verification.threshold ?? 0.7) });
+            meta.verification = {
+              confidence: v.confidence,
+              threshold: v.threshold,
+              verified: v.verified,
+              reasons: score.reasons,
+              escalated: false,
+            };
+
+            if (!v.ok && shouldEscalate({ confidence: v.confidence, threshold: v.threshold, escalationsLeft })) {
+              escalationsLeft -= 1;
+              meta.verification.escalated = true;
+              attempts.push({
+                modelId,
+                provider: providerId,
+                reason: `answered, but confidence ${v.confidence} is below ${v.threshold} — escalating`,
+              });
+              // Keep the best low-confidence answer in case nothing better comes.
+              if (!bestLow || v.confidence > bestLow.meta.verification.confidence) bestLow = { result, meta };
+              this.ledger.record({
+                provider: providerId,
+                model: model.model,
+                modelId,
+                combo: comboName,
+                arm: arm ?? null,
+                ok: true,
+                error: null,
+                promptTokens: result.usage.prompt_tokens,
+                completionTokens: result.usage.completion_tokens,
+                costUsd,
+                latencyMs,
+                ttftMs: streamed ? ttft : null,
+                cached: false,
+                verified,
+                promptText,
+                streamed,
+                apiKey: input.keyMeta?.name ?? null,
+              });
+              break; // leave this target; the outer loop moves to the next one
+            }
+
+            if (!v.ok) {
+              // Fail-closed: the answer is returned, but never presented as verified.
+              meta.verified = false;
+              meta.escalation = `confidence ${v.confidence} is below ${v.threshold}; returned unverified (fail-closed)`;
+              this.logger.warn(`${modelId} answered with confidence ${v.confidence} (threshold ${v.threshold}); returning it marked unverified`);
+            }
+          }
 
           if (cacheKey) {
             this.cache.set(
@@ -590,6 +661,14 @@ export class Router {
       }
     }
   }
+
+    // Nothing cleared the bar, but something answered: fail-closed means mark it
+    // unverified, not that the user gets nothing.
+    if (bestLow) {
+      bestLow.meta.verified = false; // fail-closed, on the way out too
+      bestLow.meta.escalation = `confidence never reached ${verification.threshold}; returning the best answer, marked unverified`;
+      return { text: bestLow.result.text, usage: bestLow.result.usage, finishReason: bestLow.result.finishReason, meta: bestLow.meta };
+    }
 
     const err = exhausted(comboName, skipped, this.config, attempts);
     if (lastError && !(lastError instanceof ProviderError)) throw lastError;

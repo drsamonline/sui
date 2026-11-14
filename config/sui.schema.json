@@ -517,6 +517,34 @@
           "default": true
         }
       }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "B3.4 verification escalation. Off by default: it costs a second call when an answer is weak.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.7
+        },
+        "maxEscalations": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1
+        },
+        "escalateTo": {
+          "enum": [
+            "next"
+          ],
+          "default": "next"
+        }
+      }
     }
   }
 }

@@ -15,6 +15,8 @@ import { dedupeEntries, loadSeed, summarise } from '@sui/catalog';
 import { loadKit, kitStatus } from '@sui/kits';
 import { createVault } from '@sui/vault';
 import { Prober, PROBE_FIXTURE_VERSION } from '@sui/prober';
+import { explainPlan } from '@sui/router';
+import { createGateway } from '@sui/gateway';
 import { PRESETS, RecallStore, choosePreset, compress } from '@sui/compression';
 import { table } from './cli.js';
 
@@ -364,6 +366,33 @@ export function cmdKits(flags) {
   );
   console.log('');
   console.log('Licence: each kit carries its own LICENSE in vendor/kits/. See docs/legal/LICENSE_INVENTORY.md.');
+}
+
+/* ------------------------------------------------------------------ explain */
+
+/** `sui explain [combo]` — B7.4, why a route would go where it goes. */
+export async function cmdExplain(flags, args) {
+  const gateway = await createGateway({ configPath: flags.config, ledgerFile: null });
+  const combos = Object.keys(gateway.config.combos);
+  const combo = args[0] ?? flags.combo ?? combos[0];
+  if (!gateway.config.combos[combo]) {
+    throw new ConfigError(`No combo called "${combo}". Available: ${combos.join(', ')}.`);
+  }
+
+  const plan = gateway.router.plan(combo, {});
+  const lines = explainPlan(plan);
+
+  if (flags.json) {
+    console.log(JSON.stringify({ combo, lines, plan: { ordered: plan.ordered.map((t) => t.modelId), resting: plan.resting.map((t) => t.modelId), skipped: plan.skipped } }, null, 2));
+    return;
+  }
+
+  console.log('');
+  console.log(`Explain-my-route — ${combo}`);
+  console.log('');
+  for (const line of lines) console.log(`  ${line}`);
+  console.log('');
+  console.log('Nothing was sent. This is the plan, computed from the config and the ledger.');
 }
 
 /* ------------------------------------------------------------------ savings */

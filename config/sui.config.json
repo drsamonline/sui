@@ -222,6 +222,12 @@
   "prompt_cache": {
     "enabled": true
   },
+  "verification": {
+    "enabled": false,
+    "threshold": 0.7,
+    "maxEscalations": 1,
+    "escalateTo": "next"
+  },
   "workers": {
     "enabled": true,
     "kickoffMs": 1500,

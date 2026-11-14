@@ -42,6 +42,8 @@ OpenAI-compatible.
 | `sui.cacheKind` | `"exact"` \| `"semantic"` \| null | which cache tier answered |
 | `sui.compression` | object \| null | `{preset, reason, style, styleReason, ratio, savedChars, steps}` when compression or the output axis ran |
 | `sui.savedUsd` | number | what this turn's compression saved, at the model's input price |
+| `sui.verification` | object \| null | `{confidence, threshold, verified, reasons, escalated}` when verification is on |
+| `sui.route` | object | `{strategy, considered:[{modelId, provider, outcome, reason?}]}` |
 | `sui.promptCache` | object \| null | `{warm, sends, prefixChars, fingerprint, volatile, hint, unsupported}` |
 | `sui.latencyMs` | number | full turn |
 | `sui.ttftMs` | number \| null | time to first token, streaming only |
@@ -138,6 +140,18 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 ```
 
 Served with `content-disposition: attachment`.
+
+## GET /api/explain
+
+Why a route would go where it goes, without sending a request.
+
+```json
+{ "combo": "chat-default",
+  "lines": ["\"chat-default\" is a fallback route with 4 targets.", "It would try groq-70b → gemini-flash.", "Skipped gpt-mini: paid tier is closed (paid_tiers.enabled is false)."],
+  "plan": { "ordered": ["groq-70b", "gemini-flash"], "resting": [], "skipped": [{ "modelId": "gpt-mini", "provider": "openai", "reason": "paid tier is closed (paid_tiers.enabled is false)" }] } }
+```
+
+`404` if the combo does not exist.
 
 ## GET /api/limits
 

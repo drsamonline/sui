@@ -109,6 +109,13 @@ export function normalizeConfig(raw, opts = {}) {
       // B4.4: the output axis. 'off' by default — a directive changes the answer.
       outputStyle: raw.compression?.outputStyle ?? 'off',
     },
+    // B3.4: verification escalation, fail-closed.
+    verification: {
+      enabled: raw.verification?.enabled === true,
+      threshold: Number(raw.verification?.threshold ?? 0.7),
+      maxEscalations: Number(raw.verification?.maxEscalations ?? 1),
+      escalateTo: raw.verification?.escalateTo ?? 'next',
+    },
     // B4.6: native prompt caching hints.
     promptCache: { enabled: raw.prompt_cache?.enabled !== false },
     // B9.1: background jobs. Off-path by construction — nothing here may run
@@ -384,6 +391,7 @@ export function sanitizeConfig(config) {
     workers: config.workers,
     compression: config.compression,
     promptCache: config.promptCache,
+    verification: config.verification,
     apiKeyCount: config.apiKeys.length,
   };
 }

@@ -110,6 +110,42 @@ The lexical tier keeps recent prompt text **in memory only** — that is why it 
 
 Turn it off when you are measuring latency, or when prompts contain data that should not sit in memory.
 
+## Verification escalation
+
+Off by default, because it costs a second call when the first answer is weak.
+
+```json
+"verification": { "enabled": true, "threshold": 0.7, "maxEscalations": 1 }
+```
+
+Each answer is scored by deterministic signals, not a judge model — a judge spends the quota the gateway is trying to conserve, and a judge that cannot explain itself is worse than a heuristic that can.
+
+| Signal | Penalty | Example |
+|---|---|---|
+| `empty` / `near_empty` | 1.0 / 0.5 | a 200 with nothing in it |
+| `truncated` | 0.35 | `finish_reason: length` |
+| `refusal` | 0.30 | "I cannot help with that" |
+| `hedging` | 0.12 per phrase, capped 0.4 | "I think", "probably", "not sure" |
+| `repetition` / `looping` | 0.15 each | the same sentence twice |
+| `wrong_shape` | 0.40 | JSON requested, prose returned |
+| `off_topic` | 0.25 | almost no shared terms with the question |
+
+Below the threshold the router escalates to the next target once. **Fail-closed** means the default assumption is "not verified": if nothing clears the bar, the best answer is still returned — half an answer beats none — but it comes back with `verified: false` and the reasons attached.
+
+## Explain my route
+
+Every response carries `sui.route` (the strategy, and every target with its outcome), and `GET /api/explain?combo=…` narrates a route without sending anything — the plan is a pure function of config and ledger.
+
+```bash
+sui explain chat-default
+```
+
+```
+"chat-default" is a fallback route with 4 targets.
+Skipped groq-70b: no API key set (GROQ_API_KEY).
+Skipped gpt-mini: paid tier is closed (paid_tiers.enabled is false).
+```
+
 ## Compression
 
 Off by default. Compression changes what the model sees, so it is a decision, not a default.

@@ -21,6 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkToggle, sanitizeConfig, providerHasCredentials, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS } from '@sui/core';
 import { SuiError } from '@sui/core';
+import { explainPlan } from '@sui/router';
 import { RateLimiter, checkKeyBudget } from './limits.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -106,6 +107,17 @@ export function createSuiServer(deps) {
       }
       if (req.method === 'GET' && path === '/api/traces') {
         return sendJson(res, 200, { prompts: ledger.promptUsage(50), note: 'Hashes only. Prompt text is never stored unless guardrails.logPrompts is on.' });
+      }
+      // B7.4: explain a route without sending a request. The plan is a pure
+      // function of config plus ledger, so this costs nothing and stores nothing.
+      if (req.method === 'GET' && path === '/api/explain') {
+        const combo = url.searchParams.get('combo') ?? Object.keys(configRef.combos)[0];
+        try {
+          const plan = router.plan(combo, {});
+          return sendJson(res, 200, { combo, lines: explainPlan(plan), plan: { ordered: plan.ordered.map((t) => t.modelId), resting: plan.resting.map((t) => t.modelId), skipped: plan.skipped } });
+        } catch (err) {
+          throw new SuiError(/** @type {any} */ (err).message, { code: 'unknown_combo', status: 404 });
+        }
       }
       if (req.method === 'GET' && path === '/api/limits') {
         return sendJson(res, 200, { buckets: limiter.snapshot(), keys: (configRef.apiKeys ?? []).map((k) => ({ name: k.name ?? 'unnamed', rateLimit: k.rateLimit ?? null, dailyUsd: k.dailyUsd ?? null })) });
@@ -324,6 +336,8 @@ export function provenance(meta) {
     cached: meta.cached,
     cacheKind: meta.cacheKind ?? null,
     compression: meta.compression ?? null,
+    verification: meta.verification ?? null,
+    route: meta.route ?? null,
     latencyMs: meta.latencyMs,
     ttftMs: meta.ttftMs,
     costUsd: meta.costUsd,

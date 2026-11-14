@@ -168,7 +168,14 @@ const record = (check, problems, okDetail) => {
   const bodies = source.map((f) => [f, read(f)]);
   for (const [file] of bodies) {
     if (/index\.js$|cli\.js$|server\.js$|workers\.js$|limits\.js$/.test(file)) continue;
-    if (file.startsWith('scripts/') || file.startsWith('evals/') || file.startsWith('test/') || file.includes('/bin/')) continue;
+    // entry points and examples are reachable by being run, not imported
+    if (
+      file.startsWith('scripts/') ||
+      file.startsWith('evals/') ||
+      file.startsWith('test/') ||
+      file.startsWith('docs/') ||
+      file.includes('/bin/')
+    ) continue;
     const base = relative(ROOT, join(ROOT, file)).replace(/\\/g, '/');
     const stem = base.replace(/\.js$/, '');
     const imported = bodies.some(([other, body]) => other !== file && (body.includes(stem) || body.includes(`./${base.split('/').pop()}`)));

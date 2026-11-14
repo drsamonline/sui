@@ -73,7 +73,7 @@ Legend: **done** = a command proves it · **partial** = shipped, with a named ga
 | B3.1 Free-first tier order | **partial** | Tier is a field and the paid gate is enforced (I4). Ordering is per-combo today; the global free→free-probed→paid ordering rule is not yet applied across combos. |
 | B3.2 Circuit breaker | **done** | Three states, lazy recovery, trips on 5xx/transport only (I13), tested both ways. |
 | B3.3 Streaming behaviour | **partial** | First token is the loading state (dashboard + SSE headers). **Empty-turn retry** is done: a 200 with nothing in it is retried once on the same target, then the next target answers — and it does not trip the breaker, because an empty turn is a quality problem, not an outage (5 tests). First-chunk clone is deliberately not implemented: buffering the first chunk to allow a later failover trades time-to-first-token for a splice the user never asked for. Mid-stream drops are reported, not re-routed. |
-| B3.4 Verification escalation | todo | `verified` is recorded per turn; fail-closed escalation with a 0.7 confidence threshold is not built. |
+| B3.4 Verification escalation | **done** | `packages/verify` scores an answer from seven deterministic signals (empty, truncated, refusal, hedging, repetition, wrong shape, off-topic), each with a named penalty. Below 0.7 the router escalates once; if nothing clears the bar the best answer returns marked `verified: false` with the reasons. No judge model, deliberately. 13 tests. |
 | B3.5 Speculative cascade | todo | 50ms classifier budget, confidence-drop trigger. |
 | B3.6 Virtual models | **partial** | `fallback`, `weighted`, `cheapest`, `latency` with per-arm attribution. The spec's `conditional` mode is not implemented. |
 | B3.7 SLA constraints + EWMA + CUSUM | todo | Latency p95 exists as a measurement, not as a hard constraint with drift ejection. |
@@ -108,6 +108,7 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 | Batch | Status | Gap |
 |---|---|---|
 | B7.5 Prompt-free telemetry | **done** | Salted hash + character count, never prompt text (I11, tested). `/api/traces`, CSV export. |
+| B7.4 Explain-my-route | **done** | `sui.route` on every response, `GET /api/explain?combo=…` and `sui explain` narrate the decision in sentences from the plan — no storage, no second query. |
 | B7.1 Cost attribution | **partial** | Per provider/model/combo/arm, in the ledger and CSV. Not yet per user/team/tool. |
 | B7.2 Savings Ledger | **done** | Cache savings and compression savings are counted separately and valued at the model's own price, with tokens-not-sent and an `avoidedShare`. Surfaced by `sui savings`, `GET /api/savings`, the CSV and a dashboard KPI. |
 | B7.3–B7.4, B7.6–B7.7 | todo | Budget alerts, explain-my-route, tenant console backend, grounding check. |
@@ -147,9 +148,9 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B3.4 verification escalation** — fail-closed at 0.7 confidence, using the prober's suitability checks as the verifier.
-4. **B10.2 Savings Ledger UI** — the numbers exist at `/api/savings`; the panel does not.
-5. **B11.1–B11.8 tutorials and quickstarts** — seven task-oriented docs and four copy-paste snippets.
+3. **B10.2 Savings Ledger panel** — the numbers exist at `/api/savings`; the panel does not.
+4. **B4.5 cache-aware compression** — the two-tier cost model that stops compression from breaking a provider's prefix cache.
+5. **B11.1–B11.7 tutorials** — seven task-oriented docs (the four quickstarts are done).
 
 ## Risk register
 

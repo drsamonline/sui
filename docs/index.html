@@ -110,7 +110,7 @@
   </div>
 
   <div class="strip">
-    <div class="stat"><div class="k">tests</div><div class="v num">214</div><div class="f">no network, no keys</div></div>
+    <div class="stat"><div class="k">tests</div><div class="v num">228</div><div class="f">no network, no keys</div></div>
     <div class="stat"><div class="k">p95 overhead</div><div class="v num">1.13<span style="font-size:var(--fs-16)"> ms</span></div><div class="f">budget 15 ms</div></div>
     <div class="stat"><div class="k">invariants</div><div class="v num">15</div><div class="f">each with a test</div></div>
     <div class="stat"><div class="k">verified routes</div><div class="v num">0</div><div class="f">26 await a probe</div></div>
@@ -138,6 +138,8 @@ node apps/cli/bin/sui.js init</code></pre>
           <li>Two-tier cache: exact, plus lexical similarity</li>
           <li>Quota-aware prompt compression, six engines, code preserved</li>
           <li>Savings ledger: dollars avoided, tokens never sent</li>
+          <li>Verification escalation: weak answers are never called verified</li>
+          <li>Explain-my-route, in sentences, without sending a request</li>
           <li>Native prompt caching: the hint each provider understands</li>
         </ul>
       </div>
@@ -196,7 +198,8 @@ node apps/cli/bin/sui.js init</code></pre>
         <tr><td>Prompt caching + per-key limits</td><td><span class="pill done">done</span></td><td>prefix hints, 429 + Retry-After</td></tr>
         <tr><td>Audit + legal docs</td><td><span class="pill done">done</span></td><td>8 checks in CI, PRIVACY, TERMS</td></tr>
         <tr><td>MCP / A2A / agents</td><td><span class="pill">not started</span></td><td>Phase 5</td></tr>
-        <tr><td>Weather Map, explain-my-route</td><td><span class="pill">not started</span></td><td>Phases 7 and 10</td></tr>
+        <tr><td>Verification + explain-my-route</td><td><span class="pill done">done</span></td><td>7 signals, /api/explain</td></tr>
+        <tr><td>Weather Map</td><td><span class="pill">not started</span></td><td>Phase 10</td></tr>
       </tbody>
     </table>
   </section>

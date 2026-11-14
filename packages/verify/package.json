@@ -1,0 +1,15 @@
+{
+  "name": "@sui/verify",
+  "version": "0.7.0",
+  "description": "Reference-free confidence scoring and fail-closed escalation (B3.4).",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src"
+  ]
+}

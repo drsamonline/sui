@@ -21,7 +21,7 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
-import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdKits, cmdProbe, cmdSavings, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdProbe, cmdSavings, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
 import { kitStatus } from '@sui/kits';
 import { ConfigError } from '@sui/core';
 
@@ -58,6 +58,8 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdBudget(flags);
     case 'savings':
       return cmdSavings(flags);
+    case 'explain':
+      return cmdExplain(flags, args);
     case 'vault':
       return cmdVault(flags, args);
     case 'config':
@@ -526,6 +528,7 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui compress <file|-> [--preset lite|standard|aggressive|ultra] [--text "…"]
   npx sui budget         which preset the remaining quota would choose
   npx sui savings        what cache hits and compression did not spend   --all
+  npx sui explain [combo] why a route would go where it goes (B7.4)
   npx sui vault <cmd>    init | set <provider> | list | remove <provider> | status
   npx sui config <cmd>   show | get <path> | set <path> <value> | unset <path>
   npx sui tokens --check WCAG AA on the dashboard tokens, computed by tokens-kit
