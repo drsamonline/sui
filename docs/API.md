@@ -142,6 +142,20 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## POST /api/compress
+
+B10.4 — what a preset would do to a prompt. Computed locally; the text is used and dropped, never stored, logged or sent to a provider.
+
+```json
+{ "preset": "aggressive", "originalChars": 420, "compressedChars": 230, "ratio": 0.452,
+  "savedChars": 190, "skipped": null,
+  "steps": [{ "engine": "caveman", "note": "removed 96 chars of function words", "droppedChars": 96 }],
+  "text": "…",
+  "note": "Computed locally. Nothing was stored, logged or sent to a provider." }
+```
+
+`400 bad_preset` for an unknown preset, `400 empty_text` for whitespace only.
+
 ## GET /api/alerts
 
 B7.3 budget alerts: 75, 90 and 100 percent of the daily and per-provider caps, fired once per threshold per scope per day.

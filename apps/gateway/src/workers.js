@@ -107,18 +107,61 @@ export function startWorkers(deps) {
    * @param {number} intervalMs
    * @param {() => Promise<any>} run
    */
+  /**
+   * B9.6 — a worker that cannot pile up, cannot hammer a failing dependency, and
+   * cannot drift into a thundering herd with its siblings.
+   *
+   *   overlap    a tick that arrives while the previous one is still running is
+   *              skipped, not queued: a slow probe should not become two
+   *   backoff    after a failure the interval doubles, up to 16x, and resets on
+   *              the first success
+   *   jitter     the first tick is offset, so six jobs do not all fire at boot
+   */
   function register(name, intervalMs, run) {
-    const job = { name, timer: null, intervalMs, lastRunAt: null, runs: 0, lastError: null, lastResult: null };
+    const job = {
+      name,
+      timer: null,
+      intervalMs,
+      baseIntervalMs: intervalMs,
+      lastRunAt: null,
+      runs: 0,
+      skipped: 0,
+      failures: 0,
+      running: false,
+      lastError: null,
+      lastResult: null,
+      run, // swappable, which is how the overlap guard is tested
+    };
+
+    const reschedule = (target, intervalMs) => {
+      if (target.timer) clearInterval(target.timer);
+      target.intervalMs = intervalMs;
+      target.timer = setInterval(tick, intervalMs);
+      target.timer.unref?.();
+    };
 
     const tick = async () => {
       if (stopped) return;
+      if (job.running) {
+        job.skipped += 1;
+        return;
+      }
+      job.running = true;
       try {
-        job.lastResult = await run();
+        job.lastResult = await job.run();
         job.lastError = null;
+        if (job.failures > 0) {
+          job.failures = 0;
+          reschedule(job, job.baseIntervalMs);
+        }
       } catch (err) {
         job.lastError = /** @type {any} */ (err)?.message ?? String(err);
-        logger.warn(`${name} failed: ${job.lastError}`);
+        job.failures += 1;
+        const backoff = Math.min(job.baseIntervalMs * 2 ** Math.min(job.failures, 4), job.baseIntervalMs * 16);
+        reschedule(job, backoff);
+        logger.warn(`${name} failed (${job.failures}x, next in ${Math.round(backoff / 1000)}s): ${job.lastError}`);
       } finally {
+        job.running = false;
         job.lastRunAt = now();
         job.runs += 1;
       }
@@ -126,8 +169,11 @@ export function startWorkers(deps) {
 
     // First run happens shortly after boot, not during it: startup must not wait
     // on a network call (I5 wants a fresh install answering in 30s).
-    const kickoff = setTimeout(tick, Number(settings.kickoffMs ?? 1500));
+    // B9.6: jitter the first tick so a restart does not fire every job at once
+    const kickoffMs = Number(settings.kickoffMs ?? 1500);
+    const kickoff = setTimeout(tick, kickoffMs + Math.floor(Math.random() * Math.max(1, kickoffMs)));
     kickoff.unref?.();
+    job.runNow = tick;
     job.timer = setInterval(tick, intervalMs);
     job.timer.unref?.();
     return job;
@@ -145,6 +191,8 @@ export function startWorkers(deps) {
           name: j.name,
           intervalMs: j.intervalMs,
           runs: j.runs,
+          skipped: j.skipped,
+          failures: j.failures,
           lastRunAt: j.lastRunAt,
           nextRunAt: j.lastRunAt ? j.lastRunAt + j.intervalMs : null,
           lastError: j.lastError,

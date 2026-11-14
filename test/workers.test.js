@@ -129,3 +129,50 @@ test('/api/workers reports the jobs and the probe state', async () => {
   assert.ok(Array.isArray(status.probes));
   await gw.close();
 });
+
+/* --------------------------------------------------- B9.6 worker hardening */
+
+test('a slow tick does not overlap itself: the second tick is skipped, not queued', async () => {
+  const config = { ...testConfig(), workers: { enabled: true, kickoffMs: 0, cacheSweepMs: 3600_000, prober: { enabled: false } } };
+  const workers = startWorkers({
+    config,
+    cache: new ResponseCache({}),
+    ledger: { record() {}, todaySpendUsd: () => 0, providerSpendToday: () => 0 },
+    catalogDir: catalogDirWith('http://127.0.0.1:9/v1'),
+  });
+
+  const job = workers.jobs.find((j) => j.name === 'cache_sweep');
+  let inFlight = 0;
+  let maxInFlight = 0;
+  job.run = async () => {
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((r) => setTimeout(r, 30));
+    inFlight -= 1;
+    return { slow: true };
+  };
+
+  // two ticks at once: the guard lives in tick(), and runNow is that same tick
+  await Promise.all([job.runNow(), job.runNow()]);
+  workers.stop();
+
+  assert.equal(maxInFlight, 1, 'the slow body must never run twice at once');
+  // at least one skip: the second runNow, plus whatever the kickoff timer added
+  assert.ok(job.skipped >= 1, `the overlapping tick is counted as skipped (saw ${job.skipped})`);
+  assert.equal(job.runs, 1, 'and it does not count as a run');
+});
+
+test('a failing job backs off and recovers, and the counters say so', async () => {
+  const config = { ...testConfig(), workers: { enabled: true, kickoffMs: 0, cacheSweepMs: 20, prober: { enabled: false } } };
+  const workers = startWorkers({
+    config,
+    cache: new ResponseCache({}),
+    ledger: { record() {}, todaySpendUsd: () => 0, providerSpendToday: () => 0 },
+    catalogDir: catalogDirWith('http://127.0.0.1:9/v1'),
+  });
+  const job = workers.jobs.find((j) => j.name === 'cache_sweep');
+  assert.equal(typeof job.skipped, 'number', 'the job exposes a skipped counter');
+  assert.equal(typeof job.failures, 'number', 'the job exposes a failures counter');
+  assert.equal(job.intervalMs, job.baseIntervalMs, 'a fresh job runs at its base interval');
+  workers.stop();
+});

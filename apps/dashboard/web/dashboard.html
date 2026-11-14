@@ -362,6 +362,25 @@
       </div>
     </section>
 
+    <section class="card" id="compress-card" aria-labelledby="compress-h">
+      <header>
+        <h2 id="compress-h">Compression</h2>
+        <span class="hint">what a preset would do — nothing is sent</span>
+      </header>
+      <div class="body">
+        <label class="who" for="compress-text" style="display:block;font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:var(--space-2)">Paste a prompt</label>
+        <textarea id="compress-text" rows="4" style="width:100%;font:inherit;font-size:var(--fs-13);padding:var(--space-2);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)" placeholder="A long prompt with code, URLs or JSON in it…"></textarea>
+        <div class="row" style="display:flex;gap:var(--space-2);align-items:center;margin-top:var(--space-2);flex-wrap:wrap">
+          <label class="hint" for="compress-preset">preset</label>
+          <select id="compress-preset" style="font:inherit;font-size:var(--fs-13);padding:4px 8px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)">
+            <option>lite</option><option selected>standard</option><option>aggressive</option><option>ultra</option>
+          </select>
+          <button class="ghost small" id="compress-run" type="button">Try it</button>
+        </div>
+        <div id="compress-result" style="margin-top:var(--space-3)"></div>
+      </div>
+    </section>
+
     <section class="card" id="weather-card" aria-labelledby="weather-h" hidden>
       <header>
         <h2 id="weather-h">Free-tier weather</h2>
@@ -600,6 +619,54 @@ function renderSavings(totals) {
         <tr><td>would have cost</td><td class="num">${money(wouldHaveCost)}</td></tr>
       </tbody>
     </table>`;
+}
+
+/**
+ * B10.4 — the compression view. The endpoint computes locally and drops the text;
+ * this panel shows the ratio, the steps and the protected spans that survived.
+ */
+async function runCompression() {
+  const text = document.querySelector('#compress-text')?.value ?? '';
+  const preset = document.querySelector('#compress-preset')?.value ?? 'standard';
+  const out = document.querySelector('#compress-result');
+  if (!out) return;
+  if (!text.trim()) {
+    out.innerHTML = '<p class="hint">Paste something first.</p>';
+    return;
+  }
+  out.innerHTML = '<div class="skeleton line" style="width: 70%"></div>';
+  try {
+    const res = await fetch('/api/compress', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text, preset }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      out.innerHTML = `<p class="hint">${escapeHtml(json.error?.message ?? 'Could not compress that.')}</p>`;
+      return;
+    }
+    const pct = Math.round((json.ratio ?? 0) * 100);
+    const kept = [
+      ['code', /```/.test(text) && json.text.includes('```')],
+      ['url', (text.match(/https?:\/\/\S+/) ?? []).every((u) => json.text.includes(u))],
+    ].filter(([, ok]) => ok).map(([name]) => name);
+
+    out.innerHTML = `
+      <div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3)">
+        <span class="num" style="font-size:var(--fs-28);font-weight:600">${pct}%</span>
+        <span class="hint num">${num(json.originalChars)} → ${num(json.compressedChars)} chars</span>
+      </div>
+      <div class="track" role="img" aria-label="${pct} percent smaller"><div class="fill" style="width:${pct}%"></div></div>
+      ${json.skipped ? `<p class="hint">${escapeHtml(json.skipped)}</p>` : ''}
+      <table style="margin-top:var(--space-2)"><tbody>
+        ${(json.steps ?? []).map((st) => `<tr><td>${escapeHtml(st.engine)}</td><td class="hint">${escapeHtml(st.note)}</td><td class="num">${num(st.droppedChars)}</td></tr>`).join('')}
+      </tbody></table>
+      ${kept.length ? `<p class="hint">protected spans intact: ${kept.join(', ')}</p>` : ''}
+      <p class="hint">${escapeHtml(json.note ?? '')}</p>`;
+  } catch {
+    out.innerHTML = '<p class="hint">Could not reach the gateway.</p>';
+  }
 }
 
 /**
@@ -945,6 +1012,7 @@ $('#copy-endpoint').addEventListener('click', async () => {
     toast('Copy failed — select the address manually');
   }
 });
+$('#compress-run').addEventListener('click', runCompression);
 $('#explain-route').addEventListener('click', async () => {
   const panel = $('#explain-panel');
   const button = $('#explain-route');

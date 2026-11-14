@@ -108,3 +108,10 @@ test('the last-eval card is present and labelled honestly', () => {
   assert.match(html, /harness self-test/);
   assert.match(html, /No eval has been run on this machine/);
 });
+
+test('the compression view is present and says nothing is sent', () => {
+  assert.match(html, /id="compress-card"/);
+  assert.match(html, /what a preset would do — nothing is sent/);
+  assert.match(html, /id="compress-run"/);
+  assert.match(html, /protected spans intact/);
+});

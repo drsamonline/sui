@@ -241,7 +241,9 @@ Each directive is under 90 characters — one that costs 200 tokens to save 300 
 
 **The budget manager (B4.3)** picks the preset from what is left of the quota: over 60% left → `lite`, over 30% → `standard`, over 10% → `aggressive`, below that → `ultra`. In `preset: "auto"` the router uses the provider's daily budget as the quota proxy until real quota telemetry lands.
 
-Try it before switching it on:
+The dashboard's **Compression** card runs the same thing in the browser: paste a prompt, pick a preset, see the ratio, the steps, and which protected spans survived.
+
+Try it from the CLI before switching it on:
 
 ```bash
 sui compress ./prompt.txt --preset aggressive

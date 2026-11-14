@@ -266,3 +266,52 @@ test('auto mode picks a harder preset as the provider budget runs out', async ()
   assert.match(res.meta.compression.reason, /quota left/);
   await upstream.close();
 });
+
+/* -------------------------------------------------- B10.4 the compression view */
+
+test('POST /api/compress reports the ratio, the steps and the protected spans', async () => {
+  const { makeGateway } = await import('./helpers.js');
+  const gw = await makeGateway(testConfig());
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const prompt = `The handler is basically just a very simple health check that returns ok and nothing else at all really. It does not do anything else.\n\n\`\`\`js\nres.writeHead(200);\n\`\`\`\n\nSee https://example.com/docs for the contract.`;
+  const res = await fetch(`http://127.0.0.1:${port}/api/compress`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: prompt, preset: 'aggressive' }),
+  });
+  const json = await res.json();
+
+  assert.equal(res.status, 200);
+  assert.equal(json.preset, 'aggressive');
+  assert.ok(json.ratio > 0);
+  assert.ok(json.steps.length > 0);
+  assert.equal(json.text.includes('res.writeHead(200)'), true, 'the code block survives');
+  assert.equal(json.text.includes('https://example.com/docs'), true, 'the URL survives');
+  assert.match(json.note, /Nothing was stored, logged or sent/);
+  await gw.close();
+});
+
+test('POST /api/compress refuses an unknown preset and empty text', async () => {
+  const { makeGateway } = await import('./helpers.js');
+  const gw = await makeGateway(testConfig());
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const bad = await fetch(`http://127.0.0.1:${port}/api/compress`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'hello there', preset: 'turbo' }),
+  });
+  assert.equal(bad.status, 400);
+  assert.equal((await bad.json()).error.type, 'bad_preset');
+
+  const empty = await fetch(`http://127.0.0.1:${port}/api/compress`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: '   ' }),
+  });
+  assert.equal(empty.status, 400);
+  await gw.close();
+});

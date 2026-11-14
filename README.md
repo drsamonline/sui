@@ -52,7 +52,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Explain my route** — every response carries the strategy and each target's outcome; `sui explain` narrates it without sending anything.
 - **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
-- **Dashboard** — token-based design system, budget bar, savings panel, routing-pool topology, **free-tier weather** (thriving / resting / down with a latency trend), breaker states, probes, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token, with "Why this route?" on demand.
+- **Dashboard** — token-based design system, budget bar, savings panel, compression view, routing-pool topology, **free-tier weather** (thriving / resting / down with a latency trend), breaker states, probes, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token, with "Why this route?" on demand.
 - **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.
 - **Background workers** — prober and cache sweep run off the request path, with `/api/workers` and a Probes table on the dashboard.
 - **Catalogue + canary prober** — 26 entries, every one an unverified identity until a probe says otherwise; `sui probe` checks liveness, readiness and suitability (streaming, JSON, tools) with versioned synthetic fixtures, disables a route after three failures and re-enables it on recovery.

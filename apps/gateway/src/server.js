@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { checkToggle, sanitizeConfig, providerHasCredentials, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS } from '@sui/core';
 import { SuiError } from '@sui/core';
 import { explainPlan } from '@sui/router';
+import { PRESETS, compress as compressText } from '@sui/compression';
 import { RateLimiter, checkKeyBudget } from './limits.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -120,6 +121,36 @@ export function createSuiServer(deps) {
         }
       }
       // B10.5: the last eval run, if one has been done on this machine.
+      // B10.4: what a preset would do to a prompt. The text is used and dropped:
+      // it is never logged, never stored, and never sent to a provider.
+      if (req.method === 'POST' && path === '/api/compress') {
+        const body = await readJson(req);
+        const text = String(body.text ?? '');
+        const preset = String(body.preset ?? 'standard');
+        if (!PRESETS[preset]) {
+          throw new SuiError(`Unknown preset "${preset}". Use: ${Object.keys(PRESETS).join(', ')}.`, {
+            code: 'bad_preset',
+            status: 400,
+          });
+        }
+        if (!text.trim()) throw new SuiError('Send some text to compress.', { code: 'empty_text', status: 400 });
+
+        const result = compressText(text, { preset });
+        return sendJson(res, 200, {
+          preset: result.preset,
+          originalChars: result.originalChars,
+          compressedChars: result.compressedChars,
+          ratio: result.ratio,
+          savedChars: result.savedChars,
+          skipped: result.skipped,
+          steps: result.steps,
+          // the compressed text is returned so a person can read it, and that is
+          // the only place it exists
+          text: result.text,
+          note: 'Computed locally. Nothing was stored, logged or sent to a provider.',
+        });
+      }
+
       // B7.3: what the budget monitor has announced today.
       if (req.method === 'GET' && path === '/api/alerts') {
         const snap = workers?.snapshot?.() ?? { alerts: [] };

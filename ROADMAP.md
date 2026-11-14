@@ -132,6 +132,10 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B10.5 eval reports — done**: `GET /api/evals` serves `evals/last-report.json`, and the dashboard shows the last run with its mode. A self-test report is labelled as a harness check, because it proves the graders grade and says nothing about a model.
 
+**B9.6 worker hardening — done**: a tick that arrives while the previous one runs is **skipped, not queued** (a slow probe must not become two); a failing job backs off by doubling up to 16x and resets on the first success; the first tick is jittered so a restart does not fire every job at once. `skipped` and `failures` are on the job snapshot. 2 tests.
+
+**B10.4 compression view — done**: `POST /api/compress` and a dashboard card that shows the ratio, the steps, and which protected spans survived. Computed locally — the text is used and dropped, never stored, logged or sent to a provider.
+
 **B9.3 fallback learning — done**: a combo can reorder its own targets from the ledger — success rate first, then p50 latency, declared order breaking ties, and the declared position kept below `minSamples`. Opt-in per combo, because reordering changes what answers your traffic. `sui.route.learned` reports it per turn. 6 tests.
 
 **B7.3 budget alerts — done**: 75/90/100 percent of the daily and per-provider caps, fired once per threshold per scope per day, with the numbers in the message. A `budget_alerts` worker runs every minute; `GET /api/alerts` serves the log. 6 tests.
@@ -166,8 +170,8 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
 3. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
-4. **B10.4 compression view** — what each preset would do to a real prompt, in the UI.
-5. **B9.4–B9.6** — quota reset detection, token refresh, worker hardening.
+4. **B7.6 grounding check** — refuse an answer whose citations do not exist in the context.
+5. **B9.4/B9.5** — quota reset detection and provider token refresh.
 
 ## Risk register
 
