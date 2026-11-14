@@ -288,6 +288,25 @@ A key is a tenant. Its limits are checked before a provider is chosen, so a chea
 
 The limiter is a token bucket **in memory**, per process. A shared limiter needs a shared store — Phase 9.
 
+## Dual-channel inspection
+
+A prompt is not the only way instructions arrive. A **tool definition** is text the model reads, and a **tool result** is text an attacker may control completely — inspecting only the prompt inspects the wrong channel.
+
+```json
+"guardrails": { "inspectToolChannel": "warn", "maxToolResultChars": 20000 }
+```
+
+| Mode | Behaviour |
+|---|---|
+| `off` (default) | nothing is inspected |
+| `warn` | findings are reported on the turn (`sui.toolInspection`) and the request proceeds |
+| `block` | a high finding is refused with `400 tool_channel_blocked`, before any provider is called |
+
+| Channel | Signals |
+|---|---|
+| `tool_definition` | injection phrases in a description or parameter schema; zero-width or bidi control characters |
+| `tool_result` | injection phrases in a tool message; oversized results (low severity, never blocks) |
+
 ## Guardrails
 
 ```json

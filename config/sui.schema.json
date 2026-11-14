@@ -334,6 +334,20 @@
         "redactPiiInLogs": {
           "type": "boolean",
           "default": true
+        },
+        "inspectToolChannel": {
+          "enum": [
+            "off",
+            "warn",
+            "block"
+          ],
+          "default": "off",
+          "description": "B6.3: inspect tool definitions and tool results as well as the prompt."
+        },
+        "maxToolResultChars": {
+          "type": "integer",
+          "minimum": 100,
+          "default": 20000
         }
       }
     },

@@ -96,6 +96,11 @@ export function normalizeConfig(raw, opts = {}) {
       maxOutputTokens: Number(raw.guardrails?.maxOutputTokens ?? 4096),
       maxInputChars: Number(raw.guardrails?.maxInputChars ?? 400000),
       blockPatterns: Array.isArray(raw.guardrails?.blockPatterns) ? raw.guardrails.blockPatterns : [],
+      // B6.3: dual-channel inspection. 'off' by default — it can refuse traffic.
+      inspectToolChannel: ['off', 'warn', 'block'].includes(raw.guardrails?.inspectToolChannel)
+        ? raw.guardrails.inspectToolChannel
+        : 'off',
+      maxToolResultChars: Number(raw.guardrails?.maxToolResultChars ?? 20000),
       logPrompts: raw.guardrails?.logPrompts ?? false,
       redactPiiInLogs: raw.guardrails?.redactPiiInLogs ?? true,
     },

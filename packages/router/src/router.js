@@ -22,7 +22,7 @@ import { RecallStore } from '@sui/compression';
 import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
 import { scoreAnswer, shouldEscalate, verdict as verifyVerdict } from '@sui/verify';
 import { createAdapter, displayName } from '@sui/providers';
-import { checkPrompt, clampMaxTokens } from '@sui/guardrails';
+import { checkPrompt, clampMaxTokens, inspectToolChannel } from '@sui/guardrails';
 import { applyStyle, choosePreset, chooseStyle, compress as compressText } from '@sui/compression';
 
 /**
@@ -337,6 +337,22 @@ export class Router {
 
     checkPrompt({ messages, guardrails: this.config.guardrails });
 
+    // B6.3: the prompt is not the only channel. Tool definitions are text the
+    // model reads, and tool results are text an attacker may control entirely.
+    const toolInspection = inspectToolChannel({
+      messages,
+      tools: body.tools,
+      guardrails: this.config.guardrails,
+    });
+    if (toolInspection.blocked) {
+      const first = toolInspection.findings.find((f) => f.severity === 'high');
+      throw new SuiError(`A tool message was refused: ${first.detail}.`, {
+        code: 'tool_channel_blocked',
+        status: 400,
+        detail: toolInspection.findings.map((f) => `${f.channel}/${f.where}: ${f.signal}`).join('; '),
+      });
+    }
+
     // B4.1/B4.4: compress the older context, never the question being asked,
     // then shape the output axis if it is on.
     const compressed = this.#shapeContext(messages, comboName);
@@ -530,6 +546,7 @@ export class Router {
             escalation: usedResting ? 'I14 — every healthy target failed, a resting one was tried' : null,
             compression: compressed.meta,
             verification: null,
+            toolInspection: toolInspection.findings.length ? { mode: toolInspection.mode, findings: toolInspection.findings } : null,
             canary: canaryPick ? { id: this.canary.id, arm: canaryPick.arm, reason: canaryPick.reason } : null,
             savedUsd,
             route: {

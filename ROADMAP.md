@@ -103,7 +103,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 | B6.7 Paid-tier air-gap | **done** | Gate (I4) plus sealed storage: `packages/vault` seals keys with AES-256-GCM via `crypto-kit`, opened only when the gate is on, with the key file at 0600 and the provider names inside the envelope. Limitation stated plainly: the passphrase sits beside the vault unless you supply `SUI_VAULT_PASSPHRASE`. |
 | B6.1 Red-team toolkit | **done** | Eleven transforms (ten obfuscations + a plain control), a random canary per run, exact judging that distinguishes compliance from echo. 13 tests. |
 | B6.2 Scheduled self-test | **done** | `sui redteam [combo] [--json]` plus a weekly `red_team_self_test` worker that logs CRITICAL/HIGH findings. |
-| B6.3, B6.5 | todo | Dual-channel inspection, privacy-tiered routing. |
+| B6.3 Dual-channel inspection | **done** | Tool definitions and tool results are inspected as well as prompts: injection phrases, zero-width/bidi characters, oversized results. Modes `off`/`warn`/`block`; a block refuses before any provider is called. 10 tests. |
+| B6.5 | todo | Privacy-tiered routing. |
 
 ### Phase 7 — OBSERVABILITY & TENANCY
 
@@ -158,9 +159,9 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B6.3 dual-channel inspection** — inspect tool definitions and tool results, not just prompts.
-4. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
-5. **B10.4/B10.5** — compression view and eval reports in the dashboard.
+3. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
+4. **B10.4/B10.5** — compression view and eval reports in the dashboard.
+5. **B6.5 privacy-tiered routing** — route by retention policy, not just by cost.
 
 ## Risk register
 

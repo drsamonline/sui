@@ -254,6 +254,8 @@
     "maxOutputTokens": 4096,
     "maxInputChars": 400000,
     "blockPatterns": [],
+    "inspectToolChannel": "off",
+    "maxToolResultChars": 20000,
     "logPrompts": false,
     "redactPiiInLogs": true
   },
