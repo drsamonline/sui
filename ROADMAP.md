@@ -134,6 +134,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B9.4 quota windows — done**: a `429` with `Retry-After` (seconds, an HTTP date, or in the body) closes that target for exactly that long, is reported in the skip reason, is **not** a breaker trip, and reopens with a log line. `quotaWindows` in `/api/status`. 5 tests.
 
+**B7.7 tenant console backend — done**: `GET /api/tenants`, `PATCH /api/tenants/<name>` for a live cap change (in memory, and it says so), `sui tenants`, and an `SUI_ADMIN_TOKEN` gate when one is configured. An uncapped tenant reports `null`, not 0%. 8 tests.
+
 **B7.6 grounding check — done**: `verification.grounding` (`off`/`warn`/`block`) checks that every URL, quoted span of 8+ characters and unit-bearing number in the answer appears in the context it was given. Ungrounded answers take a 0.45 confidence penalty, which usually escalates them. With no context it reports `checked: false` rather than passing silently. 5 tests.
 
 **B9.6 worker hardening — done**: a tick that arrives while the previous one runs is **skipped, not queued** (a slow probe must not become two); a failing job backs off by doubling up to 16x and resets on the first success; the first tick is jittered so a restart does not fire every job at once. `skipped` and `failures` are on the job snapshot. 2 tests.
@@ -175,7 +177,7 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
 3. **B9.5** — provider token refresh for OAuth-style providers.
 4. **B4.2** — the remaining compression engines (`lexora`-style canonicalisation).
-5. **B7.7** — tenant console backend (spend, quota, policy per tenant).
+5. **B6.6 remainder** — residency routing and per-tenant fallback chains.
 
 ## Risk register
 

@@ -21,7 +21,7 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
-import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdProbe, cmdRedteam, cmdSavings, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdProbe, cmdRedteam, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
 import { kitStatus } from '@sui/kits';
 import { ConfigError } from '@sui/core';
 
@@ -60,6 +60,8 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdSavings(flags);
     case 'explain':
       return cmdExplain(flags, args);
+    case 'tenants':
+      return cmdTenants(flags);
     case 'redteam':
       return cmdRedteam(flags, args);
     case 'vault':
@@ -550,6 +552,7 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui budget         which preset the remaining quota would choose
   npx sui savings        what cache hits and compression did not spend   --all
   npx sui explain [combo] why a route would go where it goes (B7.4)
+  npx sui tenants        what each API key has spent, and what it may reach
   npx sui redteam [combo] attack your own route with 10 obfuscations (B6.2)
   npx sui vault <cmd>    init | set <provider> | list | remove <provider> | status
   npx sui config <cmd>   show | get <path> | set <path> <value> | unset <path>

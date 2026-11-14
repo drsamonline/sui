@@ -7,3 +7,4 @@
 export * from './errors.js';
 export * from './config.js';
 export * from './invariants.js';
+export * from './tenants.js';

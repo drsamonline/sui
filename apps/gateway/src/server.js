@@ -19,7 +19,7 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS } from '@sui/core';
+import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, tenantSnapshot, tenantSummary } from '@sui/core';
 import { SuiError } from '@sui/core';
 import { explainPlan } from '@sui/router';
 import { PRESETS, compress as compressText } from '@sui/compression';
@@ -188,6 +188,59 @@ export function createSuiServer(deps) {
         const result = canary.rollback('rolled back by an operator');
         return sendJson(res, 200, { ...result, snapshot: canary.snapshot() });
       }
+      // B7.7: the tenant console. Read-only by default; writes need an admin
+      // token when one is configured, because a console that can raise a cap is
+      // a console that can spend your money.
+      if (path === '/api/tenants' || path.startsWith('/api/tenants/')) {
+        requireAdmin(req, configRef);
+        const tenants = tenantSnapshot({ config: configRef, ledger, limiter });
+
+        if (req.method === 'GET' && path === '/api/tenants') {
+          return sendJson(res, 200, { summary: tenantSummary(tenants), tenants });
+        }
+
+        const name = decodeURIComponent(path.slice('/api/tenants/'.length));
+        const tenant = tenants.find((t) => t.name === name);
+        if (!tenant) throw new SuiError(`No tenant called "${name}".`, { code: 'unknown_tenant', status: 404 });
+
+        if (req.method === 'GET') return sendJson(res, 200, tenant);
+
+        if (req.method === 'PATCH') {
+          const body = await readJson(req);
+          const key = (configRef.apiKeys ?? []).find((k) => (k.name ?? 'unnamed') === name);
+          if (!key) throw new SuiError(`No tenant called "${name}".`, { code: 'unknown_tenant', status: 404 });
+
+          const changed = {};
+          if (body.dailyUsd !== undefined) {
+            const value = body.dailyUsd === null ? null : Number(body.dailyUsd);
+            if (value !== null && (!Number.isFinite(value) || value < 0)) {
+              throw new SuiError('dailyUsd must be a number of zero or more, or null for uncapped.', { code: 'bad_budget', status: 400 });
+            }
+            changed.dailyUsd = { from: key.dailyUsd ?? null, to: value };
+            key.dailyUsd = value ?? undefined;
+            if (value === null) delete key.dailyUsd;
+          }
+          if (body.rpm !== undefined) {
+            const value = Number(body.rpm);
+            if (!Number.isFinite(value) || value < 0) {
+              throw new SuiError('rpm must be a number of zero or more.', { code: 'bad_rate', status: 400 });
+            }
+            key.rateLimit = { ...(key.rateLimit ?? {}), rpm: value };
+            changed.rpm = { to: value };
+          }
+          if (!Object.keys(changed).length) {
+            throw new SuiError('Nothing to change. Send dailyUsd or rpm.', { code: 'nothing_to_change', status: 400 });
+          }
+
+          const updated = tenantSnapshot({ config: configRef, ledger, limiter }).find((t) => t.name === name);
+          return sendJson(res, 200, {
+            tenant: updated,
+            changed,
+            note: 'Applied in memory for this process. Edit sui.config.json to make it permanent.',
+          });
+        }
+      }
+
       if (req.method === 'GET' && path === '/api/limits') {
         return sendJson(res, 200, { buckets: limiter.snapshot(), keys: (configRef.apiKeys ?? []).map((k) => ({ name: k.name ?? 'unnamed', rateLimit: k.rateLimit ?? null, dailyUsd: k.dailyUsd ?? null })) });
       }
@@ -551,6 +604,19 @@ function sinceParam(url) {
 }
 
 /** @param {any} req @param {any} config */
+/**
+ * The console is admin surface: when SUI_ADMIN_TOKEN is set, every write and the
+ * tenant list need it. Without one, it is loopback-only like the rest of /api.
+ */
+function requireAdmin(req, config) {
+  const expected = config.env?.SUI_ADMIN_TOKEN ?? process.env.SUI_ADMIN_TOKEN;
+  if (!expected) return;
+  const presented = String(req.headers['x-sui-admin'] ?? req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+  if (presented !== expected) {
+    throw new SuiError('This endpoint needs the admin token (SUI_ADMIN_TOKEN).', { code: 'admin_required', status: 403 });
+  }
+}
+
 /** A user agent is a label, not a fingerprint: keep the product, drop the rest. */
 function shortAgent(agent) {
   if (!agent) return null;

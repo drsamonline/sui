@@ -407,6 +407,14 @@ A caller may ask for a stricter tier than the default: `x-sui-privacy: strict` (
 
 Two deliberate choices: **an unmarked provider counts as `unknown`, and `unknown` fails `strict`** — not knowing is not the same as being safe. And a strict request with nothing eligible **fails closed** with the reasons, rather than quietly downgrading to a provider that trains on your data.
 
+## Tenants
+
+```bash
+sui tenants                 # what each key has spent and what it may reach
+```
+
+A key is a tenant: a spend cap, a rate, an allow-list and its own guardrails. `GET /api/tenants` is the same table, `PATCH /api/tenants/<name>` changes a cap live for the running process, and `sui tenants` prints it in the terminal. When `SUI_ADMIN_TOKEN` is set, those routes need it — a console that can raise a cap is a console that can spend your money.
+
 ## Attribution
 
 Two headers decide who a turn is charged to:

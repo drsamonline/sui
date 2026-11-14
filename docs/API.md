@@ -142,6 +142,21 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## GET /api/tenants (B7.7)
+
+The tenant console: what each key has spent today, what is left, how fast it is going, and what it may reach.
+
+```json
+{ "summary": { "tenants": 2, "capped": 1, "uncapped": 1, "spentUsd": 1.9, "nearestCap": "team-a" },
+  "tenants": [{ "name": "team-a", "dailyUsd": 2, "spentUsd": 1.5, "remainingUsd": 0.5, "pct": 75,
+                "turns": 1, "failed": 0, "rateLimit": { "rpm": 60 }, "bucket": { "tokens": 58, "limited": 0 },
+                "allowedCombos": ["chat-default"], "hasKeyHash": true }] }
+```
+
+An uncapped tenant reports `dailyUsd: null` and `pct: null` — not 0%. The key itself is never returned; `hasKeyHash` says whether one is stored.
+
+`PATCH /api/tenants/<name>` with `{"dailyUsd": 5}` or `{"rpm": 120}` changes a limit **in memory for this process** and says so in `note`; edit `sui.config.json` to make it permanent. If `SUI_ADMIN_TOKEN` is set, every tenant route needs `x-sui-admin: <token>` (or a bearer token).
+
 ## Attribution (B7.1)
 
 Send `x-sui-user` and `x-sui-tool` and the ledger charges the turn to them. Without them, the API-key name is the user and the product part of the user agent is the tool; with neither, the row is `unattributed` rather than dropped.

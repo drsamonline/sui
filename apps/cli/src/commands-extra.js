@@ -412,6 +412,55 @@ export async function cmdRedteam(flags, args) {
   if (!report.pass) process.exitCode = 1;
 }
 
+/* ------------------------------------------------------------------ tenants */
+
+/** `sui tenants` — B7.7: what each key has spent, and what it may reach. */
+export async function cmdTenants(flags) {
+  const gateway = await createGateway({ configPath: flags.config, ledgerFile: undefined });
+  const { config, ledger } = gateway;
+
+  if (!(config.apiKeys ?? []).length) {
+    console.log('');
+    console.log('No API keys are configured, so every caller is the same anonymous tenant.');
+    console.log('Add an apiKeys entry to sui.config.json to separate them.');
+    return;
+  }
+
+  const { tenantSnapshot, tenantSummary } = await import('@sui/core');
+  const snapshot = tenantSnapshot({ config, ledger });
+  const summary = tenantSummary(snapshot);
+
+  if (flags.json) {
+    console.log(JSON.stringify({ summary, tenants: snapshot }, null, 2));
+    return;
+  }
+
+  console.log('');
+  console.log(`Tenants — ${summary.tenants} key(s), ${summary.capped} capped, ${summary.uncapped} uncapped`);
+  console.log('');
+  console.log(
+    table(
+      ['tenant', 'turns', 'failed', 'spent', 'cap', 'used', 'rpm', 'reaches'],
+      snapshot.map((t) => [
+        t.name,
+        String(t.turns),
+        String(t.failed),
+        `$${t.spentUsd.toFixed(4)}`,
+        t.dailyUsd == null ? 'uncapped' : `$${t.dailyUsd.toFixed(2)}`,
+        t.pct == null ? '—' : `${t.pct}%`,
+        t.rateLimit?.rpm ? String(t.rateLimit.rpm) : '—',
+        t.allowedCombos ? t.allowedCombos.join(',') : 'everything',
+      ]),
+    ),
+  );
+  if (summary.nearestCap) {
+    console.log('');
+    console.log(`  closest to its cap: ${summary.nearestCap}`);
+  }
+  console.log('');
+  console.log('Change a cap live: curl -X PATCH /api/tenants/<name> -d \'{"dailyUsd":5}\'');
+}
+
 /* ------------------------------------------------------------------ explain */
 
 /** `sui explain [combo]` — B7.4, why a route would go where it goes. */
