@@ -407,6 +407,22 @@ A caller may ask for a stricter tier than the default: `x-sui-privacy: strict` (
 
 Two deliberate choices: **an unmarked provider counts as `unknown`, and `unknown` fails `strict`** — not knowing is not the same as being safe. And a strict request with nothing eligible **fails closed** with the reasons, rather than quietly downgrading to a provider that trains on your data.
 
+## Attribution
+
+Two headers decide who a turn is charged to:
+
+```bash
+curl -H 'x-sui-user: sohil' -H 'x-sui-tool: cline' ...
+```
+
+| Absent | Falls back to |
+|---|---|
+| `x-sui-user` | the API-key name |
+| `x-sui-tool` | the product part of the user agent (`Cline/3.1.0` → `Cline`) |
+| both | the row is `unattributed` — labelled, never dropped |
+
+`sui cost --by user` and `--by tool` group by it; the CSV carries both columns. Nothing is inferred beyond those two labels, and neither is treated as identity.
+
 ## Dual-channel inspection
 
 A prompt is not the only way instructions arrive. A **tool definition** is text the model reads, and a **tool result** is text an attacker may control completely — inspecting only the prompt inspects the wrong channel.

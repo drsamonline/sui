@@ -286,6 +286,24 @@ async function cmdCost(flags) {
   today.setHours(0, 0, 0, 0);
   const agg = ledger.aggregate({ since: flags.all ? 0 : today.getTime() });
 
+  // B7.1: charge-back view — who asked, and with what
+  if (flags.by === 'user' || flags.by === 'tool') {
+    const groups = flags.by === 'user' ? agg.byUser : agg.byTool;
+    console.log('');
+    console.log(`Cost by ${flags.by}`);
+    console.log('');
+    console.log(
+      table(
+        [flags.by, 'turns', 'failed', 'cost'],
+        Object.entries(groups)
+          .sort((a, b) => b[1].costUsd - a[1].costUsd)
+          .map(([name, g]) => [name, String(g.turns), String(g.failed), `$${g.costUsd.toFixed(4)}`]),
+      ),
+    );
+    console.log('');
+    return;
+  }
+
   if (flags.json) {
     console.log(JSON.stringify(agg, null, 2));
     return;
@@ -523,6 +541,7 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui doctor          one real turn per combo, and say what broke
   npx sui models          the combos and what they can reach   --json
   npx sui cost            spend, latency and A/B arms           --json  --all   (alias: usage)
+                          --by user|tool for charge-back attribution
   npx sui tools           point a coding tool here              --set <tool-id>
   npx sui migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
   npx sui catalog [q]    the provider catalogue, and what is still unverified
@@ -546,7 +565,7 @@ Docs:                     docs/ARCHITECTURE.md, docs/ROUTING.md, docs/MIGRATION.
 /* ------------------------------------------------------------------- helpers */
 
 /** Flags that take a value, so `--config ./x.json` works as well as `--config=./x.json`. */
-const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout']);
+const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout', 'by']);
 
 function parse(argv) {
   const args = [];

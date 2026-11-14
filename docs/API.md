@@ -142,6 +142,27 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## Attribution (B7.1)
+
+Send `x-sui-user` and `x-sui-tool` and the ledger charges the turn to them. Without them, the API-key name is the user and the product part of the user agent is the tool; with neither, the row is `unattributed` rather than dropped.
+
+```json
+{ "byUser": { "sohil": { "turns": 2, "costUsd": 0.003, "failed": 0 } },
+  "byTool": { "cline": { "turns": 1, "costUsd": 0.002, "failed": 0 } } }
+```
+
+`sui cost --by user` and `sui cost --by tool` print the same grouping, sorted by cost.
+
+## Privacy reporting in `/api/status` (B6.4)
+
+```json
+"privacy": {
+  "defaultTier": "strict",
+  "providers": [{ "id": "trainer", "retention": "long", "trainsOnData": true,
+                  "tiers": { "standard": false, "strict": false } }]
+}
+```
+
 ## Quota windows in `/api/status`
 
 ```json

@@ -19,7 +19,7 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkToggle, sanitizeConfig, providerHasCredentials, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS } from '@sui/core';
+import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS } from '@sui/core';
 import { SuiError } from '@sui/core';
 import { explainPlan } from '@sui/router';
 import { PRESETS, compress as compressText } from '@sui/compression';
@@ -328,10 +328,18 @@ export function createSuiServer(deps) {
       });
     }
 
+    // B7.1: attribution the caller supplies. Nothing is inferred beyond the key
+    // name and the user agent, and neither is treated as identity.
+    const attribution = {
+      user: String(req.headers['x-sui-user'] ?? keyMeta?.name ?? 'unattributed').slice(0, 64),
+      tool: String(req.headers['x-sui-tool'] ?? shortAgent(req.headers['user-agent']) ?? 'unattributed').slice(0, 64),
+    };
+
     const result = await router.chat({
       combo: requested,
       body,
       keyMeta,
+      attribution,
       privacyTier: requestedTier,
       // I12: naming a model directly is a deliberate act, not auto-routing, so
       // an explicitly requested tos:avoid model is allowed through.
@@ -482,6 +490,22 @@ function statusPayload(config, ledger, breaker, cache, router, workers = null) {
 
   return {
     server: { host: config.server.host, port: config.server.port, uptimeSeconds: Math.round(process.uptime()) },
+    // B9.4: quota windows the router is currently honouring
+    quotaWindows: router.quotaSnapshot?.() ?? [],
+    // B6.4: what each provider does with what you send it, and which tiers it
+    // clears — the answer a person needs before choosing a default tier.
+    privacy: {
+      defaultTier: config.privacy?.defaultTier ?? 'any',
+      providers: Object.entries(config.providers ?? {}).map(([id, provider]) => ({
+        id,
+        retention: provider.privacy?.retention ?? 'unknown',
+        trainsOnData: provider.privacy?.trainsOnData ?? null,
+        tiers: {
+          standard: providerMeetsPrivacyTier(provider, 'standard'),
+          strict: providerMeetsPrivacyTier(provider, 'strict'),
+        },
+      })),
+    },
     configPath: config.path,
     budget: {
       dailyUsd: daily,
@@ -527,6 +551,13 @@ function sinceParam(url) {
 }
 
 /** @param {any} req @param {any} config */
+/** A user agent is a label, not a fingerprint: keep the product, drop the rest. */
+function shortAgent(agent) {
+  if (!agent) return null;
+  const first = String(agent).split(/[\s/]/)[0];
+  return first ? first.slice(0, 40) : null;
+}
+
 function authorise(req, config) {
   const keys = config.apiKeys ?? [];
   const envKey = config.env?.SUI_API_KEY;

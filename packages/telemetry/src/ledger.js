@@ -95,6 +95,10 @@ export class Ledger {
       compressionSavedUsd: entry.compressionSavedUsd ?? 0,
       // B6.6: which tenant this turn belongs to. A name, never a key.
       apiKey: entry.apiKey ?? null,
+      // B7.1: who asked, and with what. Both are labels the caller supplies;
+      // the gateway never infers an identity it was not given.
+      user: entry.user ?? null,
+      tool: entry.tool ?? null,
       promptCacheWarm: entry.promptCacheWarm ?? false,
     };
     this.records.push(rec);
@@ -142,6 +146,17 @@ export class Ledger {
    */
   aggregate(opts = {}) {
     const rows = this.entries(opts);
+    // B7.1: attribution uses the same grouping shape as provider/model/combo, so
+    // one `bump` does all of it and nothing can drift.
+    /** @type {Record<string, any>} */
+    const byUser = {};
+    /** @type {Record<string, any>} */
+    const byTool = {};
+    for (const row of rows) {
+      bump(byUser, row.user ?? 'unattributed', row);
+      bump(byTool, row.tool ?? 'unattributed', row);
+    }
+
     const totals = {
       // A turn is a request that produced an answer. A failed attempt is
       // recorded too (it is how failover is auditable), but it is not a turn.
@@ -219,7 +234,18 @@ export class Ledger {
       }
     }
 
-    return { since: opts.since ?? 0, totals, byProvider, byModel, byCombo, byArm, recent: rows.slice(-50).reverse() };
+    return {
+      since: opts.since ?? 0,
+      totals,
+      byProvider,
+      byModel,
+      byCombo,
+      byArm,
+      // B7.1: who asked and with what, so cost can be charged back
+      byUser,
+      byTool,
+      recent: rows.slice(-50).reverse(),
+    };
   }
 
   /** Prompt-free usage view: which prompt fingerprints recurred, and what they cost. */
@@ -250,7 +276,7 @@ export class Ledger {
       'prompt_tokens', 'completion_tokens', 'cost_usd', 'latency_ms', 'ttft_ms',
       'cached', 'verified', 'streamed', 'prompt_hash', 'prompt_chars',
       'compression_preset', 'compression_saved_tokens', 'compression_saved_usd',
-      'api_key', 'prompt_cache_warm',
+      'api_key', 'prompt_cache_warm', 'user', 'tool',
     ].join(',');
     const lines = this.records.map((r) =>
       [
@@ -258,7 +284,7 @@ export class Ledger {
         r.ok, r.error ?? '', r.promptTokens, r.completionTokens, r.costUsd, r.latencyMs,
         r.ttftMs ?? '', r.cached, r.verified, r.streamed, r.promptHash, r.promptChars,
         r.compressionPreset ?? '', r.compressionSavedTokens ?? 0, r.compressionSavedUsd ?? 0,
-        r.apiKey ?? '', r.promptCacheWarm ?? false,
+        r.apiKey ?? '', r.promptCacheWarm ?? false, r.user ?? '', r.tool ?? '',
       ]
         .map((v) => (typeof v === 'string' && /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v))
         .join(','),

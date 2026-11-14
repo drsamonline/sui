@@ -707,6 +707,8 @@ export class Router {
             compressionPreset: compressed.meta?.preset ?? null,
             promptCacheWarm: cache.warm,
             apiKey: input.keyMeta?.name ?? null,
+            user: input.attribution?.user ?? null,
+            tool: input.attribution?.tool ?? null,
           });
 
           // B3.4: score the answer, and escalate if it is not convincing.
@@ -777,6 +779,8 @@ export class Router {
                 promptText,
                 streamed,
                 apiKey: input.keyMeta?.name ?? null,
+                user: input.attribution?.user ?? null,
+                tool: input.attribution?.tool ?? null,
               });
               break; // leave this target; the outer loop moves to the next one
             }
