@@ -1,0 +1,18 @@
+{
+  "name": "@sui/sdk",
+  "version": "0.2.0",
+  "description": "JavaScript/TypeScript client for the gateway.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "web",
+    "bin",
+    "LICENSE"
+  ],
+  "types": "./src/index.d.ts"
+}

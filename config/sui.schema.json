@@ -1,0 +1,397 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sui-router.dev/sui.schema.json",
+  "title": "sui-router config",
+  "type": "object",
+  "required": [
+    "providers",
+    "models",
+    "combos"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 8787
+        },
+        "cache": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "ttlMs": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 900000
+            },
+            "maxEntries": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 500
+            }
+          }
+        },
+        "allowedHosts": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Host headers this gateway answers to. null means the safe default: 127.0.0.1, localhost, [::1]."
+        }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "description": "Keyed by the id you use in models[].provider.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "openai",
+              "anthropic",
+              "gemini",
+              "mock"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "apiKeyEnv": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of the env var holding the key. null means this endpoint needs no key (Ollama, vLLM, LM Studio)."
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "Discouraged: prefer apiKeyEnv so the key stays out of the repo."
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 60000
+          },
+          "local": {
+            "type": "boolean",
+            "description": "Treat as keyless and local."
+          },
+          "mock": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "delayMs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failWith": {
+                "type": "string"
+              },
+              "failStatus": {
+                "type": "integer"
+              },
+              "failCode": {
+                "type": "string"
+              },
+              "failRetryable": {
+                "type": "boolean"
+              }
+            }
+          },
+          "tier": {
+            "enum": [
+              "free",
+              "paid",
+              "local",
+              "demo"
+            ]
+          },
+          "tos": {
+            "enum": [
+              "allowed",
+              "review",
+              "avoid"
+            ]
+          }
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "provider",
+          "model"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "description": "The provider's own model name."
+          },
+          "label": {
+            "type": "string",
+            "description": "Plain-language name shown in the selector."
+          },
+          "costPer1kIn": {
+            "type": "number",
+            "minimum": 0
+          },
+          "costPer1kOut": {
+            "type": "number",
+            "minimum": 0
+          },
+          "quality": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "tier": {
+            "enum": [
+              "free",
+              "paid",
+              "local",
+              "demo"
+            ]
+          },
+          "contextWindow": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "combos": {
+      "type": "object",
+      "description": "Virtual models your tools call.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "strategy",
+          "targets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "strategy": {
+            "enum": [
+              "fallback",
+              "weighted",
+              "cheapest",
+              "latency"
+            ]
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "model"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "model": {
+                      "type": "string"
+                    },
+                    "weight": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "arm": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "minQuality": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "maxCostPer1k": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "breaker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "failures": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        },
+        "cooldownMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 30000
+        },
+        "halfOpenSuccesses": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dailyUsd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "warnAtPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 80
+        },
+        "perProvider": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "guardrails": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxOutputTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 4096
+        },
+        "maxInputChars": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 400000
+        },
+        "blockPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "logPrompts": {
+          "type": "boolean",
+          "default": false
+        },
+        "redactPiiInLogs": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "apiKeys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "allowedCombos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowedModels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dailyUsd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "key_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "SHA-256 of the key. Preferred over `key`, which is stored in plaintext."
+          }
+        }
+      }
+    },
+    "paid_tiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The paid air-gap. While disabled, a paid provider's credentials are never read.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "vaultPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

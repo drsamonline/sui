@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>sui — routing dashboard</title>
+<style>
+  /* ---------------------------------------------------------------
+     Design tokens. One neutral ladder, one signal colour, one type
+     scale. Components below use var() only — no raw colour values.
+     Contrast checked against WCAG 2.2 AA (4.5:1 body, 3:1 large/UI).
+     --------------------------------------------------------------- */
+  :root {
+    color-scheme: light dark;
+
+    --bg:        #f7f7f6;
+    --surface:   #ffffff;
+    --surface-2: #f1f1ef;
+    --line:      #dcdcd7;
+    --line-strong: #b9b9b2;
+    --text:      #1a1a18;
+    --text-dim:  #5c5c56;
+
+    --accent:      #2f5d50;   /* single signal colour */
+    --accent-weak: #e4eeea;
+    --on-accent:   #ffffff;
+
+    --radius: 10px;
+    --shadow-rest: 0 1px 2px rgb(0 0 0 / 0.06);
+    --shadow-lift: 0 6px 20px rgb(0 0 0 / 0.10);
+
+    --fs-12: 0.75rem;
+    --fs-13: 0.8125rem;
+    --fs-14: 0.875rem;
+    --fs-16: 1rem;
+    --fs-20: 1.25rem;
+    --fs-28: 1.75rem;
+
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+    --space-5: 24px; --space-6: 32px; --space-7: 48px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:        #141414;
+      --surface:   #1c1c1b;
+      --surface-2: #242422;
+      --line:      #333330;
+      --line-strong: #4a4a45;
+      --text:      #f0f0ec;
+      --text-dim:  #a5a59d;
+      --accent:      #7fbfa8;
+      --accent-weak: #23352f;
+      --on-accent:   #10201b;
+      --shadow-rest: 0 1px 2px rgb(0 0 0 / 0.5);
+      --shadow-lift: 0 6px 20px rgb(0 0 0 / 0.55);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: var(--fs-14)/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+  h1 { font-size: var(--fs-20); }
+  h2 { font-size: var(--fs-16); }
+  h3 { font-size: var(--fs-14); }
+  p { margin: 0; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: var(--fs-13); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-7); }
+
+  /* ---- top bar ---- */
+  .topbar {
+    display: flex; flex-wrap: wrap; gap: var(--space-3);
+    align-items: center; justify-content: space-between;
+    padding-bottom: var(--space-4); border-bottom: 1px solid var(--line);
+    margin-bottom: var(--space-5);
+  }
+  .brand { display: flex; align-items: baseline; gap: var(--space-2); }
+  .brand .mark { font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-size: var(--fs-13); color: var(--accent); }
+  .brand .sub { color: var(--text-dim); font-size: var(--fs-13); }
+  .endpoint {
+    display: flex; align-items: center; gap: var(--space-2);
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: var(--space-2) var(--space-3);
+    min-height: 40px;
+  }
+  .endpoint code { color: var(--text); }
+  .topbar-actions { display: flex; gap: var(--space-2); align-items: center; }
+
+  /* ---- buttons ---- */
+  button {
+    font: inherit; color: var(--text); background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: 8px;
+    padding: 8px 12px; min-height: 40px; cursor: pointer;
+    box-shadow: var(--shadow-rest);
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  button:hover { background: var(--surface-2); }
+  button:active { box-shadow: none; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  button.primary:hover { filter: brightness(1.06); }
+  button.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--text-dim); }
+  button.ghost:hover { background: var(--surface-2); color: var(--text); }
+  button[disabled] { opacity: 0.55; cursor: not-allowed; }
+  button.small { min-height: 32px; padding: 4px 10px; font-size: var(--fs-13); }
+
+  /* ---- layout ---- */
+  .grid-main { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+  @media (max-width: 980px) { .grid-main { grid-template-columns: minmax(0, 1fr); } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow-rest);
+  }
+  .card > header {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+    padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line);
+  }
+  .card > .body { padding: var(--space-4); }
+  .card.flush > .body { padding: 0; }
+  .hint { color: var(--text-dim); font-size: var(--fs-13); }
+
+  /* ---- KPI strip ---- */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: var(--space-3); }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-3) var(--space-4); }
+  .kpi .label { font-size: var(--fs-12); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+  .kpi .value { font-size: var(--fs-28); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .kpi .foot { font-size: var(--fs-13); color: var(--text-dim); }
+
+  /* ---- budget ---- */
+  .budget { display: grid; gap: var(--space-2); }
+  .budget .row { display: flex; justify-content: space-between; font-size: var(--fs-13); }
+  .track { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+  .fill { height: 100%; background: var(--accent); width: 0%; transition: width 240ms ease; }
+  .fill[data-over="warn"] { background: repeating-linear-gradient(45deg, var(--accent) 0 6px, var(--accent-weak) 6px 12px); }
+  .fill[data-over="over"] { background: repeating-linear-gradient(45deg, var(--accent) 0 4px, var(--line-strong) 4px 8px); }
+
+  /* ---- tables ---- */
+  table { width: 100%; border-collapse: collapse; font-size: var(--fs-13); }
+  caption { text-align: left; padding: var(--space-3) var(--space-4); color: var(--text-dim); font-size: var(--fs-13); }
+  th, td { text-align: left; padding: 10px var(--space-4); border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: var(--fs-12); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); font-weight: 600; background: var(--surface-2); position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-2); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { max-height: 340px; overflow: auto; }
+
+  /* ---- status ---- */
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-13); white-space: nowrap; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+  .status[data-state="open"] .dot { background: transparent; border: 2px solid var(--accent); }
+  .status[data-state="half_open"] .dot { background: var(--accent); opacity: 0.5; }
+  .status[data-state="unknown"] .dot { background: var(--line-strong); }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: var(--fs-12); background: var(--surface-2); color: var(--text-dim); }
+  .pill[data-tone="accent"] { border-color: var(--accent); color: var(--accent); background: var(--accent-weak); }
+
+  /* ---- skeletons (never spinners) ---- */
+  .skeleton { background: var(--surface-2); border-radius: 6px; height: 14px; position: relative; overflow: hidden; }
+  .skeleton::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, var(--line), transparent);
+    transform: translateX(-100%);
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep { to { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } .fill { transition: none; } }
+  .skeleton.line { height: 12px; margin: 6px 0; }
+  .skeleton.block { height: 84px; border-radius: var(--radius); }
+
+  /* ---- playground ---- */
+  .chat { display: grid; grid-template-rows: 1fr auto; min-height: 430px; }
+  .thread { padding: var(--space-4); display: grid; gap: var(--space-3); align-content: start; max-height: 420px; overflow: auto; }
+  .msg { display: grid; gap: 6px; }
+  .msg .who { font-size: var(--fs-12); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+  .msg .bubble { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.me .bubble { background: var(--accent-weak); border-color: var(--accent); }
+  .chip { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: var(--fs-12); color: var(--text-dim); }
+  .chip span { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; background: var(--surface); }
+  .starters { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .composer { border-top: 1px solid var(--line); padding: var(--space-3); display: grid; gap: var(--space-2); }
+  .composer .row { display: flex; gap: var(--space-2); }
+  textarea {
+    flex: 1; font: inherit; font-size: var(--fs-16); color: var(--text);
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px;
+    padding: 10px 12px; resize: vertical; min-height: 56px;
+  }
+  select {
+    font: inherit; font-size: var(--fs-16); color: var(--text); background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; min-height: 40px;
+  }
+  .selector { display: grid; gap: 4px; }
+  .selector .meta { font-size: var(--fs-12); color: var(--text-dim); }
+  .locked { color: var(--text-dim); }
+
+  /* ---- topology ---- */
+  .topo { width: 100%; height: auto; display: block; }
+  .topo text { fill: var(--text); font-size: 11px; font-family: inherit; }
+  .topo text.dim { fill: var(--text-dim); }
+  .topo .node { fill: var(--surface); stroke: var(--line-strong); }
+  .topo .node.combo { fill: var(--accent-weak); stroke: var(--accent); }
+  .topo .edge { stroke: var(--line-strong); fill: none; }
+  .topo .edge.active { stroke: var(--accent); }
+
+  .split { display: grid; gap: var(--space-4); }
+  .footer { margin-top: var(--space-5); color: var(--text-dim); font-size: var(--fs-13); display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: space-between; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .toast { position: fixed; bottom: var(--space-5); left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: var(--fs-13); box-shadow: var(--shadow-lift); opacity: 0; pointer-events: none; transition: opacity 160ms ease; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark">sui</span>
+      <h1>Routing dashboard</h1>
+      <span class="sub" id="config-path"></span>
+    </div>
+    <div class="topbar-actions">
+      <div class="endpoint">
+        <span class="hint">Endpoint</span>
+        <code id="endpoint-url">…</code>
+        <button class="small" id="copy-endpoint" type="button">Copy</button>
+      </div>
+      <button class="small" id="refresh" type="button">Refresh</button>
+    </div>
+  </div>
+
+  <div class="grid-main">
+
+    <!-- ------------------------------------------------ playground -->
+    <section class="card" aria-labelledby="chat-h">
+      <header>
+        <h2 id="chat-h">Try a request</h2>
+        <span class="pill" id="chat-state">ready</span>
+      </header>
+      <div class="chat">
+        <div class="thread" id="thread" aria-live="polite">
+          <div class="msg">
+            <div class="who">start here</div>
+            <div class="starters" id="starters"></div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="selector">
+            <label for="combo" class="sr-only">Model</label>
+            <select id="combo"></select>
+            <div class="meta" id="combo-meta">Loading models…</div>
+          </div>
+          <div class="row">
+            <label for="prompt" class="sr-only">Your message</label>
+            <textarea id="prompt" placeholder="Ask anything — the gateway picks the provider"></textarea>
+          </div>
+          <div class="row" style="justify-content: flex-end">
+            <button class="ghost small" id="clear" type="button">Clear</button>
+            <button class="primary" id="send" type="button">Send</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ ops column -->
+    <div class="split">
+
+      <section class="card" aria-labelledby="budget-h">
+        <header><h2 id="budget-h">Budget today</h2><span class="hint" id="budget-note"></span></header>
+        <div class="body budget" id="budget">
+          <div class="skeleton block" style="height: 46px"></div>
+        </div>
+      </section>
+
+      <div class="kpis" id="kpis">
+        <div class="kpi"><div class="label">turns</div><div class="skeleton line" style="width: 60%"></div></div>
+        <div class="kpi"><div class="label">spend</div><div class="skeleton line" style="width: 60%"></div></div>
+        <div class="kpi"><div class="label">p50 latency</div><div class="skeleton line" style="width: 60%"></div></div>
+        <div class="kpi"><div class="label">cache hit</div><div class="skeleton line" style="width: 60%"></div></div>
+      </div>
+
+      <section class="card" aria-labelledby="topo-h">
+        <header>
+          <h2 id="topo-h">Your routing pool</h2>
+          <span class="hint">only providers you can reach</span>
+        </header>
+        <div class="body">
+          <svg class="topo" id="topo" viewBox="0 0 520 240" role="img" aria-labelledby="topo-title topo-desc">
+            <title id="topo-title">Combos and the models behind them</title>
+            <desc id="topo-desc">Each combo on the left connects to the models it can route to. Resting models are labelled as resting.</desc>
+          </svg>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="split" style="margin-top: var(--space-4)">
+
+    <section class="card flush" aria-labelledby="pool-h">
+      <header>
+        <h2 id="pool-h">Models in the pool</h2>
+        <button class="small" id="reset-breakers" type="button">Bring all back early</button>
+      </header>
+      <div class="body" style="padding: 0">
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Model</th><th scope="col">Provider</th><th scope="col">Health</th>
+                <th scope="col" class="num">Turns</th><th scope="col" class="num">Cost today</th>
+                <th scope="col" class="num">Avg latency</th><th scope="col" class="num">$/1k in–out</th>
+              </tr>
+            </thead>
+            <tbody id="pool-body">
+              <tr><td colspan="7"><div class="skeleton line"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card flush" aria-labelledby="combos-h">
+      <header><h2 id="combos-h">Combos</h2><span class="hint">what your tools call</span></header>
+      <div class="body" style="padding: 0">
+        <table>
+          <thead><tr><th scope="col">Combo</th><th scope="col">Strategy</th><th scope="col">Order</th><th scope="col" class="num">Turns</th><th scope="col" class="num">Cost</th></tr></thead>
+          <tbody id="combos-body"><tr><td colspan="5"><div class="skeleton line"></div></td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card flush" aria-labelledby="traces-h">
+      <header>
+        <h2 id="traces-h">Prompt-free usage</h2>
+        <div style="display: flex; gap: var(--space-2)">
+          <button class="small" id="export-csv" type="button">Export CSV</button>
+          <button class="small" id="clear-cache" type="button">Clear cache</button>
+        </div>
+      </header>
+      <div class="body" style="padding: 0">
+        <table>
+          <caption>Prompt hashes only. The gateway never stores prompt text unless you switch that on in guardrails.</caption>
+          <thead><tr><th scope="col">Prompt hash</th><th scope="col" class="num">Turns</th><th scope="col" class="num">Chars</th><th scope="col" class="num">Cost</th><th scope="col">Models</th></tr></thead>
+          <tbody id="traces-body"><tr><td colspan="5"><div class="skeleton line"></div></td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card flush" aria-labelledby="recent-h">
+      <header><h2 id="recent-h">Recent turns</h2><span class="hint">newest first</span></header>
+      <div class="body" style="padding: 0">
+        <div class="scroll">
+          <table>
+            <thead><tr><th scope="col">Time</th><th scope="col">Combo</th><th scope="col">Answered by</th><th scope="col">Result</th><th scope="col" class="num">Latency</th><th scope="col" class="num">Cost</th></tr></thead>
+            <tbody id="recent-body"><tr><td colspan="6"><div class="skeleton line"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="footer">
+    <span>sui · MIT · <span id="uptime" class="num">—</span></span>
+    <span id="guardrail-note"></span>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+const $ = (sel) => document.querySelector(sel);
+const STARTERS = ['Review this code for bugs', 'Refactor for readability', 'Explain this file', 'Summarize logs', 'Write tests for this'];
+
+let state = null;
+let selectedCombo = localStorage.getItem('sui.combo') ?? null;
+const thread = $('#thread');
+
+function toast(message) {
+  const el = $('#toast');
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+const money = (n) => (n == null ? '—' : `$${Number(n).toFixed(n < 0.01 ? 5 : 3)}`);
+const ms = (n) => (n == null ? '—' : `${Math.round(n)} ms`);
+const num = (n) => (n == null ? '—' : Number(n).toLocaleString('en-IN'));
+
+/* ------------------------------------------------------------------ data */
+
+async function load() {
+  try {
+    const res = await fetch('/api/status', { headers: { accept: 'application/json' } });
+    state = await res.json();
+    render();
+  } catch (err) {
+    toast('Could not reach the gateway. Is `sui up` still running?');
+  }
+}
+
+function render() {
+  if (!state) return;
+  const { budget, pool, combos, metrics, cache, promptUsage, server, unconfigured } = state;
+
+  $('#endpoint-url').textContent = `http://${location.host}/v1`;
+  $('#config-path').textContent = state.configPath ? state.configPath.replace(/^.*\//, '') : '';
+  $('#uptime').textContent = `up ${Math.floor(server.uptimeSeconds / 60)}m ${server.uptimeSeconds % 60}s`;
+  const warnings = state.invariantWarnings ?? [];
+  $('#guardrail-note').textContent =
+    `guardrails: max ${state.guardrails.maxOutputTokens} out · prompts ${state.guardrails.logPrompts ? 'logged' : 'not logged'} · ` +
+    `paid tier ${state.paidTiers?.enabled ? 'enabled' : 'closed'} · ` +
+    `${unconfigured.length} model${unconfigured.length === 1 ? '' : 's'} without a key` +
+    (warnings.length ? ` · ${warnings.length} invariant warning${warnings.length === 1 ? '' : 's'} (${warnings.map((w) => w.id).join(', ')})` : '');
+
+  renderBudget(budget);
+  renderKpis(metrics.totals, cache);
+  renderPool(pool);
+  renderCombos(combos);
+  renderTraces(promptUsage);
+  renderRecent(metrics.recent);
+  renderTopology(combos, pool);
+  renderComboSelect(combos, pool);
+}
+
+function renderBudget(budget) {
+  const el = $('#budget');
+  if (!budget.dailyUsd) {
+    el.innerHTML = `<div class="row"><span>No daily cap set</span><span class="num">${money(budget.spentUsd)} spent</span></div>
+      <div class="hint">Add <code>budgets.dailyUsd</code> to cap spend per day.</div>`;
+    $('#budget-note').textContent = '';
+    return;
+  }
+  const pct = budget.pct ?? 0;
+  const over = pct >= 100 ? 'over' : pct >= budget.warnAtPct ? 'warn' : 'ok';
+  el.innerHTML = `
+    <div class="row"><span class="num">${money(budget.spentUsd)} of ${money(budget.dailyUsd)}</span><span class="num">${pct}%</span></div>
+    <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Daily budget used">
+      <div class="fill" data-over="${over}" style="width: ${pct}%"></div>
+    </div>
+    <div class="hint">${over === 'over' ? 'Cap reached — every target is skipped until tomorrow, or raise budgets.dailyUsd.' : over === 'warn' ? `Past the ${budget.warnAtPct}% warning line.` : 'Within budget.'}</div>`;
+  $('#budget-note').textContent = `resets at midnight`;
+}
+
+function renderKpis(totals, cache) {
+  $('#kpis').innerHTML = [
+    ['turns', num(totals.turns), `${totals.attempts} attempts · ${totals.failed} failed`],
+    ['spend', money(totals.costUsd), `${num(totals.promptTokens)} in / ${num(totals.completionTokens)} out`],
+    ['p50 latency', ms(totals.p50LatencyMs), `p95 ${ms(totals.p95LatencyMs)}`],
+    ['cache hit', `${Math.round(cache.hitRate * 100)}%`, `${cache.entries} entries`],
+  ].map(([label, value, foot]) => `
+    <div class="kpi"><div class="label">${label}</div><div class="value">${value}</div><div class="foot">${foot}</div></div>`).join('');
+}
+
+function healthCell(m) {
+  const label = m.health === 'closed' ? 'ready' : m.health === 'open' ? `resting (${Math.ceil(m.retryInMs / 1000)}s)` : 'testing';
+  return `<span class="status" data-state="${m.health}"><span class="dot" aria-hidden="true"></span>${label}</span>`;
+}
+
+function renderPool(pool) {
+  $('#pool-body').innerHTML = pool.length
+    ? pool.map((m) => `
+      <tr>
+        <td><strong>${m.label}</strong><div class="hint mono">${m.modelId}</div></td>
+        <td>${m.provider}</td>
+        <td>${healthCell(m)}${m.lastError ? `<div class="hint">${escapeHtml(m.lastError)}</div>` : ''}</td>
+        <td class="num">${num(m.turnsToday)}</td>
+        <td class="num">${money(m.costToday)}</td>
+        <td class="num">${ms(m.avgLatencyMs)}</td>
+        <td class="num">${m.costPer1kIn}–${m.costPer1kOut}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="7" class="hint" style="padding: var(--space-4)">No model has credentials yet. Add a key to <code>.env</code> and restart.</td></tr>`;
+}
+
+function renderCombos(combos) {
+  $('#combos-body').innerHTML = combos.map((c) => `
+    <tr>
+      <td><strong>${c.label}</strong><div class="hint mono">${c.id}</div></td>
+      <td>${c.strategy}</td>
+      <td class="mono">${c.targets.join(' → ')}</td>
+      <td class="num">${num(c.turnsToday)}</td>
+      <td class="num">${money(c.costToday)}</td>
+    </tr>`).join('');
+}
+
+function renderTraces(prompts) {
+  $('#traces-body').innerHTML = prompts.length
+    ? prompts.map((p) => `
+      <tr>
+        <td class="mono">${p.promptHash}</td>
+        <td class="num">${p.turns}</td>
+        <td class="num">${num(p.chars)}</td>
+        <td class="num">${money(p.costUsd)}</td>
+        <td class="hint">${p.models.join(', ')}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="5" class="hint" style="padding: var(--space-4)">Nothing routed yet. Send a request above.</td></tr>`;
+}
+
+function renderRecent(recent) {
+  $('#recent-body').innerHTML = recent.length
+    ? recent.map((r) => `
+      <tr>
+        <td class="num">${new Date(r.ts).toLocaleTimeString('en-IN', { hour12: false })}</td>
+        <td class="mono">${r.combo}</td>
+        <td>${r.modelId}<div class="hint">${r.provider}</div></td>
+        <td>${r.ok ? (r.cached ? 'cached' : r.verified ? 'answered' : 'demo answer') : `<span title="${escapeHtml(r.error ?? '')}">failed</span>`}</td>
+        <td class="num">${ms(r.latencyMs)}</td>
+        <td class="num">${money(r.costUsd)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="6" class="hint" style="padding: var(--space-4)">No turns yet.</td></tr>`;
+}
+
+function renderTopology(combos, pool) {
+  const svg = $('#topo');
+  const W = 520, H = 240;
+  const leftX = 12, nodeW = 150, nodeH = 26;
+  const rightX = W - nodeW - 12;
+  const rows = Math.max(combos.length, pool.length, 1);
+  const gapY = Math.min(44, (H - 30) / rows);
+
+  const parts = [];
+  const pos = (i) => 22 + i * gapY;
+
+  combos.forEach((c, i) => {
+    const y = pos(i);
+    parts.push(`<rect class="node combo" x="${leftX}" y="${y}" width="${nodeW}" height="${nodeH}" rx="7" />`);
+    parts.push(`<text x="${leftX + 10}" y="${y + 17}">${escapeXml(c.id)}</text>`);
+  });
+
+  pool.forEach((m, i) => {
+    const y = pos(i);
+    parts.push(`<rect class="node" x="${rightX}" y="${y}" width="${nodeW}" height="${nodeH}" rx="7" />`);
+    const label = m.modelId.length > 18 ? m.modelId.slice(0, 17) + '…' : m.modelId;
+    parts.push(`<text x="${rightX + 10}" y="${y + 17}">${escapeXml(label)}</text>`);
+    const resting = m.health !== 'closed';
+    if (resting) {
+      parts.push(`<text class="dim" x="${rightX + nodeW - 8}" y="${y + 17}" text-anchor="end">resting</text>`);
+    }
+  });
+
+  combos.forEach((c, ci) => {
+    const cy = pos(ci) + nodeH / 2;
+    c.targets.forEach((targetId) => {
+      const pi = pool.findIndex((m) => m.modelId === targetId);
+      if (pi === -1) return;
+      const py = pos(pi) + nodeH / 2;
+      const mid = (leftX + nodeW + rightX) / 2;
+      const active = pool[pi].health === 'closed' && ci === 0;
+      parts.push(
+        `<path class="edge ${active ? 'active' : ''}" d="M ${leftX + nodeW} ${cy} C ${mid} ${cy}, ${mid} ${py}, ${rightX} ${py}" />`,
+      );
+    });
+  });
+
+  if (!combos.length || !pool.length) {
+    parts.push(`<text class="dim" x="${W / 2}" y="${H / 2}" text-anchor="middle">nothing in the pool yet</text>`);
+  }
+
+  svg.innerHTML = `<title id="topo-title">Combos and the models behind them</title>
+    <desc id="topo-desc">Each combo on the left connects to the models it can route to. Resting models are labelled as resting.</desc>
+    ${parts.join('')}`;
+}
+
+function renderComboSelect(combos, pool) {
+  const select = $('#combo');
+  const available = new Set(pool.filter((m) => m.health === 'closed').map((m) => m.modelId));
+
+  select.innerHTML = combos.map((c) => {
+    const anyReady = c.targets.some((t) => available.has(t));
+    return `<option value="${c.id}" ${anyReady ? '' : 'disabled'}>${c.label}${anyReady ? '' : ' — nothing available'}</option>`;
+  }).join('');
+
+  if (selectedCombo && combos.some((c) => c.id === selectedCombo)) select.value = selectedCombo;
+  else selectedCombo = combos[0]?.id ?? null;
+
+  select.onchange = () => {
+    selectedCombo = select.value;
+    localStorage.setItem('sui.combo', selectedCombo);
+    renderComboMeta(combos, pool);
+  };
+  renderComboMeta(combos, pool);
+
+  const locked = combos.filter((c) => !c.targets.some((t) => available.has(t)));
+  if (locked.length) {
+    const meta = $('#combo-meta');
+    meta.innerHTML += ` <span class="locked">· ${locked.length} combo${locked.length === 1 ? '' : 's'} locked: no reachable model</span>`;
+  }
+}
+
+function renderComboMeta(combos, pool) {
+  const combo = combos.find((c) => c.id === selectedCombo);
+  const meta = $('#combo-meta');
+  if (!combo) return;
+  const first = pool.find((m) => m.modelId === combo.targets[0]);
+  const cost = first ? `$${first.costPer1kIn}/1k in` : 'cost unknown';
+  const speed = first ? ms(first.avgLatencyMs) : 'unmeasured';
+  const quality = first?.quality ? `${first.quality}/5 quality` : 'quality unrated';
+  meta.textContent = `${combo.strategy} · ${speed} · ${quality} · ${cost}`;
+}
+
+/* ------------------------------------------------------------- playground */
+
+function addMessage(who, text, chip) {
+  const el = document.createElement('div');
+  el.className = `msg ${who === 'you' ? 'me' : ''}`;
+  el.innerHTML = `<div class="who">${who}</div><div class="bubble"></div>`;
+  el.querySelector('.bubble').textContent = text;
+  if (chip) {
+    const c = document.createElement('div');
+    c.className = 'chip';
+    c.innerHTML = chip.map((t) => `<span>${escapeHtml(t)}</span>`).join('');
+    el.appendChild(c);
+  }
+  thread.appendChild(el);
+  thread.scrollTop = thread.scrollHeight;
+  return el.querySelector('.bubble');
+}
+
+async function send() {
+  const text = $('#prompt').value.trim();
+  if (!text || !selectedCombo) return;
+  const button = $('#send');
+  button.disabled = true;
+  $('#prompt').value = '';
+  addMessage('you', text);
+
+  const bubble = addMessage('sui', '');
+  bubble.classList.add('skeleton');
+  const startedAt = performance.now();
+
+  try {
+    const res = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: selectedCombo,
+        stream: true,
+        messages: [{ role: 'user', content: text }],
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
+      bubble.classList.remove('skeleton');
+      bubble.textContent = err.error?.message ?? 'The gateway could not answer.';
+      return;
+    }
+
+    // The first token is the loading state: no blank screen while we wait.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let answer = '';
+    let sui = null;
+    let firstTokenAt = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const block = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        for (const line of block.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === '[DONE]') continue;
+          let payload;
+          try { payload = JSON.parse(data); } catch { continue; }
+          const delta = payload.choices?.[0]?.delta?.content;
+          if (delta) {
+            if (firstTokenAt === null) {
+              firstTokenAt = performance.now();
+              bubble.classList.remove('skeleton');
+            }
+            answer += delta;
+            bubble.textContent = answer;
+            thread.scrollTop = thread.scrollHeight;
+          }
+          if (payload.sui) sui = payload.sui;
+        }
+      }
+    }
+
+    if (!answer) {
+      bubble.classList.remove('skeleton');
+      bubble.textContent = '(empty reply)';
+    }
+
+    const total = Math.round(performance.now() - startedAt);
+    const msg = bubble.parentElement;
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.innerHTML = [
+      sui ? sui.provider : 'unknown provider',
+      sui ? (sui.verified ? 'verified' : 'demo — not a real model') : '',
+      sui?.cached ? 'cached' : 'fresh',
+      `${sui?.latencyMs ?? total} ms`,
+      firstTokenAt ? `first token ${Math.round(firstTokenAt - startedAt)} ms` : '',
+      sui ? money(sui.costUsd) : '',
+    ].filter(Boolean).map((t) => `<span>${escapeHtml(t)}</span>`).join('');
+    msg.appendChild(chip);
+    load();
+  } catch (err) {
+    bubble.classList.remove('skeleton');
+    bubble.textContent = 'The connection dropped mid-answer. Nothing was retried, because part of the reply had already arrived.';
+  } finally {
+    button.disabled = false;
+    $('#prompt').focus();
+  }
+}
+
+/* ------------------------------------------------------------------ wiring */
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeXml(s) { return escapeHtml(s); }
+
+$('#starters').innerHTML = STARTERS.map((s) => `<button class="small" type="button">${s}</button>`).join('');
+$('#starters').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  $('#prompt').value = btn.textContent;
+  $('#prompt').focus();
+});
+
+$('#send').addEventListener('click', send);
+$('#prompt').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
+});
+$('#clear').addEventListener('click', () => {
+  thread.innerHTML = `<div class="msg"><div class="who">start here</div><div class="starters" id="starters">${STARTERS.map((s) => `<button class="small" type="button">${s}</button>`).join('')}</div></div>`;
+});
+$('#refresh').addEventListener('click', () => { load(); toast('Refreshed'); });
+$('#copy-endpoint').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(`http://${location.host}/v1`);
+    toast('Endpoint copied');
+  } catch {
+    toast('Copy failed — select the address manually');
+  }
+});
+$('#export-csv').addEventListener('click', () => { window.location.href = '/api/metrics.csv'; });
+$('#clear-cache').addEventListener('click', async () => {
+  await fetch('/api/cache/clear', { method: 'POST' });
+  toast('Cache cleared');
+  load();
+});
+$('#reset-breakers').addEventListener('click', async () => {
+  await fetch('/api/breaker/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  toast('All models back in rotation');
+  load();
+});
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

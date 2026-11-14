@@ -1,0 +1,101 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No dependencies to install. That is the point (ADR-0003).
+      - name: Link workspaces
+        run: npm install --no-audit --no-fund
+
+      - name: Tests — unit, integration, invariants, security, dashboard
+        run: npm test
+
+      - name: Eval harness self-test (graders grade what they claim)
+        run: npm run eval:self
+
+      - name: Config examples are valid
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('config/sui.config.json','utf8'));JSON.parse(require('fs').readFileSync('config/sui.schema.json','utf8'));console.log('ok')"
+          node -e "const {normalizeConfig}=require('@sui/core');" 2>/dev/null || true
+
+      - name: Invariant audit
+        run: node apps/cli/bin/sui.js invariants --config config/sui.config.json
+
+  soak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - name: Data-plane overhead against the 15ms budget (I2)
+        run: node scripts/soak.mjs --minutes 1 --rps 20 --report soak.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: soak-report
+          path: soak.json
+
+  eval:
+    # Runs only when a provider key exists, because a free-tier eval with no
+    # free tier is theatre. Add GROQ_API_KEY (or any key) as a repository secret.
+    runs-on: ubuntu-latest
+    if: ${{ secrets.GROQ_API_KEY != '' || secrets.GEMINI_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - name: Onboarding, then a real round-trip
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d); cd "$tmp"
+          SUI_HOME="$tmp/.sui" node "$GITHUB_WORKSPACE/apps/cli/bin/sui.js" init --no-serve | tee out.txt
+          grep -q "Endpoint ready" out.txt
+      - name: Golden-set eval — blocks the merge on regression (I10)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node evals/run.mjs --config config/sui.config.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: evals/report-*
+
+  migration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - name: Migration preview runs against the example config
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d); cd "$tmp"
+          SUI_HOME="$tmp/.sui" node "$GITHUB_WORKSPACE/apps/cli/bin/sui.js" init --no-serve > /dev/null
+          node "$GITHUB_WORKSPACE/apps/cli/bin/sui.js" migrate "$GITHUB_WORKSPACE/config/examples/old-router.config.json" | tee mig.txt
+          grep -q "looks like 9router" mig.txt
+          grep -q "Nothing written" mig.txt

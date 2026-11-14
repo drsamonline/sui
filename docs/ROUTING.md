@@ -1,0 +1,145 @@
+# Routing
+
+A **combo** is a virtual model. It has a strategy and an ordered list of targets. Your tools call the combo; the router decides who answers.
+
+```json
+"chat-default": {
+  "label": "Everyday chat",
+  "strategy": "fallback",
+  "targets": ["groq-70b", "gemini-flash", "gpt-mini"]
+}
+```
+
+A bare model id is also callable (`"model": "gpt-mini"`), because some tools refuse names they cannot find in a provider's catalogue.
+
+## Strategies
+
+### `fallback` — declared order
+
+The first healthy target answers. Everything after it is insurance. This is the right default for a chatbot: predictable, and the client never learns that a provider was down.
+
+### `weighted` — A/B split with attribution
+
+```json
+"balanced": {
+  "strategy": "weighted",
+  "targets": [
+    { "model": "gemini-flash", "weight": 70 },
+    { "model": "gpt-mini", "weight": 30 }
+  ]
+}
+```
+
+One target is picked by weight; the rest stay available as fallbacks in descending weight. Each turn records its `arm`, so `sui cost` and `GET /api/metrics` can print per-arm turns, cost and latency. Without the arm there is no experiment, only noise.
+
+### `cheapest` — cost first, quality floor enforced
+
+```json
+"cheap": {
+  "strategy": "cheapest",
+  "minQuality": 3,
+  "maxCostPer1k": 0.002,
+  "targets": ["groq-fast", "or-free", "gpt-mini", "gemini-flash"]
+}
+```
+
+Targets below `minQuality` are skipped with that reason, then the rest are sorted by blended cost (in + out, averaged) for the prompt in hand. `maxCostPer1k` is a hard cap on the declared prices.
+
+The honest measure of this strategy is not "we chose the cheap one" but "same task success rate at lower measured cost". Compare `sui cost --all` before and after, and watch `totals.failed` — a cheaper route that fails more is not cheaper.
+
+### `latency` — fastest measured p50
+
+Targets are sorted by their measured p50 from the ledger. A target with no history sorts last, so the first request uses declared order and the router learns from there.
+
+## Health: the circuit breaker
+
+Per target, keyed by model id.
+
+| State | Meaning | Behaviour |
+|---|---|---|
+| `closed` | healthy | requests go through |
+| `open` | failing | skipped entirely, with `resting after a failure (retrying in Ns)` |
+| `half_open` | cooling down, trial allowed | one request probes the provider; success closes it, failure re-opens it |
+
+```json
+"breaker": { "failures": 3, "cooldownMs": 30000, "halfOpenSuccesses": 1 }
+```
+
+Only retryable failures open the breaker: timeouts, connection errors, 408/409/425/429, and 5xx. A 400 (bad request), 401 (bad key) or 404 (model gone) is recorded and the router moves on, but retrying the same target would not help, so the breaker is not the mechanism for it.
+
+Only 5xx and transport failures trip it (I13). A 401, 403, 404 or 429 is recorded in the ledger and the router moves to the next target, but the breaker stays closed — a bad key is a config bug, and hiding it behind a cooldown helps nobody.
+
+When every target is resting, the router does not refuse: it holds them in a `resting` bucket and tries them only after every healthy target has failed (I14), recording `escalation` on the turn when it does.
+
+`POST /api/breaker/reset` (or the dashboard's "Bring all back early") closes every breaker. Use it after fixing a key, not as a habit.
+
+## Terms of service
+
+`tos: allowed | review | avoid` on a provider, defaulting to `review`.
+
+- `avoid` is never auto-routed (I12). It can still be called by naming the model directly — that is a deliberate act, not a route.
+- `review` is routable but scores lower in the catalogue, and the Weather Map shows it as such.
+- `sui invariants` and `GET /api/invariants` report any combo that still contains an `avoid` provider, so the gap is visible rather than silent.
+
+## The paid gate
+
+`paid_tiers.enabled` defaults to false. While it is closed, a provider with `tier: "paid"` reports no credentials: the environment variable is not read, the model is skipped, and the reason given is `paid tier is closed (paid_tiers.enabled is false)`. Opening the gate is a config change plus a restart.
+
+## Budgets
+
+```json
+"budgets": { "dailyUsd": 5, "warnAtPct": 80, "perProvider": { "openai": 2 } }
+```
+
+Checked during planning, not after the fact: when the cap is reached every target is skipped with `daily budget reached` and the request fails with a 503 that says which cap and how to raise it. The daily window is local midnight to local midnight.
+
+The dashboard shows a budget bar; past `warnAtPct` it is striped, past 100% it is striped differently and the caption says what happens next. Colour is never the only signal.
+
+## Cache
+
+```json
+"server": { "cache": { "enabled": true, "ttlMs": 900000, "maxEntries": 500 } }
+```
+
+Non-streaming requests only (a stream cannot be replayed honestly as a stream from a cache entry without pretending). The key covers combo, messages, temperature, max_tokens, top_p and stop. A hit returns immediately with `cached: true` and keeps its price so savings stay countable.
+
+Turn it off when you are measuring latency, or when prompts contain data that should not sit in memory.
+
+## Guardrails
+
+```json
+"guardrails": {
+  "maxOutputTokens": 4096,
+  "maxInputChars": 400000,
+  "blockPatterns": ["-----BEGIN PRIVATE KEY-----"],
+  "logPrompts": false,
+  "redactPiiInLogs": true
+}
+```
+
+- `maxOutputTokens` clamps the request's own `max_tokens`, whichever is smaller.
+- `maxInputChars` refuses an oversized prompt with its real size in the message.
+- `blockPatterns` are regular expressions matched against the joined prompt. A match is a 400 with the pattern named — no provider is called.
+- `logPrompts: false` is the default. The ledger stores a salted hash and a length. Set it to `true` only if you accept that prompt text lands on disk.
+
+This is a starter set, not a governance product. It does not redact PII on the wire, and it does not classify content.
+
+## Per-key policy
+
+```json
+"apiKeys": [
+  { "key": "sk-team-a", "name": "Team A", "allowedCombos": ["chat-default", "cheap"], "allowedModels": ["groq-70b", "gpt-mini"] }
+]
+```
+
+The key is checked at the first hop; the combo's strategy decides the second. That is the two-hop shape: policy at the edge, routing behind it. Keys are compared as plain strings, so treat this as an internal gateway control, not a hardened auth system — put it behind your own ingress if it is internet-facing.
+
+## Recipes
+
+**Survive an outage** — `fallback` across three providers with different upstreams, `breaker.failures: 2` so a bad provider is out of rotation after two requests.
+
+**Same task, lower cost** — `cheapest` with `minQuality: 3`, then compare `sui cost --all` week over week, and check `totals.failed` did not move.
+
+**Pick a provider on evidence** — `weighted` 70/30 for a week, then read the per-arm table: turns, cost, average latency. Promote the winner to a `fallback` chain and keep the loser as insurance.
+
+**Local-first, cloud as overflow** — put `local-qwen` first in a `fallback` chain; a stopped Ollama fails in milliseconds and the request moves to a hosted model.

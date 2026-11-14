@@ -1,0 +1,64 @@
+{
+  "_comment": "A deliberately different-shaped config, for exercising `sui migrate`. Keys are fake.",
+  "version": 2,
+  "connections": {
+    "groq": {
+      "type": "openai",
+      "base_url": "https://api.groq.com/openai/v1",
+      "api_key": "gsk_fake_key_for_the_demo"
+    },
+    "claude": {
+      "kind": "anthropic",
+      "url": "https://api.anthropic.com/v1",
+      "api_key_env": "ANTHROPIC_API_KEY"
+    },
+    "local": {
+      "format": "openai",
+      "api_base": "http://127.0.0.1:11434/v1"
+    }
+  },
+  "modelMap": {
+    "llama": {
+      "provider": "groq",
+      "upstreamModel": "llama-3.3-70b-versatile",
+      "inputCost": 0.00059,
+      "outputCost": 0.00079,
+      "quality": 4
+    },
+    "haiku": {
+      "provider": "claude",
+      "name": "claude-3-5-haiku-20241022",
+      "title": "Careful writer"
+    },
+    "qwen": {
+      "provider": "local",
+      "model": "qwen2.5-coder:7b"
+    }
+  },
+  "aliases": {
+    "chat": {
+      "description": "Everyday chat",
+      "mode": "chain",
+      "chain": [
+        "llama",
+        "haiku"
+      ]
+    },
+    "split": {
+      "mode": "ab-split",
+      "models": [
+        {
+          "model": "llama",
+          "weight": 70
+        },
+        {
+          "model": "haiku",
+          "weight": 30
+        }
+      ]
+    }
+  },
+  "telemetry": {
+    "endpoint": "https://example.invalid"
+  }
+}

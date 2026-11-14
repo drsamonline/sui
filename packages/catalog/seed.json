@@ -1,0 +1,185 @@
+{
+  "_comment": "Seed catalogue. An entry with needs_probe:true and base_url:null is an IDENTITY, not an endpoint — the canary prober (B2.3) resolves and verifies it before it can be routed to. We do not ship unverified URLs.",
+  "version": 1,
+  "entries": [
+    {
+      "provider": "pollinations",
+      "label": "Pollinations",
+      "auth": "none",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "image"
+      ],
+      "needs_probe": true,
+      "notes": "Keyless tier named in the spec. ToS and retention must be read before it is allowed to route customer prompts."
+    },
+    {
+      "provider": "ovhcloud-ai",
+      "label": "OVHcloud AI Endpoints",
+      "auth": "none",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Keyless access is limited and changes; probe before use."
+    },
+    {
+      "provider": "llm7",
+      "label": "LLM7",
+      "auth": "none",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true
+    },
+    {
+      "provider": "kilo-gateway",
+      "label": "Kilo Gateway",
+      "auth": "none",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "tools"
+      ],
+      "needs_probe": true
+    },
+    {
+      "provider": "ollama",
+      "label": "Ollama (this machine)",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "auth": "none",
+      "local": true,
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "none",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "embeddings"
+      ],
+      "needs_probe": true,
+      "notes": "Loopback literal only. Discovery never scans hostnames, LAN addresses or redirects."
+    },
+    {
+      "provider": "lmstudio",
+      "label": "LM Studio (this machine)",
+      "base_url": "http://127.0.0.1:1234/v1",
+      "auth": "none",
+      "local": true,
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "none",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true
+    },
+    {
+      "provider": "groq",
+      "label": "Groq",
+      "base_url": "https://api.groq.com/openai/v1",
+      "auth": "key",
+      "key_env": "GROQ_API_KEY",
+      "model_family": "llama",
+      "tos": "allowed",
+      "privacy_retention": "short",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "tools",
+        "json_schema"
+      ],
+      "needs_probe": true
+    },
+    {
+      "provider": "gemini",
+      "label": "Google Gemini",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta",
+      "auth": "key",
+      "key_env": "GEMINI_API_KEY",
+      "model_family": "gemini",
+      "tos": "allowed",
+      "privacy_retention": "long",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "tools",
+        "json_schema",
+        "vision"
+      ],
+      "needs_probe": true
+    },
+    {
+      "provider": "openrouter",
+      "label": "OpenRouter (:free models)",
+      "base_url": "https://openrouter.ai/api/v1",
+      "auth": "key",
+      "key_env": "OPENROUTER_API_KEY",
+      "model_family": "mixed",
+      "tos": "allowed",
+      "privacy_retention": "short",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "tools"
+      ],
+      "needs_probe": true
+    },
+    {
+      "provider": "openai",
+      "label": "OpenAI",
+      "base_url": "https://api.openai.com/v1",
+      "auth": "key",
+      "key_env": "OPENAI_API_KEY",
+      "model_family": "gpt",
+      "tos": "allowed",
+      "privacy_retention": "short",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "tools",
+        "json_schema",
+        "vision",
+        "embeddings",
+        "stt",
+        "tts"
+      ],
+      "needs_probe": true,
+      "paid_only": true
+    },
+    {
+      "provider": "anthropic",
+      "label": "Anthropic",
+      "base_url": "https://api.anthropic.com/v1",
+      "auth": "key",
+      "key_env": "ANTHROPIC_API_KEY",
+      "model_family": "claude",
+      "tos": "allowed",
+      "privacy_retention": "short",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "tools",
+        "vision"
+      ],
+      "needs_probe": true,
+      "paid_only": true
+    }
+  ]
+}

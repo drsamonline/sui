@@ -1,0 +1,18 @@
+{
+  "name": "@sui/router",
+  "version": "0.2.0",
+  "description": "Routing decisions, strategies, circuit breaker.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src",
+    "web",
+    "bin",
+    "LICENSE"
+  ]
+}

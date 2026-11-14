@@ -1,0 +1,40 @@
+{
+  "ranAt": "2026-11-14T06:38:56.796Z",
+  "minutes": 1,
+  "rps": 1,
+  "providerDelayMs": 5,
+  "budgetMs": 15,
+  "requests": 60,
+  "failures": 0,
+  "chaosTurns": 60,
+  "overhead": {
+    "p50Ms": 2.35,
+    "p95Ms": 11.41,
+    "p99Ms": 19.54,
+    "maxMs": 19.54
+  },
+  "memory": {
+    "startMb": 131.2,
+    "endMb": 130,
+    "growthMb": -1.1
+  },
+  "unhandled": [],
+  "ledgerRecords": 130,
+  "breakers": [
+    {
+      "key": "steady-1",
+      "state": "closed",
+      "failures": 0,
+      "lastError": null,
+      "retryInMs": 0
+    },
+    {
+      "key": "flaky-1",
+      "state": "open",
+      "failures": 60,
+      "lastError": "simulated 503 during soak",
+      "retryInMs": 0
+    }
+  ],
+  "pass": true
+}

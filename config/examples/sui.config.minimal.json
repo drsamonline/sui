@@ -1,0 +1,44 @@
+{
+  "$schema": "../config/sui.schema.json",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8787
+  },
+  "providers": {
+    "groq": {
+      "type": "openai",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "apiKeyEnv": "GROQ_API_KEY"
+    }
+  },
+  "models": {
+    "groq-70b": {
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "label": "Fast and strong (Groq Llama 3.3 70B)",
+      "costPer1kIn": 0.00059,
+      "costPer1kOut": 0.00079,
+      "quality": 4
+    }
+  },
+  "combos": {
+    "chat-default": {
+      "label": "Everyday chat",
+      "strategy": "fallback",
+      "targets": [
+        "groq-70b"
+      ]
+    }
+  },
+  "breaker": {
+    "failures": 3,
+    "cooldownMs": 30000
+  },
+  "budgets": {
+    "dailyUsd": 2
+  },
+  "guardrails": {
+    "maxOutputTokens": 2048,
+    "logPrompts": false
+  }
+}

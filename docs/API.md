@@ -1,0 +1,192 @@
+# API reference
+
+Base URL: `http://127.0.0.1:8787` unless you changed `server.port`.
+
+Auth: none by default. If `apiKeys` is set in the config (or `SUI_API_KEY` in the environment), every `/v1/*` call needs `Authorization: Bearer <key>`. The dashboard and `/api/*` are unauthenticated — bind to `127.0.0.1` (the default) and put the gateway behind your own ingress before exposing it.
+
+Errors are always `{ "error": { "message": string, "type": string, "retryable": bool } }`, with a `detail` or `attempts` field where useful. Never a stack trace.
+
+---
+
+## POST /v1/chat/completions
+
+OpenAI-compatible.
+
+```json
+{
+  "model": "chat-default",
+  "messages": [{ "role": "user", "content": "Explain this stack trace" }],
+  "stream": false,
+  "temperature": 0.7,
+  "max_tokens": 800,
+  "top_p": 1,
+  "stop": ["\n\n"]
+}
+```
+
+`model` may be a combo name or a bare model id. Everything else is passed through to the provider, with `max_tokens` clamped by `guardrails.maxOutputTokens`.
+
+**Response** — OpenAI shape plus `sui`:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `sui.provider` | string | provider id that answered |
+| `sui.providerName` | string | human name, for messages |
+| `sui.model` | string | the provider's own model name |
+| `sui.modelId` | string | your name for it, from `models` |
+| `sui.combo` | string | the virtual model that was called |
+| `sui.arm` | string \| null | A/B arm, when the strategy is `weighted` |
+| `sui.strategy` | string | `fallback` \| `weighted` \| `cheapest` \| `latency` |
+| `sui.verified` | bool | `true` when a real upstream answered (mock and local-unverified are `false`) |
+| `sui.cached` | bool | served from the response cache |
+| `sui.latencyMs` | number | full turn |
+| `sui.ttftMs` | number \| null | time to first token, streaming only |
+| `sui.costUsd` | number | computed from the model's declared prices |
+| `sui.attempts` | array | `{modelId, provider, reason}` for each target tried and failed |
+
+Headers on the response: `x-sui-provider`, `x-sui-model`, `x-sui-combo`, `x-sui-verified`, `x-sui-cached`, `x-sui-cost-usd`, `x-sui-latency-ms`, and — for the overhead budget — `x-sui-handler-ms` (our handler) and `x-sui-overhead-ms` (handler minus provider time). The same two numbers appear as `sui.handlerMs` and `sui.overheadMs`, and `sui.escalation` says when a resting provider was tried under I14. With `stream: true`, also `x-sui-ttft-ms`, set when the first token is written.
+
+**Streaming.** Standard SSE: role frame, content deltas, a final frame carrying `usage` and `sui`, then `data: [DONE]`. The `x-sui-*` headers are written with the first token, so a client can render provenance before the answer finishes.
+
+**Status codes**
+
+| Code | When | What to do |
+|---|---|---|
+| 200 | answered (possibly after failover) | read `sui.attempts` to see what happened |
+| 400 | bad JSON, empty `messages`, blocked by a guardrail | fix the request |
+| 401 | key missing or unrecognised | send `Authorization: Bearer` |
+| 403 | key may not use this combo/model | check `allowedCombos` / `allowedModels` |
+| 404 | `model` is not a combo or a model | `GET /v1/models` |
+| 413 | prompt over `guardrails.maxInputChars` | raise the cap or shorten |
+| 502 | provider dropped a stream mid-answer | retry the request |
+| 503 | no target could answer | the message lists every reason |
+
+---
+
+## GET /v1/models
+
+```json
+{ "object": "list", "data": [
+  { "id": "chat-default", "object": "model", "owned_by": "sui-router",
+    "label": "Everyday chat", "strategy": "fallback",
+    "targets": ["groq-70b", "gemini-flash"] }
+] }
+```
+
+`?all=1` appends the underlying models with `available: true|false`.
+
+## GET /healthz
+
+```json
+{ "ok": true, "service": "sui-router", "uptimeSeconds": 812 }
+```
+
+## GET /api/status
+
+Everything the dashboard renders, in one call.
+
+| Field | Contents |
+|---|---|
+| `server` | host, port, uptime |
+| `configPath` | which config is loaded |
+| `budget` | `dailyUsd`, `spentUsd`, `pct`, `warnAtPct` |
+| `pool` | models with credentials: label, provider, quality, tier, prices, `health`, `retryInMs`, `lastError`, `turnsToday`, `costToday`, `avgLatencyMs` |
+| `unconfigured` | models with no key: `modelId`, `provider`, `needsEnv` |
+| `combos` | id, label, strategy, targets, `turnsToday`, `costToday` |
+| `metrics` | the same aggregate as `/api/metrics`, since local midnight |
+| `cache` | `enabled`, `entries`, `hits`, `misses`, `hitRate` |
+| `breakers` | one entry per known target: `key`, `state`, `failures`, `lastError`, `retryInMs` |
+| `guardrails` | the active guardrail settings |
+| `promptUsage` | top 20 prompt hashes by cost |
+
+No key material appears anywhere in this payload.
+
+## GET /api/metrics
+
+`?since=<epoch ms | ISO date | all>` — defaults to local midnight.
+
+```json
+{
+  "since": 1762992000000,
+  "totals": {
+    "turns": 41, "attempts": 44, "ok": 41, "failed": 3, "cached": 6,
+    "costUsd": 0.0812, "savedUsd": 0.0091,
+    "promptTokens": 182340, "completionTokens": 41022,
+    "avgLatencyMs": 812, "p50LatencyMs": 690, "p95LatencyMs": 2104, "avgTtftMs": 240
+  },
+  "byProvider": { "groq": { "turns": 30, "ok": 30, "failed": 0, "cached": 4, "costUsd": 0.02, "tokens": 160000, "avgLatencyMs": 640 } },
+  "byModel":  { },
+  "byCombo":  { },
+  "byArm":    { "balanced/gemini-flash": { "turns": 22, "costUsd": 0.05, "avgLatencyMs": 700 } },
+  "recent":   [ ]
+}
+```
+
+`turns` counts answers; `attempts` counts provider calls; `failed` counts the difference. That split is deliberate — a flaky primary should look like a reliability problem, not like extra traffic.
+
+## GET /api/metrics.csv
+
+One row per attempt, RFC-4180 quoted:
+
+```
+timestamp_iso,provider,model,model_id,combo,arm,ok,error,prompt_tokens,completion_tokens,
+cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
+```
+
+Served with `content-disposition: attachment`.
+
+## GET /api/traces
+
+```json
+{ "prompts": [ { "promptHash": "9f2c1a…", "turns": 12, "chars": 1840, "costUsd": 0.0031,
+                 "combos": ["chat-default"], "models": ["groq-70b"] } ],
+  "note": "Hashes only. Prompt text is never stored unless guardrails.logPrompts is on." }
+```
+
+## GET /api/invariants
+
+The fifteen invariants with their status, the config-level audit, and the paid-gate state.
+
+```json
+{ "invariants": [{ "id": "I4", "status": "enforced", "statement": "…", "enforced": "…", "test": "…" }],
+  "budgets": { "dataPlaneOverheadP95Ms": 15, "modelsResponseMs": 1000 },
+  "audit": [{ "id": "I15", "ok": false, "detail": "1 API key(s) stored in plaintext; run `sui keys hash`…" }],
+  "paidTiers": { "enabled": false } }
+```
+
+## GET /api/config
+
+The loaded config with every secret removed: providers show `hasCredentials`, `apiKeyEnv` (a name, never a value), `baseUrl`, `type`.
+
+## POST /api/config/validate
+
+The commit gate for a toggle. A change is refused when its dependency is missing.
+
+```json
+{ "disableProvider": "groq" }
+```
+
+```json
+{
+  "ok": false,
+  "blockers": [{
+    "code": "provider_in_use",
+    "message": "Provider \"groq\" still backs 2 models (groq-fast, groq-70b).",
+    "fix": "Combos chat-default, cheap would lose targets. Disable or re-point those models first."
+  }]
+}
+```
+
+`200` when `ok` is true, `409` when it is not. Accepted keys: `disableProvider`, `disableModel`, `enableCombo`, `deleteCombo`.
+
+## POST /api/breaker/reset
+
+`{ "modelId": "groq-70b" }` resets one target; `{}` resets all. Returns the new snapshot.
+
+## POST /api/cache/clear
+
+Empties the response cache. Returns the new cache stats.
+
+## GET /
+
+The dashboard. Self-contained HTML, no external requests, no build step.

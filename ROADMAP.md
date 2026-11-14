@@ -1,0 +1,159 @@
+# Sui — plan and roadmap
+
+**Free tiers, verified before use. Zero blind spots. Zero silent degradation.**
+
+This is the working plan: twelve phases, sixty batches, in dependency order. Every batch has a status, and a status is only `done` when a command in this repository proves it — a test, an eval run, or a soak report. Nothing here is marked done because it was written.
+
+Last updated: 2026-11-14 · 117 tests green · eval self-test green · soak p95 2.57ms against a 15ms budget.
+
+---
+
+## How this plan is built
+
+Three rules keep it honest:
+
+1. **Invariants come first.** `packages/core/src/invariants.js` holds all fifteen as data, each with the module that enforces it and the test that proves it. `test/invariants.test.js` fails if an invariant loses either. An invariant whose test is `none` is not allowed to exist.
+2. **A batch is done when a command says so.** Tests (`npm test`), the golden-set eval (`npm run eval`), the soak (`npm run soak`), or the invariant audit (`sui invariants`). The acceptance criteria in the project prompt (AC1–AC7) map onto those commands.
+3. **Reuse is gated by licence, not by convenience.** The fleet's kits are PolyForm Noncommercial; Sui is MIT. `docs/legal/LICENSE_INVENTORY.md` records what may be vendored and what may only be adapted. See ADR-0002.
+
+## Where Sui stands
+
+| | |
+|---|---|
+| Runtime | Node 20+, ESM, **zero runtime dependencies** |
+| Layout | npm workspaces: `apps/{gateway,dashboard,cli}` · `packages/{core,providers,router,telemetry,catalog,guardrails,sdk}` |
+| Tests | 117 passing, no network, no keys (`npm test`) |
+| Eval | 50-prompt golden set, 56-check self-test, regression gate against `evals/baseline.json` |
+| Soak | `npm run soak` — 1,200 requests, p95 2.57ms overhead, no unhandled errors |
+| Security | Host-header allowlist, SHA-256 key hashes with constant-time compare, no default password, no JWT |
+
+---
+
+## Phase status
+
+Legend: **done** = a command proves it · **partial** = shipped, with a named gap · **todo** = not started · **blocked** = waiting on a decision (licence, external fact, or benchmark).
+
+### Phase 0 — HARDEN
+
+| Batch | Status | Evidence / gap |
+|---|---|---|
+| B0.1 Security fixes | **done** | Host-header allowlist (`hostAllowed`, tested with a forged Host), SHA-256 API keys + `timingSafeEqual` (`verifyApiKey`), `EADDRINUSE`/`EACCES` as sentences, `sui keys hash` to rotate plaintext keys. JWT fallback secret: N/A, Sui issues no JWTs (ADR-0006). Default password: N/A, there is no password login. SQLite race: N/A, persistence is append-only JSONL (ADR-0001). |
+| B0.2 Global error handlers | **done** | `apps/cli/bin/sui.js` traps `unhandledRejection` and `uncaughtException`, prints a plain sentence, and never claims in-flight work completed. |
+| B0.3 72h soak harness | **partial** | `scripts/soak.mjs` exists, gates p95 overhead and memory growth, and CI runs 60s. The 72-hour run itself has not been done — it needs a machine held for three days. |
+
+### Phase 1 — FOUNDATION
+
+| Batch | Status | Evidence / gap |
+|---|---|---|
+| B1.1 Monorepo scaffold | **done** | npm workspaces (not Turborepo — ADR-0003). `apps/`, `packages/`, `evals/`, `config/`, `docs/adr/`, `docs/legal/`, `vendor/`. |
+| B1.2 `packages/core` | **done** | Error taxonomy, config schema + validator, cost model, and the invariant table with its audit. |
+| B1.3 `packages/sdk` | **done** | `SuiClient`: chat, stream (async iterator), models, status, metrics, toggle validation, health. Six tests against a live gateway. |
+| B1.4 `apps/gateway` | **partial** | OpenAI-compatible surface, SSE, dashboard API, `/v1/models` from memory (I3, measured <1000ms). **Go/Rust data plane deferred** — ADR-0001 sets the benchmark that would justify it; today's Node handler costs p50 0.38ms. SQLite not yet: config is the routing table, the ledger is JSONL. |
+| B1.5 `apps/cli` | **done** | `sui init · start · doctor · models · cost · tools · migrate · keys hash · invariants`. |
+| B1.6 `evals/` golden set | **done** | 50 prompts across 10 categories, 9 deterministic graders, self-test proving the graders grade (50 must-pass + 6 must-fail), JSON+Markdown reports. |
+| B1.7 CI eval gate | **done** | `.github/workflows/ci.yml`: tests on Node 20 and 22, eval self-test, eval gate, 60s soak, invariant audit, migration preview. |
+
+### Phase 2 — FREE-TIER INTELLIGENCE
+
+| Batch | Status | Gap |
+|---|---|---|
+| B2.1 `packages/catalog` | **partial** | Schema, dedupe by `pool_key`, ToS states, retention levels, capability list, scoring. **Target is 500+ entries; the seed ships 11 identities and no URLs.** |
+| B2.2 Catalog sync worker | todo | Sources named in the spec: awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, provider status pages. |
+| B2.3 Canary prober | todo | Three levels (liveness/readiness/suitability) with per-capability fixtures. Scoring function is ready; nothing calls it on a schedule. |
+| B2.4 ToS policy engine | **partial** | `tos: allowed\|review\|avoid` is enforced in routing (I12) and audited. No ingestion, no review workflow, no per-provider policy documents. |
+| B2.5 Keyless providers wired | **blocked** | Pollinations, OVHcloud, LLM7, Kilo are in the seed as identities with `base_url: null, needs_probe: true`. Shipping an unverified URL would violate the positioning; the prober (B2.3) has to resolve them, and their ToS must be read before customer prompts go near them. |
+| B2.6 Local runtime discovery | **partial** | Loopback literals only (Ollama `127.0.0.1:11434`, LM Studio `127.0.0.1:1234`) in the seed, and onboarding probes reachability. No discovery loop, no llama.cpp. |
+| B2.7 Weather Map backend | **partial** | `summarise()` produces the health view the map needs (routable / awaiting probe / tos-avoid). No trend history yet. |
+
+### Phase 3 — ROUTING CORE
+
+| Batch | Status | Gap |
+|---|---|---|
+| B3.1 Free-first tier order | **partial** | Tier is a field and the paid gate is enforced (I4). Ordering is per-combo today; the global free→free-probed→paid ordering rule is not yet applied across combos. |
+| B3.2 Circuit breaker | **done** | Three states, lazy recovery, trips on 5xx/transport only (I13), tested both ways. |
+| B3.3 Streaming behaviour | **partial** | First token is the loading state (dashboard + SSE headers). **Empty-turn retry and first-chunk clone are not implemented.** Mid-stream drops are reported, not re-routed. |
+| B3.4 Verification escalation | todo | `verified` is recorded per turn; fail-closed escalation with a 0.7 confidence threshold is not built. |
+| B3.5 Speculative cascade | todo | 50ms classifier budget, confidence-drop trigger. |
+| B3.6 Virtual models | **partial** | `fallback`, `weighted`, `cheapest`, `latency` with per-arm attribution. The spec's `conditional` mode is not implemented. |
+| B3.7 SLA constraints + EWMA + CUSUM | todo | Latency p95 exists as a measurement, not as a hard constraint with drift ejection. |
+
+### Phase 4 — COMPRESSION & CACHING
+
+| Batch | Status | Gap |
+|---|---|---|
+| B4.1–B4.2 Nine compression engines | **blocked** | The reference implementations live in `heavenzip`/`HCS`/`lexora`/`compress-kit`, all PolyForm NC. Either relicense them or write clean-room engines. See ADR-0002 and the reuse map. |
+| B4.3 Budget manager (quota → preset) | todo | Depends on real quota telemetry, which depends on B2.3. |
+| B4.4 Output-axis dial | todo | |
+| B4.5 Cache-aware compression (CAPC) | todo | |
+| B4.6 Native prompt caching | todo | |
+| B4.7 Semantic cache | **partial** | Exact-match TTL cache with quota-free hits and honest `cached` provenance. Embedding tier not built; `ml-kit` (tf-idf, k-means, PCA) is the intended engine, pending the licence decision. |
+
+### Phase 5 — AGENTS & PROTOCOLS
+
+All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended reference for B5.1/B5.2, again pending licence.
+
+### Phase 6 — SECURITY & PRIVACY
+
+| Batch | Status | Gap |
+|---|---|---|
+| B6.4 Guardrail plugin architecture | **partial** | `packages/guardrails` is a clean seam with size, pattern and token-clamp checks. No provider plugins (Bedrock/Azure/Model Armor/Lakera/NeMo). |
+| B6.6 Tenant isolation | **partial** | API keys with `allowedCombos`/`allowedModels`, hashed at rest. No per-tenant budgets, rate limits or fallback chains. |
+| B6.7 Paid-tier air-gap | **partial** | The gate is enforced in code and tested (I4): a paid provider's credentials are not read while `paid_tiers.enabled` is false. No encrypted vault yet — the second half of the boundary. |
+| B6.1–B6.3, B6.5 | todo | Red-team toolkit, scheduled self-test, dual-channel inspection, privacy-tiered routing. |
+
+### Phase 7 — OBSERVABILITY & TENANCY
+
+| Batch | Status | Gap |
+|---|---|---|
+| B7.5 Prompt-free telemetry | **done** | Salted hash + character count, never prompt text (I11, tested). `/api/traces`, CSV export. |
+| B7.1 Cost attribution | **partial** | Per provider/model/combo/arm, in the ledger and CSV. Not yet per user/team/tool. |
+| B7.2 Savings Ledger | todo | `savedUsd` exists for cache hits; the quota-stretched half does not. |
+| B7.3–B7.4, B7.6–B7.7 | todo | Budget alerts, explain-my-route, tenant console backend, grounding check. |
+
+### Phase 8 — UI / UX
+
+| Batch | Status | Gap |
+|---|---|---|
+| B8.1 Design system tokens | **done** | Token ladder, one signal colour, fixed type scale, WCAG AA contrast, tabular figures. I9 is a test: no raw colour value outside `:root`. `tokens-kit` can supply a wider palette once relicensed. |
+| B8.2 Chat window | **partial** | Zero-state starters (spec wording), provenance chip per response, plain-language selector with speed/quality/cost and honest locks. **Choice persists per browser, not per thread.** |
+| B8.3 Dashboard | **partial** | Skeletons, routing-pool topology, budget bar, prompt-free usage, recent turns, streaming loads, safe-toggle endpoint. Full-catalog view not built. |
+| B8.4 Onboarding | **done** | Detect keys and tools, one-click config, real round-trip before "ready" (I7), endpoint + snippet printed. |
+| B8.5 Migration wizard | **done** | Preview diff, selective import, post-migration smoke test. |
+| B8.6 Error message library | **partial** | Errors are sentences with a next step throughout; not yet one auditable library. |
+| B8.7 Accessibility pass | **partial** | Focus rings, live regions, reduced motion, labelled controls, 16px inputs, status never colour-only — all tested. No screen-reader walkthrough with a real user. |
+
+### Phases 9–11
+
+All todo: worker scheduler, canary + SLO rollback, fallback learning, quota reset detection, token refresh; Weather Map UI, Savings Ledger UI, explain-my-route UI, eval reports UI; seven tutorials, four quickstarts, ADRs (six written so far).
+
+---
+
+## The next five batches, in dependency order
+
+1. **B2.3 canary prober** — nothing else in Phase 2 is real without it, and it is the batch that makes "verified before use" mean something. Fixtures are tiny and versioned; three levels; auto-disable after 3 failures.
+2. **B2.2 catalog sync** — five sources, dedupe by `pool_key`, daily. Needs the prober to verify what it ingests.
+3. **B3.3 empty-turn retry + first-chunk clone** — the streaming gaps that make a free tier feel broken.
+4. **B3.4 verification escalation** — fail-closed at 0.7 confidence, traced. Depends on a verifier, which is why B2.3 comes first.
+5. **B6.7 vault half of the air-gap** — `crypto-kit`'s AES-256-GCM sealed envelope, reimplemented natively under MIT or vendored after relicensing.
+
+## Risk register
+
+| Risk | Why it matters | Mitigation |
+|---|---|---|
+| Licence conflict (PolyForm NC kits vs MIT Sui) | Blocks Phase 4 entirely and most of Phase 2's compression work | ADR-0002: adapters now, relicense or clean-room before vendoring. One word from the owner flips it. |
+| Free tiers are unverifiable at build time | The whole positioning rests on verification | Nothing routable until probed; the seed ships identities, not URLs; the invariant audit reports the count of unprobed entries. |
+| Go/Rust data plane temptation | Rewriting early would stall every feature batch | ADR-0001: benchmark gate. Node must miss 15ms p95 under a 10× load before a rewrite is considered. |
+| "Done" drifting from "written" | The spec's AC1–AC7 exist to stop this | Every status in this file cites a command. `npm test` runs the invariant table, the eval self-test and the soak gate. |
+| Semantic cache needs embeddings without a dependency | A model download breaks the zero-dependency promise | `ml-kit`'s tf-idf path is the intended first tier; embeddings optional and off by default. |
+
+## Working a batch (the protocol)
+
+1. Restate the goal in one sentence.
+2. List dependencies and confirm they are merged and eval-green.
+3. Propose the file-level plan: paths, modules, tests.
+4. Implement.
+5. Show the tests and eval results — the command and its output.
+6. Confirm invariant compliance, citing `sui invariants`.
+7. Update this file and, if architectural, add an ADR.
+
+Say `do B2.3` and that is what happens. If a batch would violate an invariant, work stops and says so before any code is written.

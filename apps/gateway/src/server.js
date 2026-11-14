@@ -1,0 +1,484 @@
+/**
+ * HTTP surface.
+ *
+ *   POST /v1/chat/completions   OpenAI-compatible. Point any tool at it.
+ *   GET  /v1/models             the combos, as model objects
+ *   GET  /api/status            everything the dashboard renders, in one call
+ *   GET  /api/metrics           aggregates: cost, latency, per provider/model/combo/arm
+ *   GET  /api/metrics.csv       the same, as a spreadsheet export
+ *   GET  /api/traces            prompt-free usage (hashes, not prompts)
+ *   GET  /api/config            sanitised config (no secrets)
+ *   POST /api/config/validate   the dashboard's commit gate for a toggle
+ *   POST /api/breaker/reset     bring a resting model back early
+ *   POST /api/cache/clear
+ *   GET  /healthz
+ *   GET  /                      the dashboard
+ */
+
+import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { checkToggle, sanitizeConfig, providerHasCredentials, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS } from '@sui/core';
+import { SuiError } from '@sui/core';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const DASHBOARD = join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html');
+
+/**
+ * @param {{router: any, config: any, ledger: any, breaker: any, cache: any, logger?: any}} deps
+ */
+export function createSuiServer(deps) {
+  const { router, config, ledger, breaker, cache } = deps;
+  const logger = deps.logger ?? { info() {}, warn() {}, debug() {} };
+  let configRef = config;
+
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+    const path = url.pathname;
+
+    // Local tools (Cline, Continue, a browser tab) call this from other origins.
+    res.setHeader('access-control-allow-origin', '*');
+    res.setHeader('access-control-allow-headers', 'authorization, content-type, x-sui-key');
+    res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204).end();
+      return;
+    }
+
+    // I15: Host-header allowlist. Without this, a DNS-rebinding page can reach a
+    // localhost gateway from a browser tab and read the dashboard API.
+    if (!hostAllowed(configRef, req.headers.host)) {
+      return sendJson(res, 403, {
+        error: {
+          message: `This gateway does not answer to the host "${req.headers.host}". Allowed: ${allowedHostNames(configRef).join(', ')}. Add yours to server.allowedHosts if this is intended.`,
+          type: 'host_not_allowed',
+        },
+      });
+    }
+
+    try {
+      if (req.method === 'GET' && (path === '/' || path === '/dashboard')) {
+        return sendHtml(res, readDashboard());
+      }
+      if (req.method === 'GET' && path === '/healthz') {
+        return sendJson(res, 200, { ok: true, service: 'sui-router', uptimeSeconds: Math.round(process.uptime()) });
+      }
+
+      // ---- OpenAI-compatible surface -------------------------------------
+      if (req.method === 'POST' && (path === '/v1/chat/completions' || path === '/chat/completions')) {
+        return await handleChat(req, res);
+      }
+      if (req.method === 'GET' && (path === '/v1/models' || path === '/models')) {
+        return sendJson(res, 200, { object: 'list', data: modelList(configRef, url.searchParams.get('all') === '1') });
+      }
+
+      // ---- dashboard API --------------------------------------------------
+      if (req.method === 'GET' && path === '/api/status') {
+        return sendJson(res, 200, statusPayload(configRef, ledger, breaker, cache, router));
+      }
+      if (req.method === 'GET' && path === '/api/metrics') {
+        const since = sinceParam(url);
+        return sendJson(res, 200, ledger.aggregate({ since }));
+      }
+      if (req.method === 'GET' && path === '/api/metrics.csv') {
+        res.writeHead(200, {
+          'content-type': 'text/csv; charset=utf-8',
+          'content-disposition': `attachment; filename="sui-usage-${new Date().toISOString().slice(0, 10)}.csv"`,
+        });
+        return res.end(ledger.csv());
+      }
+      if (req.method === 'GET' && path === '/api/traces') {
+        return sendJson(res, 200, { prompts: ledger.promptUsage(50), note: 'Hashes only. Prompt text is never stored unless guardrails.logPrompts is on.' });
+      }
+      if (req.method === 'GET' && path === '/api/invariants') {
+        return sendJson(res, 200, {
+          invariants: INVARIANTS,
+          budgets: BUDGETS,
+          audit: auditConfig(configRef),
+          paidTiers: { enabled: configRef.paidTiers?.enabled === true },
+        });
+      }
+      if (req.method === 'GET' && path === '/api/config') {
+        return sendJson(res, 200, sanitizeConfig(configRef));
+      }
+      if (req.method === 'POST' && path === '/api/config/validate') {
+        const patch = await readJson(req);
+        const result = checkToggle(configRef, patch);
+        return sendJson(res, result.ok ? 200 : 409, result);
+      }
+      if (req.method === 'POST' && path === '/api/breaker/reset') {
+        const body = await readJson(req).catch(() => ({}));
+        if (body?.modelId) breaker.reset(body.modelId);
+        else breaker.resetAll();
+        return sendJson(res, 200, { ok: true, breakers: breaker.snapshot() });
+      }
+      if (req.method === 'POST' && path === '/api/cache/clear') {
+        cache.clear();
+        return sendJson(res, 200, { ok: true, cache: cache.stats() });
+      }
+      if (req.method === 'POST' && path === '/api/reload') {
+        return sendJson(res, 200, { ok: false, message: 'Restart `sui up` to load a new config; in-flight requests are never interrupted by a reload.' });
+      }
+
+      return sendJson(res, 404, { error: { message: `No route for ${req.method} ${path}.`, type: 'not_found' } });
+    } catch (err) {
+      const e = /** @type {any} */ (err);
+      if (res.headersSent) {
+        try {
+          res.end();
+        } catch {}
+        return;
+      }
+      const status = e instanceof SuiError ? e.status : 500;
+      const payload = e instanceof SuiError ? e.toJSON() : {
+        error: { message: 'Something went wrong inside the gateway. The details are in the server log.', type: 'internal_error' },
+      };
+      logger.warn(`request failed: ${e?.message}`);
+      return sendJson(res, status, payload);
+    }
+  });
+
+  /** @param {any} req @param {any} res */
+  async function handleChat(req, res) {
+    const body = await readJson(req);
+    const keyMeta = authorise(req, configRef);
+
+    const requested = body.model ?? Object.keys(configRef.combos)[0];
+    if (!configRef.combos[requested] && !configRef.models[requested]) {
+      throw new SuiError(
+        `"${requested}" is not a combo or model this gateway knows. Call GET /v1/models for the list.`,
+        { code: 'unknown_model', status: 404 },
+      );
+    }
+    if (keyMeta?.allowedCombos && !keyMeta.allowedCombos.includes(requested)) {
+      throw new SuiError(`This API key may not use "${requested}".`, { code: 'forbidden_model', status: 403 });
+    }
+
+    const stream = Boolean(body.stream);
+    const startedAt = Date.now();
+    // I2 measures OUR overhead, so it is measured here, on the server side.
+    // Client sockets, DNS and JSON serialisation belong to the caller, not to us.
+    const handlerStart = performance.now();
+    /** @type {{provider?: string, modelId?: string, model?: string, name?: string}|null} */
+    let target = null;
+    /** @type {boolean} */
+    let committed = false;
+
+    /** @param {string} delta */
+    const onToken = (delta) => {
+      if (!committed) {
+        committed = true;
+        res.writeHead(200, {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-cache, no-transform',
+          connection: 'keep-alive',
+          'x-sui-provider': String(target?.providerId ?? ''),
+          'x-sui-model': String(target?.model ?? ''),
+          'x-sui-combo': String(requested),
+          'x-sui-ttft-ms': String(Date.now() - startedAt),
+        });
+        res.write(
+          sse({
+            id: `chatcmpl-sui-${startedAt}`,
+            object: 'chat.completion.chunk',
+            created: Math.floor(startedAt / 1000),
+            model: requested,
+            choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }],
+          }),
+        );
+      }
+      res.write(
+        sse({
+          id: `chatcmpl-sui-${startedAt}`,
+          object: 'chat.completion.chunk',
+          created: Math.floor(startedAt / 1000),
+          model: requested,
+          choices: [{ index: 0, delta: { content: delta }, finish_reason: null }],
+        }),
+      );
+    };
+
+    const result = await router.chat({
+      combo: requested,
+      body,
+      keyMeta,
+      // I12: naming a model directly is a deliberate act, not auto-routing, so
+      // an explicitly requested tos:avoid model is allowed through.
+      allowAvoid: !configRef.combos[requested] && Boolean(configRef.models[requested]),
+      onToken: stream ? onToken : undefined,
+      onAttempt: (t) => {
+        target = t;
+      },
+    });
+
+    if (stream) {
+      const meta = result.meta;
+      meta.handlerMs = Math.round((performance.now() - handlerStart) * 100) / 100;
+      meta.overheadMs = Math.max(0, Math.round((meta.handlerMs - meta.latencyMs) * 100) / 100);
+      res.write(
+        sse({
+          id: `chatcmpl-sui-${startedAt}`,
+          object: 'chat.completion.chunk',
+          created: Math.floor(startedAt / 1000),
+          model: requested,
+          choices: [{ index: 0, delta: {}, finish_reason: result.finishReason ?? 'stop' }],
+          usage: {
+            prompt_tokens: result.usage.prompt_tokens,
+            completion_tokens: result.usage.completion_tokens,
+            total_tokens: result.usage.prompt_tokens + result.usage.completion_tokens,
+          },
+          sui: provenance(meta),
+        }),
+      );
+      res.write('data: [DONE]\n\n');
+      return res.end();
+    }
+
+    const meta = result.meta;
+    meta.handlerMs = Math.round((performance.now() - handlerStart) * 100) / 100;
+    meta.overheadMs = Math.max(0, Math.round((meta.handlerMs - meta.latencyMs) * 100) / 100);
+    res.setHeader('x-sui-handler-ms', String(meta.handlerMs));
+    res.setHeader('x-sui-overhead-ms', String(meta.overheadMs));
+    res.setHeader('x-sui-provider', meta.provider);
+    res.setHeader('x-sui-model', meta.model);
+    res.setHeader('x-sui-combo', meta.combo);
+    res.setHeader('x-sui-verified', String(meta.verified));
+    res.setHeader('x-sui-cached', String(meta.cached));
+    res.setHeader('x-sui-cost-usd', String(meta.costUsd));
+    res.setHeader('x-sui-latency-ms', String(meta.latencyMs));
+
+    return sendJson(res, 200, {
+      id: `chatcmpl-sui-${startedAt}`,
+      object: 'chat.completion',
+      created: Math.floor(startedAt / 1000),
+      model: requested,
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: result.text },
+          finish_reason: result.finishReason ?? 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: result.usage.prompt_tokens,
+        completion_tokens: result.usage.completion_tokens,
+        total_tokens: result.usage.prompt_tokens + result.usage.completion_tokens,
+      },
+      sui: provenance(meta),
+    });
+  }
+
+  return server;
+}
+
+/** The chip under every answer: who answered, was it real, was it cached, how fast. */
+export function provenance(meta) {
+  return {
+    provider: meta.provider,
+    providerName: meta.providerName,
+    model: meta.model,
+    modelId: meta.modelId,
+    combo: meta.combo,
+    arm: meta.arm,
+    strategy: meta.strategy,
+    verified: meta.verified,
+    cached: meta.cached,
+    latencyMs: meta.latencyMs,
+    ttftMs: meta.ttftMs,
+    costUsd: meta.costUsd,
+    handlerMs: meta.handlerMs ?? null,
+    overheadMs: meta.overheadMs ?? null,
+    escalation: meta.escalation ?? null,
+    attempts: meta.attempts ?? [],
+  };
+}
+
+/** @param {any} config @param {boolean} all */
+function modelList(config, all) {
+  const combos = Object.entries(config.combos).map(([id, c]) => ({
+    id,
+    object: 'model',
+    owned_by: 'sui-router',
+    label: /** @type {any} */ (c).label ?? id,
+    strategy: /** @type {any} */ (c).strategy,
+    targets: /** @type {any} */ (c).targets.map((t) => (typeof t === 'string' ? t : t.model)),
+  }));
+  if (!all) return combos;
+  const models = Object.entries(config.models).map(([id, m]) => ({
+    id,
+    object: 'model',
+    owned_by: /** @type {any} */ (m).provider,
+    label: /** @type {any} */ (m).label ?? id,
+    available: providerHasCredentials(config.providers[/** @type {any} */ (m).provider], config.env, config),
+  }));
+  return [...combos, ...models];
+}
+
+function statusPayload(config, ledger, breaker, cache, router) {
+  const agg = ledger.aggregate({ since: startOfToday() });
+  const spent = ledger.todaySpendUsd();
+  const daily = config.budgets.dailyUsd;
+
+  const pool = Object.entries(config.models)
+    .filter(([, m]) => providerHasCredentials(config.providers[/** @type {any} */ (m).provider], config.env, config))
+    .map(([id, m]) => {
+      const state = breaker.stateOf(id);
+      return {
+        modelId: id,
+        label: /** @type {any} */ (m).label ?? id,
+        provider: /** @type {any} */ (m).provider,
+        quality: /** @type {any} */ (m).quality ?? null,
+        tier: /** @type {any} */ (m).tier ?? 'paid',
+        costPer1kIn: /** @type {any} */ (m).costPer1kIn ?? 0,
+        costPer1kOut: /** @type {any} */ (m).costPer1kOut ?? 0,
+        health: state.state,
+        retryInMs: state.retryInMs,
+        lastError: state.lastError,
+        turnsToday: agg.byModel[id]?.turns ?? 0,
+        costToday: agg.byModel[id]?.costUsd ?? 0,
+        avgLatencyMs: agg.byModel[id]?.avgLatencyMs ?? 0,
+      };
+    });
+
+  const unconfigured = Object.entries(config.models)
+    .filter(([, m]) => !providerHasCredentials(config.providers[/** @type {any} */ (m).provider], config.env, config))
+    .map(([id, m]) => ({ modelId: id, provider: /** @type {any} */ (m).provider, needsEnv: config.providers[/** @type {any} */ (m).provider]?.apiKeyEnv ?? null }));
+
+  return {
+    server: { host: config.server.host, port: config.server.port, uptimeSeconds: Math.round(process.uptime()) },
+    configPath: config.path,
+    budget: {
+      dailyUsd: daily,
+      spentUsd: spent,
+      pct: daily ? Math.min(100, Math.round((spent / Number(daily)) * 100)) : null,
+      warnAtPct: config.budgets.warnAtPct,
+    },
+    pool,
+    unconfigured,
+    combos: Object.entries(config.combos).map(([id, c]) => ({
+      id,
+      label: /** @type {any} */ (c).label ?? id,
+      strategy: /** @type {any} */ (c).strategy,
+      targets: /** @type {any} */ (c).targets.map((t) => (typeof t === 'string' ? t : t.model)),
+      turnsToday: agg.byCombo[id]?.turns ?? 0,
+      costToday: agg.byCombo[id]?.costUsd ?? 0,
+    })),
+    metrics: agg,
+    cache: cache.stats(),
+    breakers: breaker.snapshot(),
+    guardrails: config.guardrails,
+    paidTiers: { enabled: config.paidTiers?.enabled === true },
+    invariantWarnings: auditConfig(config).filter((a) => !a.ok),
+    promptUsage: ledger.promptUsage(20),
+  };
+}
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function sinceParam(url) {
+  const raw = url.searchParams.get('since');
+  if (!raw) return startOfToday();
+  if (raw === 'all') return 0;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return n;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : startOfToday();
+}
+
+/** @param {any} req @param {any} config */
+function authorise(req, config) {
+  const keys = config.apiKeys ?? [];
+  const envKey = config.env?.SUI_API_KEY;
+  if (!keys.length && !envKey) return null;
+
+  const header = String(req.headers.authorization ?? '');
+  const presented = header.startsWith('Bearer ') ? header.slice(7).trim() : String(req.headers['x-sui-key'] ?? '');
+  if (!presented) {
+    throw new SuiError('This gateway needs an API key. Send it as "Authorization: Bearer <key>".', {
+      code: 'unauthorized',
+      status: 401,
+    });
+  }
+  const match = keys.find((k) => verifyApiKey(presented, k));
+  if (match) return match;
+  if (envKey && verifyApiKey(presented, { key: envKey })) {
+    return { key_hash: hashApiKey(envKey), name: 'SUI_API_KEY', allowedCombos: null };
+  }
+  throw new SuiError('That API key is not recognised by this gateway.', { code: 'unauthorized', status: 401 });
+}
+
+function readDashboard() {
+  try {
+    return readFileSync(DASHBOARD, 'utf8');
+  } catch {
+    return '<!doctype html><meta charset="utf-8"><title>Sui</title><body style="font:16px system-ui;padding:2rem"><h1>Dashboard file missing</h1><p>Expected web/dashboard.html next to the server. Reinstall the package.</p></body>';
+  }
+}
+
+/** @param {any} req */
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', (c) => {
+      raw += c;
+      if (raw.length > 20_000_000) {
+        reject(new SuiError('Request body is larger than 20 MB.', { code: 'payload_too_large', status: 413 }));
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      if (!raw.trim()) return resolve({});
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new SuiError('Request body is not valid JSON.', { code: 'bad_request', status: 400 }));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+/** @param {any} res @param {number} status @param {any} payload */
+function sendJson(res, status, payload) {
+  const body = JSON.stringify(payload);
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'content-length': Buffer.byteLength(body) });
+  res.end(body);
+}
+
+/** @param {any} res @param {string} html */
+function sendHtml(res, html) {
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(html);
+}
+
+function sse(obj) {
+  return `data: ${JSON.stringify(obj)}\n\n`;
+}
+
+/* ------------------------------------------------------- host allowlisting */
+
+const DEFAULT_ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '[::1]', '::1'];
+
+/** @param {any} config */
+function allowedHostNames(config) {
+  return config.server?.allowedHosts?.length ? config.server.allowedHosts : DEFAULT_ALLOWED_HOSTS;
+}
+
+/**
+ * @param {any} config
+ * @param {string|undefined} hostHeader
+ */
+export function hostAllowed(config, hostHeader) {
+  if (!hostHeader) return true; // HTTP/1.0 and some local clients omit it
+  const host = String(hostHeader).toLowerCase();
+  const withoutPort = host.replace(/:\d+$/, '');
+  return allowedHostNames(config).some((allowed) => {
+    const a = String(allowed).toLowerCase();
+    return a === host || a === withoutPort;
+  });
+}

@@ -1,0 +1,272 @@
+/**
+ * The ledger: one append-only record per completed turn.
+ *
+ * It is what makes "the same task at lower cost" a measurable claim rather than
+ * a slogan — every record carries provider, model, combo, arm (for A/B), tokens,
+ * cost, latency, time-to-first-token, cache and verification status.
+ *
+ * Prompt text is never stored unless guardrails.logPrompts is on. What is stored
+ * is a salted hash, so the same prompt can be recognised across turns (prompt-free
+ * usage view) without the prompt being recoverable.
+ */
+
+import { createHash, randomBytes } from 'node:crypto';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+
+/** @typedef {{
+ *   ts: number, provider: string, model: string, modelId: string, combo: string, arm: string|null,
+ *   ok: boolean, error: string|null, promptTokens: number, completionTokens: number,
+ *   costUsd: number, latencyMs: number, ttftMs: number|null, cached: boolean,
+ *   verified: boolean, promptHash: string, promptChars: number, streamed: boolean
+ * }} LedgerRecord */
+
+export class Ledger {
+  /**
+   * @param {{file?: string|null, maxRecords?: number, salt?: string, hashSecretPath?: string}} [opts]
+   */
+  constructor(opts = {}) {
+    this.file = opts.file ?? null;
+    this.maxRecords = opts.maxRecords ?? 5000;
+    this.salt = opts.salt ?? 'sui-local-salt';
+    /** @type {LedgerRecord[]} */
+    this.records = [];
+    if (this.file) {
+      mkdirSync(dirname(this.file), { recursive: true });
+      if (existsSync(this.file)) this.#load();
+    }
+  }
+
+  #load() {
+    try {
+      const raw = readFileSync(this.file, 'utf8');
+      for (const line of raw.split('\n')) {
+        if (!line.trim()) continue;
+        try {
+          this.records.push(JSON.parse(line));
+        } catch {
+          /* a torn last line from a hard kill is not worth failing over */
+        }
+      }
+      if (this.records.length > this.maxRecords) {
+        this.records = this.records.slice(-this.maxRecords);
+        this.#rewrite();
+      }
+    } catch {
+      this.records = [];
+    }
+  }
+
+  #rewrite() {
+    if (!this.file) return;
+    writeFileSync(this.file, this.records.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  }
+
+  /** Stable, non-reversible prompt fingerprint. */
+  hashPrompt(text) {
+    return createHash('sha256').update(this.salt).update(text).digest('hex').slice(0, 16);
+  }
+
+  /** @param {Partial<LedgerRecord> & {promptText?: string}} entry */
+  record(entry) {
+    /** @type {LedgerRecord} */
+    const rec = {
+      ts: entry.ts ?? Date.now(),
+      provider: entry.provider ?? 'unknown',
+      model: entry.model ?? 'unknown',
+      modelId: entry.modelId ?? 'unknown',
+      combo: entry.combo ?? 'unknown',
+      arm: entry.arm ?? null,
+      ok: entry.ok ?? true,
+      error: entry.error ?? null,
+      promptTokens: entry.promptTokens ?? 0,
+      completionTokens: entry.completionTokens ?? 0,
+      costUsd: entry.costUsd ?? 0,
+      latencyMs: entry.latencyMs ?? 0,
+      ttftMs: entry.ttftMs ?? null,
+      cached: entry.cached ?? false,
+      verified: entry.verified ?? false,
+      promptHash: entry.promptHash ?? (entry.promptText ? this.hashPrompt(entry.promptText) : ''),
+      promptChars: entry.promptChars ?? (entry.promptText ? entry.promptText.length : 0),
+      streamed: entry.streamed ?? false,
+    };
+    this.records.push(rec);
+    if (this.records.length > this.maxRecords) this.records.shift();
+    if (this.file) {
+      try {
+        appendFileSync(this.file, JSON.stringify(rec) + '\n');
+      } catch {
+        /* ledger is observability, never the request path's failure */
+      }
+    }
+    return rec;
+  }
+
+  /**
+   * @param {{since?: number, combo?: string}} [opts]
+   * @returns {LedgerRecord[]}
+   */
+  entries(opts = {}) {
+    const since = opts.since ?? 0;
+    return this.records.filter((r) => r.ts >= since && (!opts.combo || r.combo === opts.combo));
+  }
+
+  /** Spend since local midnight, in USD. */
+  todaySpendUsd(now = new Date()) {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return round6(
+      this.records.filter((r) => r.ts >= start.getTime()).reduce((a, r) => a + r.costUsd, 0),
+    );
+  }
+
+  providerSpendToday(provider, now = new Date()) {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return round6(
+      this.records
+        .filter((r) => r.ts >= start.getTime() && r.provider === provider)
+        .reduce((a, r) => a + r.costUsd, 0),
+    );
+  }
+
+  /**
+   * @param {{since?: number}} [opts]
+   */
+  aggregate(opts = {}) {
+    const rows = this.entries(opts);
+    const totals = {
+      // A turn is a request that produced an answer. A failed attempt is
+      // recorded too (it is how failover is auditable), but it is not a turn.
+      turns: rows.filter((r) => r.ok).length,
+      attempts: rows.length,
+      ok: rows.filter((r) => r.ok).length,
+      failed: rows.filter((r) => !r.ok).length,
+      cached: rows.filter((r) => r.cached).length,
+      costUsd: 0,
+      savedUsd: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      avgLatencyMs: 0,
+      p50LatencyMs: 0,
+      p95LatencyMs: 0,
+      avgTtftMs: 0,
+    };
+
+    /** @type {Record<string, any>} */
+    const byProvider = {};
+    /** @type {Record<string, any>} */
+    const byModel = {};
+    /** @type {Record<string, any>} */
+    const byCombo = {};
+    /** @type {Record<string, any>} */
+    const byArm = {};
+
+    for (const r of rows) {
+      totals.costUsd += r.costUsd;
+      totals.promptTokens += r.promptTokens;
+      totals.completionTokens += r.completionTokens;
+      if (r.cached) totals.savedUsd += r.costUsd;
+
+      bump(byProvider, r.provider, r);
+      bump(byModel, r.modelId, r);
+      bump(byCombo, r.combo, r);
+      if (r.arm) bump(byArm, `${r.combo}/${r.arm}`, r);
+    }
+
+    // A cache hit answers in microseconds and would drag p50 to zero; it is not
+    // a model latency, so it is excluded from latency statistics on purpose.
+    const latencies = rows
+      .filter((r) => r.ok && !r.cached)
+      .map((r) => r.latencyMs)
+      .sort((a, b) => a - b);
+    const ttfts = rows.filter((r) => r.ok && r.ttftMs != null).map((r) => /** @type {number} */ (r.ttftMs));
+    totals.costUsd = round6(totals.costUsd);
+    totals.savedUsd = round6(totals.savedUsd);
+    totals.avgLatencyMs = latencies.length ? Math.round(mean(latencies)) : 0;
+    totals.p50LatencyMs = quantile(latencies, 0.5);
+    totals.p95LatencyMs = quantile(latencies, 0.95);
+    totals.avgTtftMs = ttfts.length ? Math.round(mean(ttfts)) : 0;
+
+    for (const group of [byProvider, byModel, byCombo, byArm]) {
+      for (const v of Object.values(group)) {
+        v.costUsd = round6(v.costUsd);
+        v.avgLatencyMs = v.latencySamples ? Math.round(v.latencySum / v.latencySamples) : 0;
+        delete v.latencySum;
+        delete v.latencySamples;
+      }
+    }
+
+    return { since: opts.since ?? 0, totals, byProvider, byModel, byCombo, byArm, recent: rows.slice(-50).reverse() };
+  }
+
+  /** Prompt-free usage view: which prompt fingerprints recurred, and what they cost. */
+  promptUsage(limit = 50) {
+    /** @type {Map<string, {promptHash: string, turns: number, chars: number, costUsd: number, combos: Set<string>, models: Set<string>}>} */
+    const map = new Map();
+    for (const r of this.records) {
+      if (!r.promptHash) continue;
+      let e = map.get(r.promptHash);
+      if (!e) {
+        e = { promptHash: r.promptHash, turns: 0, chars: r.promptChars, costUsd: 0, combos: new Set(), models: new Set() };
+        map.set(r.promptHash, e);
+      }
+      e.turns += 1;
+      e.costUsd = round6(e.costUsd + r.costUsd);
+      e.combos.add(r.combo);
+      e.models.add(r.modelId);
+    }
+    return [...map.values()]
+      .map((e) => ({ ...e, combos: [...e.combos], models: [...e.models] }))
+      .sort((a, b) => b.costUsd - a.costUsd)
+      .slice(0, limit);
+  }
+
+  csv() {
+    const header = [
+      'timestamp_iso', 'provider', 'model', 'model_id', 'combo', 'arm', 'ok', 'error',
+      'prompt_tokens', 'completion_tokens', 'cost_usd', 'latency_ms', 'ttft_ms',
+      'cached', 'verified', 'streamed', 'prompt_hash', 'prompt_chars',
+    ].join(',');
+    const lines = this.records.map((r) =>
+      [
+        new Date(r.ts).toISOString(), r.provider, r.model, r.modelId, r.combo, r.arm ?? '',
+        r.ok, r.error ?? '', r.promptTokens, r.completionTokens, r.costUsd, r.latencyMs,
+        r.ttftMs ?? '', r.cached, r.verified, r.streamed, r.promptHash, r.promptChars,
+      ]
+        .map((v) => (typeof v === 'string' && /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v))
+        .join(','),
+    );
+    return [header, ...lines].join('\n');
+  }
+}
+
+function bump(group, key, r) {
+  const e = (group[key] ??= { turns: 0, ok: 0, failed: 0, cached: 0, costUsd: 0, tokens: 0, latencySum: 0 });
+  e.turns += 1;
+  if (r.ok) e.ok += 1;
+  else e.failed += 1;
+  if (r.cached) e.cached += 1;
+  e.costUsd += r.costUsd;
+  e.tokens += r.promptTokens + r.completionTokens;
+  if (r.ok && !r.cached) {
+    e.latencySum += r.latencyMs;
+    e.latencySamples = (e.latencySamples ?? 0) + 1;
+  }
+}
+
+function mean(a) {
+  return a.reduce((x, y) => x + y, 0) / a.length;
+}
+
+function quantile(sorted, q) {
+  if (!sorted.length) return 0;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1));
+  return sorted[idx];
+}
+
+function round6(n) {
+  return Math.round(n * 1e6) / 1e6;
+}
+
+export { randomBytes };

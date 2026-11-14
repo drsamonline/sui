@@ -1,0 +1,19 @@
+{
+  "name": "@sui/cli",
+  "version": "0.2.0",
+  "description": "The `sui` command line.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/cli.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "bin": {
+    "sui": "./bin/sui.js"
+  }
+}

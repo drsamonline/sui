@@ -1,0 +1,43 @@
+{
+  "name": "sui",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Sui \u2014 verification-first, privacy-aware free-tier AI gateway. Free tiers, verified before use.",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "node apps/cli/bin/sui.js start",
+    "dev": "node --watch apps/cli/bin/sui.js start",
+    "test": "node --test test/",
+    "eval": "node evals/run.mjs",
+    "eval:self": "node evals/run.mjs --self-test",
+    "soak": "node scripts/soak.mjs --minutes 1",
+    "doctor": "node apps/cli/bin/sui.js doctor",
+    "link": "node scripts/link-workspaces.mjs"
+  },
+  "bin": {
+    "sui": "./apps/cli/bin/sui.js"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/sui.git"
+  },
+  "keywords": [
+    "llm",
+    "gateway",
+    "router",
+    "free-tier",
+    "openai-compatible",
+    "verification",
+    "privacy"
+  ]
+}
