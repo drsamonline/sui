@@ -17,6 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Prober } from '@sui/prober';
 import { runSelfTest } from '@sui/redteam';
+import { THRESHOLDS, checkBudgets, dedupe } from './alerts.js';
 import { dedupeEntries, loadSeed } from '@sui/catalog';
 
 /**
@@ -77,6 +78,24 @@ export function startWorkers(deps) {
       );
     }
 
+    // B7.3: budget alerts. Cheap enough to run every minute, and deduped so a
+    // threshold fires once per scope per day rather than on every tick.
+    const sentAlerts = new Set();
+    /** @type {Array<any>} */
+    const alertLog = [];
+    jobs.push(
+      register('budget_alerts', Number(settings.alertIntervalMs ?? 60_000), async () => {
+        const fresh = dedupe(checkBudgets({ config: deps.config, ledger: deps.ledger }), sentAlerts);
+        for (const alert of fresh) {
+          logger.warn(alert.message);
+          alertLog.push({ ...alert, at: Date.now() });
+          if (alertLog.length > 50) alertLog.shift();
+        }
+        return { fired: fresh.length, thresholds: THRESHOLDS };
+      }),
+    );
+    deps.alerts = { log: () => [...alertLog], sent: () => [...sentAlerts] };
+
     const sweepMs = Number(settings.cacheSweepMs ?? 300_000);
     if (cache?.sweep && sweepMs > 0) {
       jobs.push(register('cache_sweep', sweepMs, async () => cache.sweep()));
@@ -132,6 +151,7 @@ export function startWorkers(deps) {
           lastResult: j.lastResult,
         })),
         probes: prober ? prober.snapshot() : [],
+        alerts: deps.alerts?.log?.() ?? [],
       };
     },
     stop() {

@@ -132,6 +132,10 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B10.5 eval reports — done**: `GET /api/evals` serves `evals/last-report.json`, and the dashboard shows the last run with its mode. A self-test report is labelled as a harness check, because it proves the graders grade and says nothing about a model.
 
+**B9.3 fallback learning — done**: a combo can reorder its own targets from the ledger — success rate first, then p50 latency, declared order breaking ties, and the declared position kept below `minSamples`. Opt-in per combo, because reordering changes what answers your traffic. `sui.route.learned` reports it per turn. 6 tests.
+
+**B7.3 budget alerts — done**: 75/90/100 percent of the daily and per-provider caps, fired once per threshold per scope per day, with the numbers in the message. A `budget_alerts` worker runs every minute; `GET /api/alerts` serves the log. 6 tests.
+
 **B9.2 canary rollout — done**: `packages/canary` sends a share of traffic to a candidate combo, refuses a verdict before the sample floor, rolls back on a success-rate *or* p95 breach, and **excludes provider outages** from the verdict — blaming a candidate for someone else's downtime is how a good change gets reverted. `GET /api/canary`, `POST /api/canary/rollback`, and the arm recorded on every response. 12 tests.
 
 **B9.1 worker scheduler — done**: `apps/gateway/src/workers.js` runs the prober (hourly) and a cache sweep, off the request path, with a delayed kickoff so startup never waits on the network, `stop()` that clears every timer, `/api/workers` for state and a Probes table on the dashboard. Workers are opt-in for programmatic gateways and on for `sui start` (`--no-workers` to disable). 7 tests.
@@ -163,7 +167,7 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
 3. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
 4. **B10.4 compression view** — what each preset would do to a real prompt, in the UI.
-5. **B9.3 fallback learning** — let the ledger reorder a combo's targets.
+5. **B9.4–B9.6** — quota reset detection, token refresh, worker hardening.
 
 ## Risk register
 

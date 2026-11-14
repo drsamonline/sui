@@ -120,6 +120,19 @@ export function createSuiServer(deps) {
         }
       }
       // B10.5: the last eval run, if one has been done on this machine.
+      // B7.3: what the budget monitor has announced today.
+      if (req.method === 'GET' && path === '/api/alerts') {
+        const snap = workers?.snapshot?.() ?? { alerts: [] };
+        const spent = ledger.todaySpendUsd();
+        const cap = configRef.budgets?.dailyUsd ?? null;
+        return sendJson(res, 200, {
+          spentUsd: Math.round(spent * 1e6) / 1e6,
+          dailyUsd: cap,
+          pct: cap ? Math.round((spent / cap) * 1000) / 10 : null,
+          thresholds: [75, 90, 100],
+          alerts: snap.alerts ?? [],
+        });
+      }
       if (req.method === 'GET' && path === '/api/evals') {
         const reportPath =
           process.env.SUI_EVAL_REPORT ??

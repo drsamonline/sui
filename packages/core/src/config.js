@@ -420,6 +420,10 @@ export function resolveCombo(config, comboName) {
     label: combo.label ?? comboName,
     strategy: combo.strategy,
     minQuality: combo.minQuality ?? 1,
+    // policy fields the router reads must survive normalisation, or a combo
+    // silently loses its learning policy and nobody finds out until traffic
+    // behaves unexpectedly.
+    learning: combo.learning ?? null,
     maxCostPer1k: combo.maxCostPer1k ?? null,
     targets,
   };

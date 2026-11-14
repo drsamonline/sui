@@ -288,6 +288,30 @@ A key is a tenant. Its limits are checked before a provider is chosen, so a chea
 
 The limiter is a token bucket **in memory**, per process. A shared limiter needs a shared store — Phase 9.
 
+## Fallback learning
+
+A combo can reorder itself from what the ledger has measured, instead of what you guessed when you wrote it.
+
+```json
+"combos": {
+  "chat-default": {
+    "strategy": "fallback",
+    "targets": ["groq-70b", "gemini-flash", "gpt-mini"],
+    "learning": { "enabled": true, "minSamples": 10, "windowMs": 86400000 }
+  }
+}
+```
+
+| Rule | Why |
+|---|---|
+| Opt-in per combo | reordering changes what answers your traffic; that is a decision |
+| Below `minSamples` the declared position is kept | two requests prove nothing |
+| Ordered by success rate, then p50 latency | a fast provider that fails is not fast |
+| Declared order breaks every tie | stability, so the plan is reproducible |
+| Only samples inside `windowMs` count | last month's outage should not order today's traffic |
+
+`sui explain` says when learning is on, and `sui.route.learned` reports it per turn.
+
 ## Privacy tiers
 
 Route by what a provider does with your data, not only by price.

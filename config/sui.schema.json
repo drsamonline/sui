@@ -279,6 +279,27 @@
           "maxCostPer1k": {
             "type": "number",
             "minimum": 0
+          },
+          "learning": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "B9.3 fallback learning: reorder this combo's targets by measured health from the ledger.",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false
+              },
+              "minSamples": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 10
+              },
+              "windowMs": {
+                "type": "integer",
+                "minimum": 60000,
+                "default": 86400000
+              }
+            }
           }
         }
       }

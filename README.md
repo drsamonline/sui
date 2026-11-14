@@ -43,6 +43,8 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Per-key limits** — each key is a tenant: combo/model allow-lists, daily spend cap, token-bucket rate limit, its own guardrails.
 - **Privacy tiers** — route by retention and training posture (`any` / `standard` / `strict`), with unknown posture failing the strict tier and a strict request failing closed rather than downgrading.
 - **Dual-channel inspection** — tool definitions and tool results are inspected as well as prompts, because a tool result is the channel an attacker controls outright.
+- **Fallback learning** — a combo can reorder its own targets from measured success rate and latency, keeping the declared position below the sample floor.
+- **Budget alerts** — 75/90/100 percent of the daily and per-provider caps, fired once per threshold per day, with the numbers in the message.
 - **Canary rollout** — a share of traffic to a candidate combo, rolled back automatically on a success-rate or p95 breach, with provider outages excluded from the verdict.
 - **Red-team self-test** — eleven obfuscations of one injection instruction, a random canary per run, and a verdict that treats an echo as `HIGH`, not a pass.
 - **Cache-aware compression** — the system message is never compressed when prompt caching is on, so compression cannot break the provider's prefix cache.

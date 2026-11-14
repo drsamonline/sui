@@ -191,6 +191,48 @@ export class Router {
     }
 
     let ordered = usable;
+
+    // B9.3: fallback learning. Opt-in per combo, because reordering changes what
+    // answers your traffic and that should be a decision, not a surprise.
+    const learning = combo.learning ?? null;
+    if (learning?.enabled && ordered.length > 1) {
+      const minSamples = Number(learning.minSamples ?? 10);
+      const windowMs = Number(learning.windowMs ?? 24 * 3600_000);
+      const since = this.now() - windowMs;
+      const rows = this.ledger.entries({ since });
+      const stats = new Map();
+      for (const row of rows) {
+        if (!row.modelId) continue;
+        const entry = stats.get(row.modelId) ?? { ok: 0, total: 0, latencies: [] };
+        entry.total += 1;
+        if (row.ok) {
+          entry.ok += 1;
+          if (Number.isFinite(row.latencyMs)) entry.latencies.push(row.latencyMs);
+        }
+        stats.set(row.modelId, entry);
+      }
+
+      const score = (modelId) => {
+        const entry = stats.get(modelId);
+        if (!entry || entry.total < minSamples) return null; // not enough evidence: keep the declared position
+        const successRate = entry.ok / entry.total;
+        const sorted = [...entry.latencies].sort((a, b) => a - b);
+        const p50 = sorted.length ? sorted[Math.floor(sorted.length / 2)] : Number.MAX_SAFE_INTEGER;
+        return { successRate, p50, total: entry.total };
+      };
+
+      const withScore = ordered.map((target, index) => ({ target, index, score: score(target.modelId) }));
+      withScore.sort((a, b) => {
+        if (a.score && !b.score) return -1; // measured beats unmeasured
+        if (!a.score && b.score) return 1;
+        if (a.score && b.score) {
+          if (Math.abs(b.score.successRate - a.score.successRate) > 0.05) return b.score.successRate - a.score.successRate;
+          if (a.score.p50 !== b.score.p50) return a.score.p50 - b.score.p50;
+        }
+        return a.index - b.index; // stable: declared order breaks every tie
+      });
+      ordered = withScore.map((x) => x.target);
+    }
     if (combo.strategy === 'cheapest') {
       ordered = [...usable].sort((a, b) => a.estimate - b.estimate || Number(b.model.quality ?? 0) - Number(a.model.quality ?? 0));
     } else if (combo.strategy === 'latency') {
@@ -200,7 +242,7 @@ export class Router {
       ordered = [primary, ...usable.filter((t) => t.modelId !== primary.modelId).sort((a, b) => b.weight - a.weight)];
     }
 
-    return { combo, ordered, resting, skipped, spentToday, dailyBudget, privacyTier };
+    return { combo, ordered, resting, skipped, spentToday, dailyBudget, privacyTier, learned: Boolean(combo.learning?.enabled) };
   }
 
   /**
@@ -366,7 +408,7 @@ export class Router {
     const effectiveMessages = compressed.messages;
     const promptTokens = estimateTokens(effectiveMessages.map((m) => m.content).join('\n'));
 
-    const { combo, ordered, resting, skipped, privacyTier } = this.plan(comboName, {
+    const { combo, ordered, resting, skipped, privacyTier, learned } = this.plan(comboName, {
       privacyTier: input.privacyTier,
       promptTokens,
       keyMeta: input.keyMeta,
@@ -560,6 +602,7 @@ export class Router {
             route: {
               strategy: combo.strategy,
               privacyTier,
+              learned,
               considered: [
                 ...ordered.map((t) => ({ modelId: t.modelId, provider: t.providerId, outcome: t.modelId === modelId ? 'answered' : 'available' })),
                 ...resting.map((t) => ({ modelId: t.modelId, provider: t.providerId, outcome: 'resting' })),

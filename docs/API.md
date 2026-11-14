@@ -44,7 +44,7 @@ OpenAI-compatible.
 | `sui.savedUsd` | number | what this turn's compression saved, at the model's input price |
 | `sui.toolInspection` | object \| null | `{mode, findings:[{channel, where, signal, severity, detail}]}` when inspection is on and found something |
 | `sui.verification` | object \| null | `{confidence, threshold, verified, reasons, escalated}` when verification is on |
-| `sui.route` | object | `{strategy, privacyTier, considered:[{modelId, provider, outcome, reason?}]}` |
+| `sui.route` | object | `{strategy, privacyTier, learned, considered:[{modelId, provider, outcome, reason?}]}` |
 | `sui.promptCache` | object \| null | `{warm, sends, prefixChars, fingerprint, volatile, hint, unsupported}` |
 | `sui.latencyMs` | number | full turn |
 | `sui.ttftMs` | number \| null | time to first token, streaming only |
@@ -141,6 +141,16 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 ```
 
 Served with `content-disposition: attachment`.
+
+## GET /api/alerts
+
+B7.3 budget alerts: 75, 90 and 100 percent of the daily and per-provider caps, fired once per threshold per scope per day.
+
+```json
+{ "spentUsd": 4.51, "dailyUsd": 5, "pct": 90.2, "thresholds": [75, 90, 100],
+  "alerts": [{ "scope": "daily", "scopeId": "gateway", "pct": 90.2, "threshold": 90,
+               "level": "critical", "message": "Daily budget critical: $4.51 of $5.00 spent today (90.2%).", "at": 1763000000000 }] }
+```
 
 ## GET /api/evals
 

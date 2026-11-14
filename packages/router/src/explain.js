@@ -21,6 +21,9 @@ export function explainPlan(plan) {
     if (combo.strategy === 'cheapest') lines.push('Targets are ordered by blended cost, after the quality floor.');
     if (combo.strategy === 'weighted') lines.push('The first target is picked by weight; the rest are fallbacks in weight order.');
     if (combo.strategy === 'latency') lines.push('Targets are ordered by measured p50 from the ledger.');
+    if (plan.learned) {
+      lines.push('Fallback learning is on for this combo: targets with enough recent samples are ordered by success rate, then latency, and the declared order breaks ties.');
+    }
   } else {
     lines.push('No target is available right now.');
   }
