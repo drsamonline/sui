@@ -392,6 +392,52 @@
           ]
         }
       }
+    },
+    "workers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Background jobs. Off the request path by construction (I1).",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "kickoffMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1500
+        },
+        "cacheSweepMs": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 300000
+        },
+        "prober": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "intervalMs": {
+              "type": "integer",
+              "minimum": 1000,
+              "default": 3600000
+            },
+            "failuresBeforeDisable": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 100,
+              "default": 8000
+            }
+          }
+        }
+      }
     }
   }
 }

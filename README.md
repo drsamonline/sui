@@ -41,6 +41,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
 - **Dashboard** — token-based design system, budget bar, routing-pool topology, breaker states, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token.
 - **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.
+- **Background workers** — prober and cache sweep run off the request path, with `/api/workers` and a Probes table on the dashboard.
 - **Catalogue + canary prober** — 26 entries, every one an unverified identity until a probe says otherwise; `sui probe` checks liveness, readiness and suitability (streaming, JSON, tools) with versioned synthetic fixtures, disables a route after three failures and re-enables it on recovery.
 - **Onboarding** with tool detection and one-click config; **migration** from 9router / OmniRoute / HubGate with a preview diff and a post-import smoke test.
 - **Eval harness** — 50-prompt golden set, nine deterministic graders, a self-test that proves the graders grade, and a regression gate against `evals/baseline.json`.
@@ -105,7 +106,7 @@ npm workspaces, Node 20+, **zero runtime dependencies**. No build step.
 ## Commands that prove things
 
 ```bash
-npm test         # 161 tests: routing, invariants, security, dashboard, catalog, sdk, vault, kits, prober, evals
+npm test         # 175 tests: routing, invariants, security, dashboard, catalog, sdk, vault, kits, prober, evals
 npm run eval:self  # prove the graders grade (50 must-pass, 6 must-fail)
 npm run eval     # 50 prompts against a real combo, regression-gated
 npm run soak     # 1,200 requests, p95 overhead against the 15ms budget

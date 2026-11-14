@@ -14,7 +14,8 @@
 import { existsSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createGateway, loadEnvFile } from '@sui/gateway';
 import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, sanitizeConfig, suiHome, INVARIANTS } from '@sui/core';
 import { runInit } from './onboarding.js';
@@ -24,7 +25,15 @@ import { cmdCatalog, cmdConfig, cmdKits, cmdProbe, cmdTokens, cmdVault, writeExp
 import { kitStatus } from '@sui/kits';
 import { ConfigError } from '@sui/core';
 
-const VERSION = '0.2.0';
+// One source of truth for the version: the package manifest.
+const HERE_DIR = dirname(fileURLToPath(import.meta.url));
+const VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(join(HERE_DIR, '..', '..', '..', 'package.json'), 'utf8')).version;
+  } catch {
+    return '0.0.0-unknown';
+  }
+})();
 
 export async function run(argv = process.argv.slice(2)) {
   const { command, args, flags } = parse(argv);
@@ -111,7 +120,8 @@ async function cmdInit(flags) {
 }
 
 async function cmdUp(flags) {
-  const gateway = await createGateway({ configPath: flags.config });
+  // `sui start` is the one place background jobs run.
+  const gateway = await createGateway({ configPath: flags.config, startWorkers: flags['no-workers'] !== true });
   const { config, server } = gateway;
   const host = config.server.host;
   const port = flags.port ? Number(flags.port) : config.server.port;
@@ -152,10 +162,17 @@ async function cmdUp(flags) {
     .map(([id]) => id);
   if (unconfigured.length) console.log(`  no key yet ${unconfigured.join(', ')}`);
   console.log('');
+  const jobs = gateway.workers.snapshot();
+  if (jobs.enabled && jobs.jobs.length) {
+    console.log(`  workers    ${jobs.jobs.map((j) => `${j.name} every ${Math.round(j.intervalMs / 1000)}s`).join(', ')}`);
+  } else {
+    console.log('  workers    off (pass --no-workers to keep them off, or set workers.enabled:false)');
+  }
   console.log('Ctrl-C to stop.');
 
   const shutdown = () => {
     console.log('\nstopping…');
+    gateway.workers.stop();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 1500).unref();
   };
@@ -489,7 +506,7 @@ sui ${VERSION} — one endpoint for every LLM
 
   npx sui                 first run: find keys, find tools, prove the route, start
   npx sui init            the same, explicitly      --demo  --force  --port 8787
-  npx sui start           run the gateway            --port 8787  --config <file>
+  npx sui start           run the gateway            --port 8787  --config <file>  --no-workers
   npx sui invariants      every hard constraint, and which are enforced
   npx sui keys hash       replace plaintext API keys with SHA-256 hashes
   npx sui doctor          one real turn per combo, and say what broke

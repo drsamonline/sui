@@ -4,7 +4,7 @@
 
 This is the working plan: twelve phases, sixty batches, in dependency order. Every batch has a status, and a status is only `done` when a command in this repository proves it — a test, an eval run, or a soak report. Nothing here is marked done because it was written.
 
-Last updated: 2026-11-14 · 161 tests green · eval self-test green · soak p95 1.13ms against a 15ms budget · 7 kits vendored · prober built.
+Last updated: 2026-11-14 · 175 tests green · eval self-test green · soak p95 1.13ms against a 15ms budget · 7 kits vendored · prober built.
 
 ---
 
@@ -22,7 +22,7 @@ Three rules keep it honest:
 |---|---|
 | Runtime | Node 20+, ESM, **zero runtime dependencies** |
 | Layout | npm workspaces: `apps/{gateway,dashboard,cli}` · `packages/{core,providers,router,telemetry,catalog,guardrails,sdk}` |
-| Tests | 161 passing, no network, no keys (`npm test`) |
+| Tests | 175 passing, no network, no keys (`npm test`) |
 | Eval | 50-prompt golden set, 56-check self-test, regression gate against `evals/baseline.json` |
 | Soak | `npm run soak` — 1,200 requests, p95 2.57ms overhead, no unhandled errors |
 | Security | Host-header allowlist, SHA-256 key hashes with constant-time compare, no default password, no JWT, paid vault sealed with AES-256-GCM |
@@ -72,7 +72,7 @@ Legend: **done** = a command proves it · **partial** = shipped, with a named ga
 |---|---|---|
 | B3.1 Free-first tier order | **partial** | Tier is a field and the paid gate is enforced (I4). Ordering is per-combo today; the global free→free-probed→paid ordering rule is not yet applied across combos. |
 | B3.2 Circuit breaker | **done** | Three states, lazy recovery, trips on 5xx/transport only (I13), tested both ways. |
-| B3.3 Streaming behaviour | **partial** | First token is the loading state (dashboard + SSE headers). **Empty-turn retry and first-chunk clone are not implemented.** Mid-stream drops are reported, not re-routed. |
+| B3.3 Streaming behaviour | **partial** | First token is the loading state (dashboard + SSE headers). **Empty-turn retry** is done: a 200 with nothing in it is retried once on the same target, then the next target answers — and it does not trip the breaker, because an empty turn is a quality problem, not an outage (5 tests). First-chunk clone is deliberately not implemented: buffering the first chunk to allow a later failover trades time-to-first-token for a splice the user never asked for. Mid-stream drops are reported, not re-routed. |
 | B3.4 Verification escalation | todo | `verified` is recorded per turn; fail-closed escalation with a 0.7 confidence threshold is not built. |
 | B3.5 Speculative cascade | todo | 50ms classifier budget, confidence-drop trigger. |
 | B3.6 Virtual models | **partial** | `fallback`, `weighted`, `cheapest`, `latency` with per-arm attribution. The spec's `conditional` mode is not implemented. |
@@ -125,7 +125,9 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 ### Phases 9–11
 
-All todo: worker scheduler, canary + SLO rollback, fallback learning, quota reset detection, token refresh; Weather Map UI, Savings Ledger UI, explain-my-route UI, eval reports UI; seven tutorials, four quickstarts, ADRs (six written so far).
+**B9.1 worker scheduler — done**: `apps/gateway/src/workers.js` runs the prober (hourly) and a cache sweep, off the request path, with a delayed kickoff so startup never waits on the network, `stop()` that clears every timer, `/api/workers` for state and a Probes table on the dashboard. Workers are opt-in for programmatic gateways and on for `sui start` (`--no-workers` to disable). 7 tests.
+
+Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota reset detection, token refresh; Weather Map UI, Savings Ledger UI, explain-my-route UI, eval reports UI; seven tutorials, four quickstarts, ADRs (seven written so far).
 
 ---
 

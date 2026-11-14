@@ -171,4 +171,22 @@ export class ResponseCache {
     this._index = null;
     this._indexDirty = true;
   }
+
+  /**
+   * Drop expired entries so a long-running gateway's memory is bounded by the
+   * TTL, not by the number of prompts it has ever seen. Called by the
+   * cache_sweep worker.
+   */
+  sweep() {
+    const now = this.now();
+    let removed = 0;
+    for (const [key, entry] of this.map.entries()) {
+      if (entry.expiresAt <= now) {
+        this.map.delete(key);
+        removed += 1;
+      }
+    }
+    if (removed) this._indexDirty = true;
+    return { removed, remaining: this.map.size };
+  }
 }

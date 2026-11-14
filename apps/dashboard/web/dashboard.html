@@ -341,6 +341,21 @@
       </div>
     </section>
 
+    <section class="card flush" id="probes-card" aria-labelledby="probes-h" hidden>
+      <header>
+        <h2 id="probes-h">Probes</h2>
+        <span class="hint">liveness · readiness · suitability</span>
+      </header>
+      <div class="body" style="padding: 0">
+        <div class="scroll">
+          <table>
+            <thead><tr><th scope="col">Provider</th><th scope="col">State</th><th scope="col">Failures</th><th scope="col">Last probe</th><th scope="col" class="num">Latency</th><th scope="col">Why not</th></tr></thead>
+            <tbody id="probes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section class="card flush" aria-labelledby="traces-h">
       <header>
         <h2 id="traces-h">Prompt-free usage</h2>
@@ -429,6 +444,7 @@ function render() {
   renderKpis(metrics.totals, cache);
   renderPool(pool);
   renderCombos(combos);
+  renderProbes(state.probes ?? []);
   renderTraces(promptUsage);
   renderRecent(metrics.recent);
   renderTopology(combos, pool);
@@ -492,6 +508,25 @@ function renderCombos(combos) {
       <td class="mono">${c.targets.join(' → ')}</td>
       <td class="num">${num(c.turnsToday)}</td>
       <td class="num">${money(c.costToday)}</td>
+    </tr>`).join('');
+}
+
+function renderProbes(probes) {
+  const card = document.querySelector('#probes-card');
+  if (!card) return;
+  if (!probes.length) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+  document.querySelector('#probes-body').innerHTML = probes.map((p) => `
+    <tr>
+      <td><strong>${escapeHtml(p.provider)}</strong></td>
+      <td><span class="status" data-state="${p.status === 'healthy' ? 'closed' : p.status === 'disabled' ? 'open' : 'half_open'}"><span class="dot" aria-hidden="true"></span>${p.status}</span></td>
+      <td class="num">${p.failures}</td>
+      <td class="num">${p.lastProbeAt ? new Date(p.lastProbeAt).toLocaleTimeString('en-IN', { hour12: false }) : '—'}</td>
+      <td class="num">${p.latencyMs == null ? '—' : `${p.latencyMs} ms`}</td>
+      <td class="hint">${escapeHtml((p.reasons ?? []).join('; ').slice(0, 70) || '—')}</td>
     </tr>`).join('');
 }
 

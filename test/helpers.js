@@ -5,6 +5,8 @@
 
 import { createServer } from 'node:http';
 import { createGateway } from '@sui/gateway';
+
+export { createGateway };
 import { Ledger } from '@sui/telemetry';
 import { CircuitBreaker } from '@sui/router';
 import { ResponseCache } from '@sui/telemetry';

@@ -63,6 +63,12 @@ test('the chat window has zero-state starters and a provenance chip', () => {
   assert.match(html, /cached/);
 });
 
+test('the Probes table exists and stays hidden until there is probe state', () => {
+  assert.match(html, /id="probes-card"/);
+  assert.match(html, /hidden/);
+  assert.match(html, /liveness · readiness · suitability/);
+});
+
 test('the model selector shows speed, quality and cost, and locks what cannot answer', () => {
   assert.match(html, /quality/);
   assert.match(html, /cost/);

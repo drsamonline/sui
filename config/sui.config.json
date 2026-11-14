@@ -212,6 +212,17 @@
   "paid_tiers": {
     "enabled": false
   },
+  "workers": {
+    "enabled": true,
+    "kickoffMs": 1500,
+    "cacheSweepMs": 300000,
+    "prober": {
+      "enabled": true,
+      "intervalMs": 3600000,
+      "failuresBeforeDisable": 3,
+      "timeoutMs": 8000
+    }
+  },
   "guardrails": {
     "maxOutputTokens": 4096,
     "maxInputChars": 400000,

@@ -29,7 +29,7 @@ const DASHBOARD = join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html');
  * @param {{router: any, config: any, ledger: any, breaker: any, cache: any, logger?: any}} deps
  */
 export function createSuiServer(deps) {
-  const { router, config, ledger, breaker, cache } = deps;
+  const { router, config, ledger, breaker, cache, workers } = deps;
   const logger = deps.logger ?? { info() {}, warn() {}, debug() {} };
   let configRef = config;
 
@@ -75,7 +75,7 @@ export function createSuiServer(deps) {
 
       // ---- dashboard API --------------------------------------------------
       if (req.method === 'GET' && path === '/api/status') {
-        return sendJson(res, 200, statusPayload(configRef, ledger, breaker, cache, router));
+        return sendJson(res, 200, statusPayload(configRef, ledger, breaker, cache, router, workers));
       }
       if (req.method === 'GET' && path === '/api/metrics') {
         const since = sinceParam(url);
@@ -90,6 +90,9 @@ export function createSuiServer(deps) {
       }
       if (req.method === 'GET' && path === '/api/traces') {
         return sendJson(res, 200, { prompts: ledger.promptUsage(50), note: 'Hashes only. Prompt text is never stored unless guardrails.logPrompts is on.' });
+      }
+      if (req.method === 'GET' && path === '/api/workers') {
+        return sendJson(res, 200, workers ? workers.snapshot() : { enabled: false, jobs: [], probes: [] });
       }
       if (req.method === 'GET' && path === '/api/invariants') {
         return sendJson(res, 200, {
@@ -317,7 +320,7 @@ function modelList(config, all) {
   return [...combos, ...models];
 }
 
-function statusPayload(config, ledger, breaker, cache, router) {
+function statusPayload(config, ledger, breaker, cache, router, workers = null) {
   const agg = ledger.aggregate({ since: startOfToday() });
   const spent = ledger.todaySpendUsd();
   const daily = config.budgets.dailyUsd;
@@ -372,6 +375,7 @@ function statusPayload(config, ledger, breaker, cache, router) {
     guardrails: config.guardrails,
     paidTiers: { enabled: config.paidTiers?.enabled === true },
     invariantWarnings: auditConfig(config).filter((a) => !a.ok),
+    probes: workers?.snapshot?.().probes ?? [],
     promptUsage: ledger.promptUsage(20),
   };
 }

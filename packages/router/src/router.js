@@ -278,119 +278,176 @@ export class Router {
     for (const target of queue) {
       const { modelId, model, providerId, arm } = target;
       const adapter = this.adapterFor(providerId);
-      const attemptStart = this.now();
-      let ttft = null;
-      let committed = false;
+      const emptyRetryAllowed = this.config.streaming?.emptyTurnRetry !== false;
+      let retriedEmpty = false;
 
-      /** @type {(delta: string) => void} */
-      const emit = (delta) => {
-        if (!committed) {
-          committed = true;
-          ttft = this.now() - attemptStart;
-        }
-        input.onToken?.(delta);
-      };
+      // B3.3: an empty turn is a failed turn. Some free tiers answer a 200 with
+      // nothing in it when they are throttling — retry the same target once,
+      // then move on, rather than handing the user a blank reply.
+      for (;;) {
+        const attemptStart = this.now();
+        let ttft = null;
+        let committed = false;
 
-      try {
-        input.onAttempt?.({ modelId, providerId, providerName: adapter.name, model: model.model, arm: arm ?? null });
-        const result = await adapter.chat(
-          {
-            model: model.model,
-            messages,
-            stream: streamed,
-            temperature: body.temperature,
-            max_tokens: clampMaxTokens(body.max_tokens, this.config.guardrails),
-            top_p: body.top_p,
-            stop: body.stop,
-          },
-          { onToken: streamed ? emit : undefined },
-        );
-
-        const latencyMs = this.now() - attemptStart;
-        const costUsd = estimatedCost(model, result.usage.prompt_tokens, result.usage.completion_tokens);
-        const verified = adapter.type !== 'mock';
-
-        this.breaker.recordSuccess(modelId);
-        if (target.restingFallback) usedResting = true;
-
-        /** @type {TurnMeta} */
-        const meta = {
-          provider: providerId,
-          providerName: adapter.name,
-          model: model.model,
-          modelId,
-          combo: comboName,
-          arm: arm ?? null,
-          cached: false,
-          cacheKind: null,
-          verified,
-          latencyMs,
-          ttftMs: streamed ? ttft : null,
-          costUsd,
-          usage: result.usage,
-          strategy: combo.strategy,
-          attempts,
-          escalation: usedResting ? 'I14 — every healthy target failed, a resting one was tried' : null,
+        /** @type {(delta: string) => void} */
+        const emit = (delta) => {
+          if (!committed) {
+            committed = true;
+            ttft = this.now() - attemptStart;
+          }
+          input.onToken?.(delta);
         };
 
-        this.ledger.record({
-          provider: providerId,
-          model: model.model,
-          modelId,
-          combo: comboName,
-          arm: arm ?? null,
-          ok: true,
-          promptTokens: result.usage.prompt_tokens,
-          completionTokens: result.usage.completion_tokens,
-          costUsd,
-          latencyMs,
-          ttftMs: streamed ? ttft : null,
-          cached: false,
-          verified,
-          promptText,
-          streamed,
-        });
-
-        if (cacheKey) {
-          this.cache.set(
-            cacheKey,
-            { text: result.text, usage: result.usage, finishReason: result.finishReason, meta },
-            { promptText },
+        try {
+          input.onAttempt?.({ modelId, providerId, providerName: adapter.name, model: model.model, arm: arm ?? null });
+          const result = await adapter.chat(
+            {
+              model: model.model,
+              messages,
+              stream: streamed,
+              temperature: body.temperature,
+              max_tokens: clampMaxTokens(body.max_tokens, this.config.guardrails),
+              top_p: body.top_p,
+              stop: body.stop,
+            },
+            { onToken: streamed ? emit : undefined },
           );
-        }
 
-        return { text: result.text, usage: result.usage, finishReason: result.finishReason, meta };
-      } catch (err) {
-        const e = /** @type {any} */ (err);
-        const latencyMs = this.now() - attemptStart;
-        const retryable = e instanceof ProviderError ? e.retryable : false;
+          const latencyMs = this.now() - attemptStart;
+          const isEmpty = !committed && String(result.text ?? '').trim().length === 0;
 
-        // I13: only 5xx and transport failures trip the breaker. A 401 or a 404
-        // is a fact about the key or the model name, not a health signal, and
-        // tripping on it would hide a config bug behind a cooldown.
-        if (tripsBreaker(e)) this.breaker.recordFailure(modelId, e.message);
+          if (isEmpty && emptyRetryAllowed && !retriedEmpty) {
+            retriedEmpty = true;
+            attempts.push({ modelId, provider: providerId, reason: 'empty turn — retried once on the same target' });
+            this.ledger.record({
+              provider: providerId,
+              model: model.model,
+              modelId,
+              combo: comboName,
+              arm: arm ?? null,
+              ok: false,
+              error: 'empty_turn',
+              promptTokens: result.usage?.prompt_tokens ?? promptTokens,
+              completionTokens: 0,
+              costUsd: 0,
+              latencyMs,
+              ttftMs: ttft,
+              cached: false,
+              verified: false,
+              promptText,
+              streamed,
+            });
+            this.logger.warn(`${displayName(providerId)} (${modelId}) returned an empty turn — retrying once`);
+            continue;
+          }
 
-        attempts.push({ modelId, provider: providerId, reason: e.message ?? String(err) });
-        lastError = e;
+          if (isEmpty) {
+            // Still empty after the retry: record it and try the next target.
+            attempts.push({ modelId, provider: providerId, reason: 'empty turn (no retry left)' });
+            this.ledger.record({
+              provider: providerId,
+              model: model.model,
+              modelId,
+              combo: comboName,
+              arm: arm ?? null,
+              ok: false,
+              error: 'empty_turn',
+              promptTokens: result.usage?.prompt_tokens ?? promptTokens,
+              completionTokens: 0,
+              costUsd: 0,
+              latencyMs,
+              ttftMs: ttft,
+              cached: false,
+              verified: false,
+              promptText,
+              streamed,
+            });
+            break;
+          }
 
-        this.ledger.record({
-          provider: providerId,
-          model: model.model,
-          modelId,
-          combo: comboName,
-          arm: arm ?? null,
-          ok: false,
-          error: e.message ?? String(err),
-          promptTokens,
-          completionTokens: 0,
-          costUsd: 0,
-          latencyMs,
-          ttftMs: ttft,
-          cached: false,
-          verified: false,
-          promptText,
-          streamed,
-        });
+          const costUsd = estimatedCost(model, result.usage.prompt_tokens, result.usage.completion_tokens);
+          const verified = adapter.type !== 'mock';
+
+          this.breaker.recordSuccess(modelId);
+          if (target.restingFallback) usedResting = true;
+
+          /** @type {TurnMeta} */
+          const meta = {
+            provider: providerId,
+            providerName: adapter.name,
+            model: model.model,
+            modelId,
+            combo: comboName,
+            arm: arm ?? null,
+            cached: false,
+            cacheKind: null,
+            verified,
+            latencyMs,
+            ttftMs: streamed ? ttft : null,
+            costUsd,
+            usage: result.usage,
+            strategy: combo.strategy,
+            attempts,
+            escalation: usedResting ? 'I14 — every healthy target failed, a resting one was tried' : null,
+          };
+
+          this.ledger.record({
+            provider: providerId,
+            model: model.model,
+            modelId,
+            combo: comboName,
+            arm: arm ?? null,
+            ok: true,
+            promptTokens: result.usage.prompt_tokens,
+            completionTokens: result.usage.completion_tokens,
+            costUsd,
+            latencyMs,
+            ttftMs: streamed ? ttft : null,
+            cached: false,
+            verified,
+            promptText,
+            streamed,
+          });
+
+          if (cacheKey) {
+            this.cache.set(
+              cacheKey,
+              { text: result.text, usage: result.usage, finishReason: result.finishReason, meta },
+              { promptText },
+            );
+          }
+
+          return { text: result.text, usage: result.usage, finishReason: result.finishReason, meta };
+        } catch (err) {
+          const e = /** @type {any} */ (err);
+          const latencyMs = this.now() - attemptStart;
+
+          // I13: only 5xx and transport failures trip the breaker. A 401 or a 404
+          // is a fact about the key or the model name, not a health signal, and
+          // tripping on it would hide a config bug behind a cooldown.
+          if (tripsBreaker(e)) this.breaker.recordFailure(modelId, e.message);
+
+          attempts.push({ modelId, provider: providerId, reason: e.message ?? String(err) });
+          lastError = e;
+
+          this.ledger.record({
+            provider: providerId,
+            model: model.model,
+            modelId,
+            combo: comboName,
+            arm: arm ?? null,
+            ok: false,
+            error: e.message ?? String(err),
+            promptTokens,
+            completionTokens: 0,
+            costUsd: 0,
+            latencyMs,
+            ttftMs: ttft,
+            cached: false,
+            verified: false,
+            promptText,
+            streamed,
+          });
 
         this.logger.warn(`${displayName(providerId)} (${modelId}) failed: ${e.message}`);
 
@@ -406,8 +463,10 @@ export class Router {
         // fact about that provider, not a reason to abandon the whole combo:
         // the next target is a different provider with a different key.
         if (!(e instanceof ProviderError)) throw e;
+        break; // this target is done; the outer loop moves to the next one
       }
     }
+  }
 
     const err = exhausted(comboName, skipped, this.config, attempts);
     if (lastError && !(lastError instanceof ProviderError)) throw lastError;

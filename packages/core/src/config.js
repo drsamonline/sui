@@ -99,6 +99,19 @@ export function normalizeConfig(raw, opts = {}) {
       logPrompts: raw.guardrails?.logPrompts ?? false,
       redactPiiInLogs: raw.guardrails?.redactPiiInLogs ?? true,
     },
+    // B9.1: background jobs. Off-path by construction — nothing here may run
+    // during a request (I1).
+    workers: {
+      enabled: raw.workers?.enabled !== false,
+      kickoffMs: Number(raw.workers?.kickoffMs ?? 1500),
+      cacheSweepMs: Number(raw.workers?.cacheSweepMs ?? 300000),
+      prober: {
+        enabled: raw.workers?.prober?.enabled !== false,
+        intervalMs: Number(raw.workers?.prober?.intervalMs ?? 3600000),
+        failuresBeforeDisable: Number(raw.workers?.prober?.failuresBeforeDisable ?? 3),
+        timeoutMs: Number(raw.workers?.prober?.timeoutMs ?? 8000),
+      },
+    },
     apiKeys: Array.isArray(raw.apiKeys) ? raw.apiKeys : [],
     // I4: the paid air-gap. Closed by default; a paid provider's credentials are
     // never read while it is closed, whatever is in the environment.
@@ -357,6 +370,7 @@ export function sanitizeConfig(config) {
     budgets: config.budgets,
     guardrails: config.guardrails,
     paidTiers: { enabled: config.paidTiers?.enabled === true },
+    workers: config.workers,
     apiKeyCount: config.apiKeys.length,
   };
 }

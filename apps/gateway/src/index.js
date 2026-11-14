@@ -17,6 +17,7 @@ import { Ledger } from '@sui/telemetry';
 import { Router } from '@sui/router';
 import { openVaultForStartup } from '@sui/vault';
 import { createSuiServer } from './server.js';
+import { startWorkers } from './workers.js';
 
 export { CircuitBreaker } from '@sui/router';
 export { ResponseCache } from '@sui/telemetry';
@@ -51,7 +52,7 @@ export function loadEnvFile(path = '.env', env = process.env) {
  * Build a gateway: config, ledger, breaker, cache, router and an HTTP server,
  * all wired together but not yet listening.
  *
- * @param {{configPath?: string, env?: NodeJS.ProcessEnv, configObject?: any, ledgerFile?: string|null, logger?: any}} [opts]
+ * @param {{configPath?: string, env?: NodeJS.ProcessEnv, configObject?: any, ledgerFile?: string|null, logger?: any, startWorkers?: boolean, catalogDir?: string, now?: () => number}} [opts]
  */
 export async function createGateway(opts = {}) {
   const env = opts.env ?? loadEnvFile(process.env.SUI_ENV_FILE ?? '.env', { ...process.env });
@@ -83,9 +84,33 @@ export async function createGateway(opts = {}) {
   const cache = new ResponseCache({ ...config.server.cache });
   const logger = opts.logger ?? defaultLogger();
   const router = new Router({ config, ledger, breaker, cache, logger });
-  const server = createSuiServer({ router, config, ledger, breaker, cache, logger });
+  // Background jobs are opt-in: creating a gateway programmatically must not
+  // start probing the internet. `sui start` turns them on.
+  const workers =
+    opts.startWorkers === true
+      ? startWorkers({ config, cache, ledger, logger, catalogDir: opts.catalogDir, now: opts.now })
+      : { jobs: [], prober: null, snapshot: () => ({ enabled: false, jobs: [], probes: [] }), stop() {} };
+  const server = createSuiServer({ router, config, ledger, breaker, cache, logger, workers });
 
-  return { config, ledger, breaker, cache, router, server, env, home: resolve(home) };
+  return {
+    config,
+    ledger,
+    breaker,
+    cache,
+    router,
+    server,
+    workers,
+    env,
+    home: resolve(home),
+    /** Stop timers, then close the server. Used by the CLI and by tests. */
+    async close() {
+      workers.stop();
+      await new Promise((resolve) => {
+        server.closeAllConnections?.();
+        server.close(() => resolve());
+      });
+    },
+  };
 }
 
 function defaultLogger() {
