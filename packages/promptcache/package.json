@@ -1,0 +1,15 @@
+{
+  "name": "@sui/promptcache",
+  "version": "0.6.0",
+  "description": "Native prompt caching: stable-prefix detection, per-provider hints, warm/cold tracking.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src"
+  ]
+}

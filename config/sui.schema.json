@@ -366,12 +366,38 @@
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "minimum": 0,
+            "description": "Per-key spend cap, rolling on the local day."
           },
           "key_hash": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$",
             "description": "SHA-256 of the key. Preferred over `key`, which is stored in plaintext."
+          },
+          "rateLimit": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "rpm": {
+                "type": "number",
+                "minimum": 0
+              },
+              "burst": {
+                "type": "number",
+                "minimum": 1
+              }
+            }
+          },
+          "guardrails": {
+            "type": "object",
+            "description": "Tighter guardrails for this key only (maxOutputTokens wins over the request).",
+            "properties": {
+              "maxOutputTokens": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
           }
         }
       }
@@ -478,6 +504,17 @@
           ],
           "default": "off",
           "description": "B4.4 output axis: a short directive that shapes the answer's length and form."
+        }
+      }
+    },
+    "prompt_cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "B4.6 native prompt caching: a stable prefix gets the hint its provider understands.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
         }
       }
     }

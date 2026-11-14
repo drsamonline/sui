@@ -79,6 +79,9 @@ async function openaiChat(providerId, provider, apiKey, req, opts = {}) {
     messages: req.messages,
     stream: Boolean(req.stream),
   };
+  // B4.6: OpenAI caches prefixes automatically above a threshold; the key only
+  // helps route the request to the same cache.
+  if (req.cacheHints?.openai?.promptCacheKey) body.prompt_cache_key = req.cacheHints.openai.promptCacheKey;
   if (req.temperature != null) body.temperature = req.temperature;
   if (req.max_tokens != null) body.max_tokens = req.max_tokens;
   if (req.top_p != null) body.top_p = req.top_p;
@@ -151,7 +154,12 @@ async function anthropicChat(providerId, provider, apiKey, req, opts = {}) {
     messages,
     stream: Boolean(req.stream),
   };
-  if (system) body.system = system;
+  if (system) {
+    // B4.6: Anthropic wants an explicit breakpoint, on a content block.
+    body.system = req.cacheHints?.anthropic?.breakpoint
+      ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+      : system;
+  }
   if (req.temperature != null) body.temperature = req.temperature;
   if (req.stop != null) body.stop_sequences = Array.isArray(req.stop) ? req.stop : [req.stop];
 

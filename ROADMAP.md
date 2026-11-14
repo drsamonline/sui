@@ -4,7 +4,7 @@
 
 This is the working plan: twelve phases, sixty batches, in dependency order. Every batch has a status, and a status is only `done` when a command in this repository proves it — a test, an eval run, or a soak report. Nothing here is marked done because it was written.
 
-Last updated: 2026-11-14 · 202 tests green · eval self-test green · soak p95 1.13ms against a 15ms budget · 7 kits vendored · prober built.
+Last updated: 2026-11-14 · 214 tests green · eval self-test green · soak p95 1.13ms against a 15ms budget · 7 kits vendored · prober built.
 
 ---
 
@@ -22,7 +22,7 @@ Three rules keep it honest:
 |---|---|
 | Runtime | Node 20+, ESM, **zero runtime dependencies** |
 | Layout | npm workspaces: `apps/{gateway,dashboard,cli}` · `packages/{core,providers,router,telemetry,catalog,guardrails,sdk}` |
-| Tests | 202 passing, no network, no keys (`npm test`) |
+| Tests | 214 passing, no network, no keys (`npm test`) |
 | Eval | 50-prompt golden set, 56-check self-test, regression gate against `evals/baseline.json` |
 | Soak | `npm run soak` — 1,200 requests, p95 2.57ms overhead, no unhandled errors |
 | Security | Host-header allowlist, SHA-256 key hashes with constant-time compare, no default password, no JWT, paid vault sealed with AES-256-GCM |
@@ -87,7 +87,7 @@ Legend: **done** = a command proves it · **partial** = shipped, with a named ga
 | B4.3 Budget manager (quota → preset) | **done** | `choosePreset()` maps remaining quota to a preset (60/30/10% thresholds); `preset: "auto"` uses the provider budget as a quota proxy until real quota telemetry lands. `sui budget` shows the mapping. |
 | B4.4 Output-axis dial | **done** | Four styles plus `auto`, injected as a directive under 90 characters, prepended to the existing system message (or creating one). `auto` reads the same quota fraction as the preset and sends a coding task to `code_only`. 10 tests with the savings ledger. |
 | B4.5 Cache-aware compression (CAPC) | todo | The two-tier cost model and prefix-cache ratio bound are not built; the cache itself (exact + lexical) is done. |
-| B4.6 Native prompt caching | todo | |
+| B4.6 Native prompt caching | **done** | Stable-prefix detection, per-provider hints (Anthropic `cache_control`, OpenAI `prompt_cache_key`), a warm/cold fingerprint memory, and a `volatile` list that names the timestamp or request id breaking the cache. Gemini is reported unsupported rather than faked. |
 | B4.7 Semantic cache | **partial** | Two tiers: exact hash, and a **lexical** tier over `ml-kit` tf-idf at a 0.98 threshold — near-duplicate prompts hit without an exact key, and `cacheKind` says which tier answered. Off by default (it holds recent prompt text in memory). A true embedding tier is still todo. |
 
 ### Phase 5 — AGENTS & PROTOCOLS
@@ -99,7 +99,7 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 | Batch | Status | Gap |
 |---|---|---|
 | B6.4 Guardrail plugin architecture | **partial** | `packages/guardrails` is a clean seam with size, pattern and token-clamp checks. No provider plugins (Bedrock/Azure/Model Armor/Lakera/NeMo). |
-| B6.6 Tenant isolation | **partial** | API keys with `allowedCombos`/`allowedModels`, hashed at rest. No per-tenant budgets, rate limits or fallback chains. |
+| B6.6 Tenant isolation | **partial** | Keys are tenants: `allowedCombos`/`allowedModels`, per-key `dailyUsd`, per-key `rateLimit` (token bucket, 429 + Retry-After), per-key `guardrails` that win over the request, hashed at rest. 12 tests. Not done: per-tenant fallback chains, provisioning API, a shared limiter store. |
 | B6.7 Paid-tier air-gap | **done** | Gate (I4) plus sealed storage: `packages/vault` seals keys with AES-256-GCM via `crypto-kit`, opened only when the gate is on, with the key file at 0600 and the provider names inside the envelope. Limitation stated plainly: the passphrase sits beside the vault unless you supply `SUI_VAULT_PASSPHRASE`. |
 | B6.1–B6.3, B6.5 | todo | Red-team toolkit, scheduled self-test, dual-channel inspection, privacy-tiered routing. |
 
@@ -147,9 +147,9 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B4.6 native prompt caching** — stable-prefix detection, which pairs naturally with compression.
-4. **B6.6 tenant isolation** — per-key budgets and rate limits; the key scoping is already there.
-5. **B10.2 Savings Ledger UI** — the numbers exist at `/api/savings`; the panel does not.
+3. **B3.4 verification escalation** — fail-closed at 0.7 confidence, using the prober's suitability checks as the verifier.
+4. **B10.2 Savings Ledger UI** — the numbers exist at `/api/savings`; the panel does not.
+5. **B11.1–B11.8 tutorials and quickstarts** — seven task-oriented docs and four copy-paste snippets.
 
 ## Risk register
 

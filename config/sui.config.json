@@ -219,6 +219,9 @@
     "keepLastUserMessage": true,
     "outputStyle": "off"
   },
+  "prompt_cache": {
+    "enabled": true
+  },
   "workers": {
     "enabled": true,
     "kickoffMs": 1500,

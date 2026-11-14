@@ -166,6 +166,44 @@ sui budget --fraction 0.15
 
 The last user message is never compressed (`keepLastUserMessage`), because that is the question.
 
+## Native prompt caching
+
+A provider caches a **prefix**. Sui finds it and sends only the hint that provider understands.
+
+| Provider | Hint | When |
+|---|---|---|
+| Anthropic | `cache_control: ephemeral` on the system block | prefix ≥ ~1,200 chars |
+| OpenAI | `prompt_cache_key` (fingerprint) for affinity | prefix ≥ ~2,400 chars |
+| Gemini | none — it needs a cached-content resource | reported as unsupported |
+| others | none | reported as unsupported |
+
+The prefix is everything before the last user message. `sui.promptCache` reports `warm`, `sends`, `prefixChars`, the fingerprint, and `volatile` — a timestamp or a request id sitting in the system prompt is the usual reason a cache never hits, so it is named rather than guessed at. Warmth belongs to the prefix, not the provider.
+
+```json
+"prompt_cache": { "enabled": true }
+```
+
+## Per-key limits
+
+A key is a tenant. Its limits are checked before a provider is chosen, so a cheaper combo cannot be used to get around them.
+
+```json
+"apiKeys": [{
+  "name": "team-a", "key_hash": "…", "allowedCombos": ["chat-default"],
+  "dailyUsd": 2, "rateLimit": { "rpm": 60, "burst": 10 },
+  "guardrails": { "maxOutputTokens": 1024 }
+}]
+```
+
+| Limit | Response |
+|---|---|
+| over `rateLimit.rpm` | `429 rate_limited`, with `Retry-After` |
+| over `dailyUsd` | `429 key_budget_reached`, with the spent and the cap in the message |
+| `allowedCombos` / `allowedModels` | `403` |
+| `guardrails.maxOutputTokens` | clamps the request, and wins over it |
+
+The limiter is a token bucket **in memory**, per process. A shared limiter needs a shared store — Phase 9.
+
 ## Guardrails
 
 ```json

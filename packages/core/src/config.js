@@ -109,6 +109,8 @@ export function normalizeConfig(raw, opts = {}) {
       // B4.4: the output axis. 'off' by default — a directive changes the answer.
       outputStyle: raw.compression?.outputStyle ?? 'off',
     },
+    // B4.6: native prompt caching hints.
+    promptCache: { enabled: raw.prompt_cache?.enabled !== false },
     // B9.1: background jobs. Off-path by construction — nothing here may run
     // during a request (I1).
     workers: {
@@ -221,6 +223,12 @@ export function validateConfig(config) {
     }
     if (k.allowedCombos && !Array.isArray(k.allowedCombos)) {
       problems.push(`apiKeys[${i}].allowedCombos must be an array of combo names.`);
+    }
+    if (k.dailyUsd != null && (!Number.isFinite(Number(k.dailyUsd)) || Number(k.dailyUsd) < 0)) {
+      problems.push(`apiKeys[${i}].dailyUsd must be zero or a positive number.`);
+    }
+    if (k.rateLimit?.rpm != null && (!Number.isFinite(Number(k.rateLimit.rpm)) || Number(k.rateLimit.rpm) <= 0)) {
+      problems.push(`apiKeys[${i}].rateLimit.rpm must be a positive number.`);
     }
   }
 
@@ -382,6 +390,7 @@ export function sanitizeConfig(config) {
     paidTiers: { enabled: config.paidTiers?.enabled === true },
     workers: config.workers,
     compression: config.compression,
+    promptCache: config.promptCache,
     apiKeyCount: config.apiKeys.length,
   };
 }

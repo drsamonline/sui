@@ -42,6 +42,7 @@ OpenAI-compatible.
 | `sui.cacheKind` | `"exact"` \| `"semantic"` \| null | which cache tier answered |
 | `sui.compression` | object \| null | `{preset, reason, style, styleReason, ratio, savedChars, steps}` when compression or the output axis ran |
 | `sui.savedUsd` | number | what this turn's compression saved, at the model's input price |
+| `sui.promptCache` | object \| null | `{warm, sends, prefixChars, fingerprint, volatile, hint, unsupported}` |
 | `sui.latencyMs` | number | full turn |
 | `sui.ttftMs` | number \| null | time to first token, streaming only |
 | `sui.costUsd` | number | computed from the model's declared prices |
@@ -137,6 +138,13 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 ```
 
 Served with `content-disposition: attachment`.
+
+## GET /api/limits
+
+```json
+{ "buckets": [{ "key": "team-a", "tokens": 7, "limited": 0 }],
+  "keys": [{ "name": "team-a", "rateLimit": { "rpm": 60, "burst": 10 }, "dailyUsd": 2 }] }
+```
 
 ## GET /api/savings
 

@@ -21,6 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkToggle, sanitizeConfig, providerHasCredentials, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS } from '@sui/core';
 import { SuiError } from '@sui/core';
+import { RateLimiter, checkKeyBudget } from './limits.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DASHBOARD = join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html');
@@ -31,6 +32,7 @@ const DASHBOARD = join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html');
 export function createSuiServer(deps) {
   const { router, config, ledger, breaker, cache, workers } = deps;
   const logger = deps.logger ?? { info() {}, warn() {}, debug() {} };
+  const limiter = deps.limiter ?? new RateLimiter();
   let configRef = config;
 
   const server = createServer(async (req, res) => {
@@ -105,6 +107,9 @@ export function createSuiServer(deps) {
       if (req.method === 'GET' && path === '/api/traces') {
         return sendJson(res, 200, { prompts: ledger.promptUsage(50), note: 'Hashes only. Prompt text is never stored unless guardrails.logPrompts is on.' });
       }
+      if (req.method === 'GET' && path === '/api/limits') {
+        return sendJson(res, 200, { buckets: limiter.snapshot(), keys: (configRef.apiKeys ?? []).map((k) => ({ name: k.name ?? 'unnamed', rateLimit: k.rateLimit ?? null, dailyUsd: k.dailyUsd ?? null })) });
+      }
       if (req.method === 'GET' && path === '/api/workers') {
         return sendJson(res, 200, workers ? workers.snapshot() : { enabled: false, jobs: [], probes: [] });
       }
@@ -160,6 +165,24 @@ export function createSuiServer(deps) {
   async function handleChat(req, res) {
     const body = await readJson(req);
     const keyMeta = authorise(req, configRef);
+
+    // B6.6: a key is a tenant — its rate and its spend cap are checked before
+    // any provider is chosen, so a cheap combo cannot be used to bypass them.
+    if (keyMeta) {
+      const keyId = keyMeta.name ?? 'unnamed';
+      const rate = limiter.check(keyId, keyMeta.rateLimit ?? {});
+      if (!rate.ok) {
+        res.setHeader('retry-after', String(Math.ceil(rate.retryAfterMs / 1000)));
+        throw new SuiError(
+          `This API key is over its rate limit (${rate.limit} requests/minute). Try again in ${Math.max(1, Math.ceil(rate.retryAfterMs / 1000))}s.`,
+          { code: 'rate_limited', status: 429, retryable: true, detail: `key: ${keyId}` },
+        );
+      }
+      const budget = checkKeyBudget({ keyMeta, ledger });
+      if (!budget.ok) {
+        throw new SuiError(budget.message, { code: 'key_budget_reached', status: 429, retryable: false, detail: `key: ${keyId}` });
+      }
+    }
 
     const requested = body.model ?? Object.keys(configRef.combos)[0];
     if (!configRef.combos[requested] && !configRef.models[requested]) {

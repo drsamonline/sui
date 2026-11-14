@@ -19,6 +19,7 @@ import { ConfigError, ExhaustedError, ProviderError, SuiError } from '@sui/core'
 import { estimatedCost, estimateTokens, providerHasCredentials, resolveCombo } from '@sui/core';
 import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
+import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
 import { createAdapter, displayName } from '@sui/providers';
 import { checkPrompt, clampMaxTokens } from '@sui/guardrails';
 import { applyStyle, choosePreset, chooseStyle, compress as compressText } from '@sui/compression';
@@ -389,15 +390,26 @@ export class Router {
 
         try {
           input.onAttempt?.({ modelId, providerId, providerName: adapter.name, model: model.model, arm: arm ?? null });
+
+          // B4.6: what the prefix cache can do with this provider.
+          const cache = preparePromptCache({
+            messages: effectiveMessages,
+            providerType: adapter.type,
+            memory: this.prefixMemory ?? (this.prefixMemory = new PrefixMemory({ maxEntries: this.config.server?.cache?.maxEntries ?? 500 })),
+            enabled: this.config.promptCache?.enabled !== false,
+          });
+
           const result = await adapter.chat(
             {
               model: model.model,
               messages: effectiveMessages,
               stream: streamed,
               temperature: body.temperature,
-              max_tokens: clampMaxTokens(body.max_tokens, this.config.guardrails),
+              // B6.6: a key may carry tighter guardrails than the gateway.
+              max_tokens: clampMaxTokens(body.max_tokens, input.keyMeta?.guardrails ?? this.config.guardrails),
               top_p: body.top_p,
               stop: body.stop,
+              cacheHints: cache.hints,
             },
             { onToken: streamed ? emit : undefined },
           );
@@ -484,6 +496,17 @@ export class Router {
             escalation: usedResting ? 'I14 — every healthy target failed, a resting one was tried' : null,
             compression: compressed.meta,
             savedUsd,
+            promptCache: cache.detected
+              ? {
+                  warm: cache.warm,
+                  sends: cache.sends,
+                  prefixChars: cache.detected.prefixChars,
+                  fingerprint: cache.detected.fingerprint,
+                  volatile: cache.detected.volatile,
+                  hint: cache.hints.supported ? cache.hints.reason : null,
+                  unsupported: cache.hints.supported ? null : cache.hints.reason,
+                }
+              : null,
           };
 
           this.ledger.record({
@@ -505,6 +528,8 @@ export class Router {
             compressionSavedTokens: savedTokens,
             compressionSavedUsd: savedUsd,
             compressionPreset: compressed.meta?.preset ?? null,
+            promptCacheWarm: cache.warm,
+            apiKey: input.keyMeta?.name ?? null,
           });
 
           if (cacheKey) {

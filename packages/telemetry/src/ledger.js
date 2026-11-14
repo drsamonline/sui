@@ -93,6 +93,9 @@ export class Ledger {
       compressionPreset: entry.compressionPreset ?? null,
       compressionSavedTokens: entry.compressionSavedTokens ?? 0,
       compressionSavedUsd: entry.compressionSavedUsd ?? 0,
+      // B6.6: which tenant this turn belongs to. A name, never a key.
+      apiKey: entry.apiKey ?? null,
+      promptCacheWarm: entry.promptCacheWarm ?? false,
     };
     this.records.push(rec);
     if (this.records.length > this.maxRecords) this.records.shift();
@@ -247,6 +250,7 @@ export class Ledger {
       'prompt_tokens', 'completion_tokens', 'cost_usd', 'latency_ms', 'ttft_ms',
       'cached', 'verified', 'streamed', 'prompt_hash', 'prompt_chars',
       'compression_preset', 'compression_saved_tokens', 'compression_saved_usd',
+      'api_key', 'prompt_cache_warm',
     ].join(',');
     const lines = this.records.map((r) =>
       [
@@ -254,6 +258,7 @@ export class Ledger {
         r.ok, r.error ?? '', r.promptTokens, r.completionTokens, r.costUsd, r.latencyMs,
         r.ttftMs ?? '', r.cached, r.verified, r.streamed, r.promptHash, r.promptChars,
         r.compressionPreset ?? '', r.compressionSavedTokens ?? 0, r.compressionSavedUsd ?? 0,
+        r.apiKey ?? '', r.promptCacheWarm ?? false,
       ]
         .map((v) => (typeof v === 'string' && /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v))
         .join(','),
