@@ -116,6 +116,10 @@ export function normalizeConfig(raw, opts = {}) {
       // B4.5: do not compress the prefix a provider would cache.
       preserveCachedPrefix: raw.compression?.preserveCachedPrefix !== false,
     },
+    // B6.5: privacy tiers. 'any' by default — the tier is a decision, not a default.
+    privacy: {
+      defaultTier: PRIVACY_TIERS.includes(raw.privacy?.defaultTier) ? raw.privacy.defaultTier : 'any',
+    },
     // B9.2: canary rollout. Off by default; a rollout is an experiment, not a default.
     canary: raw.canary?.enabled === true
       ? {
@@ -176,6 +180,12 @@ export function validateConfig(config) {
   }
 
   for (const [id, p] of Object.entries(config.providers)) {
+    // B6.5: a provider always has a privacy posture, even when nobody wrote one.
+    // 'unknown' is a real answer, and it fails the strict tier.
+    p.privacy = {
+      retention: RETENTION_LEVELS.includes(p?.privacy?.retention) ? p.privacy.retention : 'unknown',
+      trainsOnData: p?.privacy?.trainsOnData === true ? true : p?.privacy?.trainsOnData === false ? false : null,
+    };
     const prov = /** @type {any} */ (p);
     if (!PROVIDER_TYPES.includes(prov.type)) {
       problems.push(
@@ -287,6 +297,41 @@ export function validateConfig(config) {
  */
 export function isPaidProvider(provider) {
   return Boolean(provider && (provider.tier === 'paid' || provider.paid === true));
+}
+
+/** B6.5 — what a provider does with what you send it. */
+export const RETENTION_LEVELS = ['none', 'session', 'short', 'long', 'unknown'];
+export const PRIVACY_TIERS = ['any', 'standard', 'strict'];
+
+/**
+ * Does this provider meet a privacy tier?
+ *
+ *   any       no filter — the operator has accepted whatever the provider does
+ *   standard  nothing that trains on your data
+ *   strict    nothing that trains on your data AND retention of none or session
+ *
+ * An unknown retention fails `strict`: not knowing is not the same as being safe,
+ * and a fail-closed gateway treats it that way.
+ *
+ * @param {any} provider
+ * @param {string} tier
+ */
+export function providerMeetsPrivacyTier(provider, tier = 'any') {
+  if (tier === 'any') return true;
+  const privacy = provider?.privacy ?? {};
+  if (privacy.trainsOnData === true) return false;
+  if (tier === 'standard') return true;
+  const retention = String(privacy.retention ?? 'unknown');
+  return retention === 'none' || retention === 'session';
+}
+
+/** Why a provider was excluded by a tier — for the skip reason, not a guess. */
+export function privacyRefusal(provider, tier) {
+  const privacy = provider?.privacy ?? {};
+  const retention = String(privacy.retention ?? 'unknown');
+  if (privacy.trainsOnData === true) return `privacy tier "${tier}" excludes providers that train on your data`;
+  if (tier === 'strict') return `privacy tier "strict" needs retention none or session, this provider is "${retention}"`;
+  return `privacy tier "${tier}" excludes this provider`;
 }
 
 /**
@@ -426,6 +471,7 @@ export function sanitizeConfig(config) {
     promptCache: config.promptCache,
     verification: config.verification,
     canary: config.canary,
+    privacy: config.privacy,
     apiKeyCount: config.apiKeys.length,
   };
 }

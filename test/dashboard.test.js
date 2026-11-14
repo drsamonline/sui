@@ -101,3 +101,10 @@ test('the weather map is present, labelled in words, and never colour-only', () 
   assert.match(html, /not probed yet/);
   assert.match(html, /role="img" aria-label="Latency trend/);
 });
+
+test('the last-eval card is present and labelled honestly', () => {
+  assert.match(html, /id="eval-card"/);
+  assert.match(html, /Last eval/);
+  assert.match(html, /harness self-test/);
+  assert.match(html, /No eval has been run on this machine/);
+});

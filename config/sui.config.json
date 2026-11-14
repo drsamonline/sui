@@ -17,14 +17,21 @@
       "apiKeyEnv": "GROQ_API_KEY",
       "timeoutMs": 30000,
       "tier": "free",
-      "tos": "allowed"
+      "tos": "allowed",
+      "privacy": {
+        "retention": "session",
+        "trainsOnData": false
+      }
     },
     "gemini": {
       "type": "gemini",
       "apiKeyEnv": "GEMINI_API_KEY",
       "timeoutMs": 30000,
       "tier": "free",
-      "tos": "allowed"
+      "tos": "allowed",
+      "privacy": {
+        "retention": "short"
+      }
     },
     "openai": {
       "type": "openai",
@@ -32,7 +39,11 @@
       "apiKeyEnv": "OPENAI_API_KEY",
       "timeoutMs": 60000,
       "tier": "paid",
-      "tos": "allowed"
+      "tos": "allowed",
+      "privacy": {
+        "retention": "long",
+        "trainsOnData": false
+      }
     },
     "anthropic": {
       "type": "anthropic",
@@ -40,7 +51,11 @@
       "apiKeyEnv": "ANTHROPIC_API_KEY",
       "timeoutMs": 60000,
       "tier": "paid",
-      "tos": "allowed"
+      "tos": "allowed",
+      "privacy": {
+        "retention": "long",
+        "trainsOnData": false
+      }
     },
     "openrouter": {
       "type": "openai",
@@ -48,7 +63,10 @@
       "apiKeyEnv": "OPENROUTER_API_KEY",
       "timeoutMs": 45000,
       "tier": "free",
-      "tos": "allowed"
+      "tos": "allowed",
+      "privacy": {
+        "retention": "unknown"
+      }
     },
     "ollama": {
       "type": "openai",
@@ -57,7 +75,11 @@
       "timeoutMs": 120000,
       "local": true,
       "tier": "free",
-      "tos": "allowed"
+      "tos": "allowed",
+      "privacy": {
+        "retention": "none",
+        "trainsOnData": false
+      }
     }
   },
   "models": {
@@ -238,6 +260,9 @@
       "maxP95Ms": 8000,
       "minSamples": 20
     }
+  },
+  "privacy": {
+    "defaultTier": "any"
   },
   "workers": {
     "enabled": true,

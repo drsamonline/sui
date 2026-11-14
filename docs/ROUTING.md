@@ -288,6 +288,28 @@ A key is a tenant. Its limits are checked before a provider is chosen, so a chea
 
 The limiter is a token bucket **in memory**, per process. A shared limiter needs a shared store — Phase 9.
 
+## Privacy tiers
+
+Route by what a provider does with your data, not only by price.
+
+```json
+"privacy": { "defaultTier": "standard" },
+"providers": {
+  "groq": { "privacy": { "retention": "session", "trainsOnData": false } },
+  "someone": { "privacy": { "retention": "long", "trainsOnData": true } }
+}
+```
+
+| Tier | Admits |
+|---|---|
+| `any` (default) | everything — the operator has accepted whatever the provider does |
+| `standard` | anything that does not train on your data |
+| `strict` | does not train on your data **and** retention of `none` or `session` |
+
+A caller may ask for a stricter tier than the default: `x-sui-privacy: strict` (or `sui_privacy` in the body). An unknown tier is a `400 bad_privacy_tier`.
+
+Two deliberate choices: **an unmarked provider counts as `unknown`, and `unknown` fails `strict`** — not knowing is not the same as being safe. And a strict request with nothing eligible **fails closed** with the reasons, rather than quietly downgrading to a provider that trains on your data.
+
 ## Dual-channel inspection
 
 A prompt is not the only way instructions arrive. A **tool definition** is text the model reads, and a **tool result** is text an attacker may control completely — inspecting only the prompt inspects the wrong channel.

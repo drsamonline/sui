@@ -16,10 +16,10 @@
  */
 
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkToggle, sanitizeConfig, providerHasCredentials, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS } from '@sui/core';
+import { checkToggle, sanitizeConfig, providerHasCredentials, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS } from '@sui/core';
 import { SuiError } from '@sui/core';
 import { explainPlan } from '@sui/router';
 import { RateLimiter, checkKeyBudget } from './limits.js';
@@ -117,6 +117,23 @@ export function createSuiServer(deps) {
           return sendJson(res, 200, { combo, lines: explainPlan(plan), plan: { ordered: plan.ordered.map((t) => t.modelId), resting: plan.resting.map((t) => t.modelId), skipped: plan.skipped } });
         } catch (err) {
           throw new SuiError(/** @type {any} */ (err).message, { code: 'unknown_combo', status: 404 });
+        }
+      }
+      // B10.5: the last eval run, if one has been done on this machine.
+      if (req.method === 'GET' && path === '/api/evals') {
+        const reportPath =
+          process.env.SUI_EVAL_REPORT ??
+          join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'evals', 'last-report.json');
+        if (!existsSync(reportPath)) {
+          return sendJson(res, 200, {
+            available: false,
+            message: 'No eval has been run here yet. Run `npm run eval` or `npm run eval:self`.',
+          });
+        }
+        try {
+          return sendJson(res, 200, { available: true, report: JSON.parse(readFileSync(reportPath, 'utf8')) });
+        } catch (err) {
+          return sendJson(res, 200, { available: false, message: `The eval report could not be read: ${/** @type {any} */ (err).message}` });
         }
       }
       if (req.method === 'GET' && path === '/api/canary') {
@@ -256,10 +273,22 @@ export function createSuiServer(deps) {
       );
     };
 
+    // B6.5: a caller may ask for a stricter privacy tier than the default.
+    const requestedTier = String(
+      req.headers['x-sui-privacy'] ?? body.sui_privacy ?? configRef.privacy?.defaultTier ?? 'any',
+    );
+    if (!PRIVACY_TIERS.includes(requestedTier)) {
+      throw new SuiError(`Unknown privacy tier "${requestedTier}". Use ${PRIVACY_TIERS.join(', ')}.`, {
+        code: 'bad_privacy_tier',
+        status: 400,
+      });
+    }
+
     const result = await router.chat({
       combo: requested,
       body,
       keyMeta,
+      privacyTier: requestedTier,
       // I12: naming a model directly is a deliberate act, not auto-routing, so
       // an explicitly requested tos:avoid model is allowed through.
       allowAvoid: !configRef.combos[requested] && Boolean(configRef.models[requested]),

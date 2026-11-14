@@ -104,7 +104,7 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 | B6.1 Red-team toolkit | **done** | Eleven transforms (ten obfuscations + a plain control), a random canary per run, exact judging that distinguishes compliance from echo. 13 tests. |
 | B6.2 Scheduled self-test | **done** | `sui redteam [combo] [--json]` plus a weekly `red_team_self_test` worker that logs CRITICAL/HIGH findings. |
 | B6.3 Dual-channel inspection | **done** | Tool definitions and tool results are inspected as well as prompts: injection phrases, zero-width/bidi characters, oversized results. Modes `off`/`warn`/`block`; a block refuses before any provider is called. 10 tests. |
-| B6.5 | todo | Privacy-tiered routing. |
+| B6.5 Privacy-tiered routing | **done** | Providers declare `retention` and `trainsOnData`; tiers `any`/`standard`/`strict`; a caller may ask for stricter via `x-sui-privacy`. An unmarked provider is `unknown`, and `unknown` fails `strict` — not knowing is not the same as being safe. A strict request with nothing eligible fails closed. 10 tests. |
 
 ### Phase 7 — OBSERVABILITY & TENANCY
 
@@ -129,6 +129,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 | B8.7 Accessibility pass | **partial** | Focus rings, live regions, reduced motion, labelled controls, 16px inputs, status never colour-only, and all 16 token pairs verified at AA numerically. No screen-reader walkthrough with a real user. |
 
 ### Phases 9–11
+
+**B10.5 eval reports — done**: `GET /api/evals` serves `evals/last-report.json`, and the dashboard shows the last run with its mode. A self-test report is labelled as a harness check, because it proves the graders grade and says nothing about a model.
 
 **B9.2 canary rollout — done**: `packages/canary` sends a share of traffic to a candidate combo, refuses a verdict before the sample floor, rolls back on a success-rate *or* p95 breach, and **excludes provider outages** from the verdict — blaming a candidate for someone else's downtime is how a good change gets reverted. `GET /api/canary`, `POST /api/canary/rollback`, and the arm recorded on every response. 12 tests.
 
@@ -160,8 +162,8 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
 3. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
-4. **B10.4/B10.5** — compression view and eval reports in the dashboard.
-5. **B6.5 privacy-tiered routing** — route by retention policy, not just by cost.
+4. **B10.4 compression view** — what each preset would do to a real prompt, in the UI.
+5. **B9.3 fallback learning** — let the ledger reorder a combo's targets.
 
 ## Risk register
 

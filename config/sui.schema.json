@@ -143,6 +143,29 @@
               "review",
               "avoid"
             ]
+          },
+          "privacy": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "What this provider does with what you send it.",
+            "properties": {
+              "retention": {
+                "enum": [
+                  "none",
+                  "session",
+                  "short",
+                  "long",
+                  "unknown"
+                ],
+                "default": "unknown"
+              },
+              "trainsOnData": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
           }
         }
       }
@@ -608,6 +631,21 @@
               "default": 20
             }
           }
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "B6.5 privacy tier. 'any' by default; a request may ask for stricter via the x-sui-privacy header.",
+      "properties": {
+        "defaultTier": {
+          "enum": [
+            "any",
+            "standard",
+            "strict"
+          ],
+          "default": "any"
         }
       }
     }

@@ -16,7 +16,7 @@
  */
 
 import { ConfigError, ExhaustedError, ProviderError, SuiError } from '@sui/core';
-import { estimatedCost, estimateTokens, isPaidProvider, providerHasCredentials, resolveCombo } from '@sui/core';
+import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, providerHasCredentials, providerMeetsPrivacyTier, resolveCombo } from '@sui/core';
 import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
 import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
@@ -89,6 +89,7 @@ export class Router {
    * @param {{promptTokens?: number, keyMeta?: any, exclude?: string[], allowAvoid?: boolean}} [opts]
    */
   plan(comboName, opts = {}) {
+    const privacyTier = opts.privacyTier ?? this.config.privacy?.defaultTier ?? 'any';
     const combo = resolveCombo(this.config, comboName);
     const promptTokens = opts.promptTokens ?? 0;
     const exclude = new Set(opts.exclude ?? []);
@@ -124,6 +125,12 @@ export class Router {
       }
       if (provider?.tos === 'avoid' && !opts.allowAvoid) {
         skipped.push({ modelId, provider: providerId, reason: 'terms of service marked avoid (never auto-routed)' });
+        continue;
+      }
+      // B6.5: checked before credentials, because sending a prompt to a provider
+      // that trains on it is not recoverable.
+      if (!providerMeetsPrivacyTier(provider, privacyTier)) {
+        skipped.push({ modelId, provider: providerId, reason: privacyRefusal(provider, privacyTier) });
         continue;
       }
       if (!providerHasCredentials(provider, this.config.env, this.config)) {
@@ -193,7 +200,7 @@ export class Router {
       ordered = [primary, ...usable.filter((t) => t.modelId !== primary.modelId).sort((a, b) => b.weight - a.weight)];
     }
 
-    return { combo, ordered, resting, skipped, spentToday, dailyBudget };
+    return { combo, ordered, resting, skipped, spentToday, dailyBudget, privacyTier };
   }
 
   /**
@@ -359,7 +366,8 @@ export class Router {
     const effectiveMessages = compressed.messages;
     const promptTokens = estimateTokens(effectiveMessages.map((m) => m.content).join('\n'));
 
-    const { combo, ordered, resting, skipped } = this.plan(comboName, {
+    const { combo, ordered, resting, skipped, privacyTier } = this.plan(comboName, {
+      privacyTier: input.privacyTier,
       promptTokens,
       keyMeta: input.keyMeta,
       allowAvoid: Boolean(input.allowAvoid),
@@ -551,6 +559,7 @@ export class Router {
             savedUsd,
             route: {
               strategy: combo.strategy,
+              privacyTier,
               considered: [
                 ...ordered.map((t) => ({ modelId: t.modelId, provider: t.providerId, outcome: t.modelId === modelId ? 'answered' : 'available' })),
                 ...resting.map((t) => ({ modelId: t.modelId, provider: t.providerId, outcome: 'resting' })),

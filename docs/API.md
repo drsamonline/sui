@@ -44,7 +44,7 @@ OpenAI-compatible.
 | `sui.savedUsd` | number | what this turn's compression saved, at the model's input price |
 | `sui.toolInspection` | object \| null | `{mode, findings:[{channel, where, signal, severity, detail}]}` when inspection is on and found something |
 | `sui.verification` | object \| null | `{confidence, threshold, verified, reasons, escalated}` when verification is on |
-| `sui.route` | object | `{strategy, considered:[{modelId, provider, outcome, reason?}]}` |
+| `sui.route` | object | `{strategy, privacyTier, considered:[{modelId, provider, outcome, reason?}]}` |
 | `sui.promptCache` | object \| null | `{warm, sends, prefixChars, fingerprint, volatile, hint, unsupported}` |
 | `sui.latencyMs` | number | full turn |
 | `sui.ttftMs` | number \| null | time to first token, streaming only |
@@ -141,6 +141,19 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 ```
 
 Served with `content-disposition: attachment`.
+
+## GET /api/evals
+
+The last eval run on this machine, read from `evals/last-report.json`.
+
+```json
+{ "available": true,
+  "report": { "mode": "self-test", "ranAt": "2026-11-14T12:58:13.434Z", "combo": null,
+              "passRate": 1, "passed": 56, "total": 56, "mismatches": [],
+              "note": "Harness self-test: graders were checked against fixture answers. No model was called." } }
+```
+
+`available: false` with a message when no eval has been run. A `self-test` report proves the graders grade; only a `real` report says anything about a model.
 
 ## GET /api/canary
 

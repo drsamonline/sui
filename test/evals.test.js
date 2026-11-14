@@ -40,3 +40,17 @@ test('graders reject sloppy answers and accept precise ones', () => {
 test('a fenced JSON answer still counts as JSON', () => {
   assert.equal(grade({ type: 'json_valid', keys: ['ok'] }, '```json\n{"ok": true}\n```').pass, true);
 });
+
+test('/api/evals serves the last report, and says so when there is none', async () => {
+  const { makeGateway, testConfig } = await import('./helpers.js');
+  const gw = await makeGateway(testConfig());
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const json = await (await fetch(`http://127.0.0.1:${port}/api/evals`)).json();
+  assert.equal(json.available, true, 'the self-test report written by the eval run is picked up');
+  assert.equal(json.report.mode, 'self-test');
+  assert.equal(json.report.passed, json.report.total);
+  assert.match(json.report.note, /No model was called/);
+  await gw.close();
+});

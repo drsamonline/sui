@@ -297,6 +297,13 @@
         </div>
       </section>
 
+      <section class="card" id="eval-card" aria-labelledby="eval-h">
+        <header><h2 id="eval-h">Last eval</h2><span class="hint" id="eval-when">—</span></header>
+        <div class="body" id="eval-body">
+          <div class="skeleton line" style="width: 60%"></div>
+        </div>
+      </section>
+
       <div class="kpis" id="kpis">
         <div class="kpi"><div class="label">turns</div><div class="skeleton line" style="width: 60%"></div></div>
         <div class="kpi"><div class="label">spend</div><div class="skeleton line" style="width: 60%"></div></div>
@@ -468,6 +475,7 @@ function render() {
   renderCombos(combos);
   renderSavings(metrics.totals);
   renderWeather(state.probes ?? []);
+  loadEval();
   renderProbes(state.probes ?? []);
   renderTraces(promptUsage);
   renderRecent(metrics.recent);
@@ -534,6 +542,37 @@ function renderCombos(combos) {
       <td class="num">${num(c.turnsToday)}</td>
       <td class="num">${money(c.costToday)}</td>
     </tr>`).join('');
+}
+
+/**
+ * B10.5 — the last eval run. A self-test is labelled as one: it proves the
+ * graders grade, not that the routes answer well.
+ */
+async function loadEval() {
+  const body = document.querySelector('#eval-body');
+  const when = document.querySelector('#eval-when');
+  if (!body) return;
+  try {
+    const res = await fetch('/api/evals');
+    const json = await res.json();
+    if (!json.available) {
+      body.innerHTML = `<p class="hint">${escapeHtml(json.message ?? 'No eval has been run on this machine.')}</p>`;
+      when.textContent = 'never run';
+      return;
+    }
+    const r = json.report;
+    const pct = Math.round((r.passRate ?? 0) * 100);
+    when.textContent = r.mode === 'self-test' ? 'harness self-test' : `combo ${r.combo ?? '—'}`;
+    body.innerHTML = `
+      <div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3)">
+        <span class="num" style="font-size: var(--fs-28); font-weight: 600">${pct}%</span>
+        <span class="hint num">${num(r.passed ?? 0)}/${num(r.total ?? 0)}</span>
+      </div>
+      <div class="track" role="img" aria-label="Eval pass rate ${pct} percent"><div class="fill" style="width: ${pct}%"></div></div>
+      <p class="hint" style="margin-top: var(--space-2)">${escapeHtml(r.note ?? '')}</p>`;
+  } catch {
+    body.innerHTML = '<p class="hint">Could not reach the gateway.</p>';
+  }
 }
 
 function renderSavings(totals) {
