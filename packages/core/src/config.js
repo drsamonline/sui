@@ -111,6 +111,21 @@ export function normalizeConfig(raw, opts = {}) {
       // B4.5: do not compress the prefix a provider would cache.
       preserveCachedPrefix: raw.compression?.preserveCachedPrefix !== false,
     },
+    // B9.2: canary rollout. Off by default; a rollout is an experiment, not a default.
+    canary: raw.canary?.enabled === true
+      ? {
+          enabled: true,
+          id: raw.canary?.id ?? null,
+          baseline: raw.canary?.baseline ?? null,
+          candidate: raw.canary?.candidate ?? null,
+          percent: Number(raw.canary?.percent ?? 10),
+          slo: {
+            minSuccessRate: Number(raw.canary?.slo?.minSuccessRate ?? 0.9),
+            maxP95Ms: Number(raw.canary?.slo?.maxP95Ms ?? 8000),
+            minSamples: Number(raw.canary?.slo?.minSamples ?? 20),
+          },
+        }
+      : { enabled: false },
     // B3.4: verification escalation, fail-closed.
     verification: {
       enabled: raw.verification?.enabled === true,
@@ -222,6 +237,17 @@ export function validateConfig(config) {
     }
     if (combo.strategy === 'weighted' && combo.targets.every((t) => typeof t === 'string')) {
       problems.push(`combos.${id} uses strategy "weighted" but its targets have no weights.`);
+    }
+  }
+
+  if (config.canary?.enabled) {
+    for (const field of ['baseline', 'candidate']) {
+      const combo = config.canary[field];
+      if (!combo) problems.push(`canary.${field} is required when the canary is enabled.`);
+      else if (!config.combos[combo]) problems.push(`canary.${field} points at combo "${combo}", which is not declared.`);
+    }
+    if (config.canary.baseline && config.canary.baseline === config.canary.candidate) {
+      problems.push('canary.baseline and canary.candidate must be different combos.');
     }
   }
 
@@ -394,6 +420,7 @@ export function sanitizeConfig(config) {
     compression: config.compression,
     promptCache: config.promptCache,
     verification: config.verification,
+    canary: config.canary,
     apiKeyCount: config.apiKeys.length,
   };
 }

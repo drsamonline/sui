@@ -18,6 +18,7 @@ import { Router } from '@sui/router';
 import { openVaultForStartup } from '@sui/vault';
 import { createSuiServer } from './server.js';
 import { startWorkers } from './workers.js';
+import { createCanary } from '@sui/canary';
 
 export { CircuitBreaker } from '@sui/router';
 export { ResponseCache } from '@sui/telemetry';
@@ -83,14 +84,24 @@ export async function createGateway(opts = {}) {
   const breaker = new CircuitBreaker(config.breaker);
   const cache = new ResponseCache({ ...config.server.cache });
   const logger = opts.logger ?? defaultLogger();
-  const router = new Router({ config, ledger, breaker, cache, logger });
+  const canary = config.canary?.enabled
+    ? createCanary({
+        id: config.canary.id ?? undefined,
+        baseline: config.canary.baseline,
+        candidate: config.canary.candidate,
+        percent: config.canary.percent,
+        slo: config.canary.slo,
+      })
+    : null;
+
+  const router = new Router({ config, ledger, breaker, cache, logger, canary });
   // Background jobs are opt-in: creating a gateway programmatically must not
   // start probing the internet. `sui start` turns them on.
   const workers =
     opts.startWorkers === true
       ? startWorkers({ config, cache, ledger, logger, router, catalogDir: opts.catalogDir, now: opts.now })
       : { jobs: [], prober: null, snapshot: () => ({ enabled: false, jobs: [], probes: [] }), stop() {} };
-  const server = createSuiServer({ router, config, ledger, breaker, cache, logger, workers });
+  const server = createSuiServer({ router, config, ledger, breaker, cache, logger, workers, canary });
 
   return {
     config,
@@ -100,6 +111,7 @@ export async function createGateway(opts = {}) {
     router,
     server,
     workers,
+    canary,
     env,
     home: resolve(home),
     /** Stop timers, then close the server. Used by the CLI and by tests. */

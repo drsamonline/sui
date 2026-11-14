@@ -129,6 +129,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 ### Phases 9–11
 
+**B9.2 canary rollout — done**: `packages/canary` sends a share of traffic to a candidate combo, refuses a verdict before the sample floor, rolls back on a success-rate *or* p95 breach, and **excludes provider outages** from the verdict — blaming a candidate for someone else's downtime is how a good change gets reverted. `GET /api/canary`, `POST /api/canary/rollback`, and the arm recorded on every response. 12 tests.
+
 **B9.1 worker scheduler — done**: `apps/gateway/src/workers.js` runs the prober (hourly) and a cache sweep, off the request path, with a delayed kickoff so startup never waits on the network, `stop()` that clears every timer, `/api/workers` for state and a Probes table on the dashboard. Workers are opt-in for programmatic gateways and on for `sui start` (`--no-workers` to disable). 7 tests.
 
 **B10.1 Weather Map — done**: thriving / resting / down plus "unverified" as its own answer, a plain sentence per provider, and a latency trend line from the prober's 24-observation history. Default view is the routing pool; the full catalogue is `sui catalog`.
@@ -156,9 +158,9 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B9.2 canary rollout + SLO rollback** — the last automation batch with no external dependency.
-4. **B6.3 dual-channel inspection** — inspect tool definitions and tool results, not just prompts.
-5. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
+3. **B6.3 dual-channel inspection** — inspect tool definitions and tool results, not just prompts.
+4. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
+5. **B10.4/B10.5** — compression view and eval reports in the dashboard.
 
 ## Risk register
 

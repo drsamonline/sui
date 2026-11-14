@@ -31,7 +31,7 @@ const DASHBOARD = join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html');
  * @param {{router: any, config: any, ledger: any, breaker: any, cache: any, logger?: any}} deps
  */
 export function createSuiServer(deps) {
-  const { router, config, ledger, breaker, cache, workers } = deps;
+  const { router, config, ledger, breaker, cache, workers, canary } = deps;
   const logger = deps.logger ?? { info() {}, warn() {}, debug() {} };
   const limiter = deps.limiter ?? new RateLimiter();
   let configRef = config;
@@ -118,6 +118,14 @@ export function createSuiServer(deps) {
         } catch (err) {
           throw new SuiError(/** @type {any} */ (err).message, { code: 'unknown_combo', status: 404 });
         }
+      }
+      if (req.method === 'GET' && path === '/api/canary') {
+        return sendJson(res, 200, canary ? canary.snapshot() : { enabled: false, message: 'No canary is configured. See canary in sui.config.json.' });
+      }
+      if (req.method === 'POST' && path === '/api/canary/rollback') {
+        if (!canary) throw new SuiError('No canary is configured.', { code: 'no_canary', status: 404 });
+        const result = canary.rollback('rolled back by an operator');
+        return sendJson(res, 200, { ...result, snapshot: canary.snapshot() });
       }
       if (req.method === 'GET' && path === '/api/limits') {
         return sendJson(res, 200, { buckets: limiter.snapshot(), keys: (configRef.apiKeys ?? []).map((k) => ({ name: k.name ?? 'unnamed', rateLimit: k.rateLimit ?? null, dailyUsd: k.dailyUsd ?? null })) });

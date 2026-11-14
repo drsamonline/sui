@@ -41,6 +41,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Two-tier cache** — exact hash, plus an optional lexical tier (`ml-kit` tf-idf at 0.98) for near-duplicate prompts; `cacheKind` says which one answered.
 - **Native prompt caching** — stable-prefix detection with the hint each provider understands (Anthropic breakpoint, OpenAI cache key), and a `volatile` list naming what breaks the cache.
 - **Per-key limits** — each key is a tenant: combo/model allow-lists, daily spend cap, token-bucket rate limit, its own guardrails.
+- **Canary rollout** — a share of traffic to a candidate combo, rolled back automatically on a success-rate or p95 breach, with provider outages excluded from the verdict.
 - **Red-team self-test** — eleven obfuscations of one injection instruction, a random canary per run, and a verdict that treats an echo as `HIGH`, not a pass.
 - **Cache-aware compression** — the system message is never compressed when prompt caching is on, so compression cannot break the provider's prefix cache.
 - **Verification escalation** — answers scored by seven deterministic signals; below 0.7 the router escalates once, and a weak answer is never presented as verified.
@@ -111,6 +112,7 @@ packages/
   promptcache/  stable-prefix detection and per-provider cache hints
   verify/       reference-free confidence scoring, fail-closed
   redteam/      injection toolkit and self-test
+  canary/       rollout with SLO-tied rollback
 evals/          50-prompt golden set, graders, runner, baseline
 scripts/        soak harness
 config/         annotated config + JSON schema

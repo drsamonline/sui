@@ -228,6 +228,17 @@
     "maxEscalations": 1,
     "escalateTo": "next"
   },
+  "canary": {
+    "enabled": false,
+    "baseline": "chat-default",
+    "candidate": "coding",
+    "percent": 10,
+    "slo": {
+      "minSuccessRate": 0.9,
+      "maxP95Ms": 8000,
+      "minSamples": 20
+    }
+  },
   "workers": {
     "enabled": true,
     "kickoffMs": 1500,

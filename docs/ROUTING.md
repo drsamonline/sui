@@ -138,6 +138,29 @@ Compression and provider caching pull in opposite directions: a provider caches 
 
 `compression.preserveCachedPrefix` (default **true**) resolves it in one direction only: when prompt caching is on, the **system message is never compressed** — it is the most stable part of any prompt — and compression works on the turns after it. When there is nothing else to compress, `sui.compression.skipped` says so rather than reporting a silent zero.
 
+## Canary rollout
+
+Send a share of traffic to a candidate combo and let the numbers decide.
+
+```json
+"canary": {
+  "enabled": true,
+  "baseline": "chat-default",
+  "candidate": "chat-default-v2",
+  "percent": 10,
+  "slo": { "minSuccessRate": 0.9, "maxP95Ms": 8000, "minSamples": 20 }
+}
+```
+
+| Rule | Why |
+|---|---|
+| No verdict before `minSamples` | three requests prove nothing |
+| Success rate **or** p95 breach → rollback | a slow candidate is a failing candidate |
+| A provider outage is **excluded**, not counted | both arms fail, and blaming the candidate for someone else's downtime is how you roll back a good change |
+| `POST /api/canary/rollback` | the operator always outranks the SLO |
+
+Once the sample floor is met and both SLOs hold, the canary promotes itself and traffic returns to the baseline combo — the candidate is now the thing you point the baseline at. `GET /api/canary` shows state, stats and the event log.
+
 ## Red-team self-test
 
 ```bash

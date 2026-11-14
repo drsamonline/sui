@@ -50,6 +50,7 @@ export class Router {
     this.now = deps.now ?? Date.now;
     this.random = deps.random ?? Math.random;
     this.logger = deps.logger ?? { debug() {}, info() {}, warn() {} };
+    this.canary = deps.canary ?? null;
     /** @type {Map<string, any>} */
     this.adapters = new Map();
   }
@@ -282,6 +283,11 @@ export class Router {
     return { messages: styled, meta };
   }
 
+  /** How many targets are currently resting — the signal that a failure is an outage. */
+  #breakersOpen() {
+    return this.breaker.snapshot().filter((b) => b.state === 'open').length;
+  }
+
   /** 1 = plenty of budget left, 0 = none. Used to pick a compression preset. */
   #quotaFraction(comboName) {
     const combo = this.config.combos?.[comboName];
@@ -319,7 +325,12 @@ export class Router {
   async chat(input) {
     const started = this.now();
     const body = input.body ?? {};
-    const comboName = input.combo;
+
+    // B9.2: the canary decides which combo answers, before anything else runs.
+    // Named `canaryPick`, not `arm`: `arm` is the A/B arm of a weighted target
+    // inside the loop, and shadowing it here silently broke attribution.
+    const canaryPick = this.canary ? this.canary.pick() : null;
+    const comboName = canaryPick?.arm === 'candidate' ? canaryPick.combo : input.combo;
     const messages = normaliseMessages(body.messages);
     const promptText = messages.map((m) => m.content).join('\n');
     const streamed = Boolean(body.stream);
@@ -519,6 +530,7 @@ export class Router {
             escalation: usedResting ? 'I14 — every healthy target failed, a resting one was tried' : null,
             compression: compressed.meta,
             verification: null,
+            canary: canaryPick ? { id: this.canary.id, arm: canaryPick.arm, reason: canaryPick.reason } : null,
             savedUsd,
             route: {
               strategy: combo.strategy,
@@ -629,6 +641,19 @@ export class Router {
             );
           }
 
+          if (canaryPick?.arm === 'candidate') {
+            const verdict = this.canary.observe({
+              ok: true,
+              latencyMs,
+              // an outage is the provider's problem, not the candidate's
+              outage: this.#breakersOpen() > 0,
+            });
+            if (verdict.event) {
+              this.logger.warn(`canary ${this.canary.id}: ${verdict.event} — ${verdict.detail}`);
+              meta.canary.outcome = verdict.event;
+            }
+          }
+
           return { text: result.text, usage: result.usage, finishReason: result.finishReason, meta };
         } catch (err) {
           const e = /** @type {any} */ (err);
@@ -641,6 +666,16 @@ export class Router {
 
           attempts.push({ modelId, provider: providerId, reason: e.message ?? String(err) });
           lastError = e;
+
+          // B9.2: a failure is an observation too — but only if it is about this
+          // candidate. If other targets are already resting, this is an outage
+          // and rolling the candidate back would blame it for someone else's
+          // downtime.
+          if (canaryPick?.arm === 'candidate') {
+            const othersResting = this.breaker.snapshot().filter((b) => b.state === 'open' && b.key !== modelId).length;
+            const verdict = this.canary.observe({ ok: false, latencyMs, outage: othersResting > 0 });
+            if (verdict.event) this.logger.warn(`canary ${this.canary.id}: ${verdict.event} — ${verdict.detail}`);
+          }
 
           this.ledger.record({
             provider: providerId,

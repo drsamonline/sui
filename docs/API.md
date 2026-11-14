@@ -141,6 +141,18 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## GET /api/canary
+
+```json
+{ "id": "candidate-canary", "baseline": "chat-default", "candidate": "chat-default-v2",
+  "percent": 10, "state": "running",
+  "slo": { "minSuccessRate": 0.9, "maxP95Ms": 8000, "minSamples": 20 },
+  "stats": { "samples": 12, "successRate": 0.92, "p95Ms": 810, "excludedOutages": 3 },
+  "events": [{ "at": 1763000000000, "event": "promoted", "detail": "success 95%, p95 640ms over 20 samples" }] }
+```
+
+`POST /api/canary/rollback` rolls it back by hand and returns the new snapshot.
+
 ## GET /api/explain
 
 Why a route would go where it goes, without sending a request.

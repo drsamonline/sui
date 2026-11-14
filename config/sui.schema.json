@@ -545,6 +545,57 @@
           "default": "next"
         }
       }
+    },
+    "canary": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "B9.2 canary rollout: a share of traffic to a candidate combo, with SLO-tied rollback. Off by default.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "baseline": {
+          "type": "string"
+        },
+        "candidate": {
+          "type": "string"
+        },
+        "percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 10
+        },
+        "slo": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minSuccessRate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.9
+            },
+            "maxP95Ms": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 8000
+            },
+            "minSamples": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 20
+            }
+          }
+        }
+      }
     }
   }
 }
