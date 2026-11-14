@@ -43,26 +43,109 @@ export function displayName(providerId) {
  * @param {any} provider
  * @param {NodeJS.ProcessEnv} [env]
  */
-export function createAdapter(providerId, provider, env = process.env) {
-  const apiKey = provider.apiKey ?? (provider.apiKeyEnv ? env[provider.apiKeyEnv] : undefined);
-  const base = { id: providerId, type: provider.type, name: displayName(providerId), hasKey: Boolean(apiKey) };
+/**
+ * B9.5 — access tokens for OAuth-style providers.
+ *
+ * A provider that hands out a short-lived token is not a provider with a broken
+ * key. On a 401 we refresh **once**, retry **once**, and cache the token until
+ * its stated expiry. A refresh loop would turn one bad credential into an outage.
+ *
+ * @type {Map<string, {token: string, expiresAt: number}>}
+ */
+const tokenCache = new Map();
 
-  if (provider.type === 'openai') {
-    return { ...base, chat: (req, opts) => openaiChat(providerId, provider, apiKey, req, opts) };
+/** @param {string} providerId */
+export function clearToken(providerId) {
+  tokenCache.delete(providerId);
+}
+
+/**
+ * @param {{providerId: string, provider: any, env: NodeJS.ProcessEnv, fetchImpl?: typeof fetch, now?: () => number}} input
+ */
+export async function refreshAccessToken(input) {
+  const oauth = input.provider?.oauth;
+  if (!oauth?.tokenUrl) throw new ProviderError(`Provider "${input.providerId}" has no tokenUrl to refresh against.`, { code: 'no_oauth' });
+
+  const clientId = input.env[oauth.clientIdEnv ?? ''];
+  const clientSecret = input.env[oauth.clientSecretEnv ?? ''];
+  const refreshToken = input.env[oauth.refreshTokenEnv ?? ''];
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new ProviderError(
+      `${displayName(input.providerId)} needs a refresh token: set ${oauth.clientIdEnv}, ${oauth.clientSecretEnv} and ${oauth.refreshTokenEnv}.`,
+      { code: 'no_refresh_credentials', provider: input.providerId, status: 401 },
+    );
   }
-  if (provider.type === 'anthropic') {
-    return { ...base, chat: (req, opts) => anthropicChat(providerId, provider, apiKey, req, opts) };
+
+  const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken, client_id: clientId, client_secret: clientSecret });
+  if (oauth.scope) body.set('scope', oauth.scope);
+
+  const doFetch = input.fetchImpl ?? fetch;
+  const res = await doFetch(oauth.tokenUrl, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
+  if (!res.ok) {
+    const detail = await safeText(res);
+    throw new ProviderError(`${displayName(input.providerId)} refused to refresh its token (${res.status}).`, {
+      code: 'refresh_failed',
+      status: 401,
+      provider: input.providerId,
+      detail: detail.slice(0, 200),
+    });
   }
-  if (provider.type === 'gemini') {
-    return { ...base, chat: (req, opts) => geminiChat(providerId, provider, apiKey, req, opts) };
+
+  const json = await res.json();
+  const token = json.access_token;
+  if (!token) throw new ProviderError(`${displayName(input.providerId)} returned no access_token.`, { code: 'refresh_failed', status: 401 });
+
+  const now = input.now ?? Date.now;
+  // refresh a minute early so a request cannot expire mid-flight
+  const expiresAt = now() + Math.max(0, (Number(json.expires_in ?? 3600) - 60) * 1000);
+  tokenCache.set(input.providerId, { token, expiresAt });
+  return { token, expiresAt };
+}
+
+/** A cached, still-valid token for this provider, or null. */
+export function cachedToken(providerId, now = Date.now) {
+  const entry = tokenCache.get(providerId);
+  if (!entry) return null;
+  if (entry.expiresAt <= now()) {
+    tokenCache.delete(providerId);
+    return null;
   }
-  if (provider.type === 'mock') {
-    return { ...base, chat: (req, opts) => mockChat(providerId, provider, req, opts) };
-  }
-  throw new ProviderError(`Provider "${providerId}" has an unknown type "${provider.type}".`, {
-    code: 'bad_provider_type',
-    provider: providerId,
-  });
+  return entry.token;
+}
+
+export function createAdapter(providerId, provider, env = process.env) {
+  const initialKey = cachedToken(providerId) ?? provider.apiKey ?? (provider.apiKeyEnv ? env[provider.apiKeyEnv] : undefined);
+  const base = { id: providerId, type: provider.type, name: displayName(providerId), hasKey: Boolean(initialKey) };
+
+  /** Build the concrete call for a given key. */
+  const build = (key) => {
+    if (provider.type === 'openai') return (req, opts) => openaiChat(providerId, provider, key, req, opts);
+    if (provider.type === 'anthropic') return (req, opts) => anthropicChat(providerId, provider, key, req, opts);
+    if (provider.type === 'gemini') return (req, opts) => geminiChat(providerId, provider, key, req, opts);
+    if (provider.type === 'mock') return (req, opts) => mockChat(providerId, provider, req, opts);
+    throw new ProviderError(`Provider "${providerId}" has an unknown type "${provider.type}".`, {
+      code: 'bad_provider_type',
+      provider: providerId,
+    });
+  };
+
+  /**
+   * B9.5: one refresh, one retry, and only for a provider that has an OAuth
+   * config. A refresh loop would turn one expired token into an outage.
+   */
+  const chat = async (req, opts = {}) => {
+    const key = cachedToken(providerId) ?? initialKey;
+    try {
+      return await build(key)(req, opts);
+    } catch (err) {
+      const isAuth = /** @type {any} */ (err)?.status === 401;
+      if (!isAuth || !provider.oauth) throw err;
+      await refreshAccessToken({ providerId, provider, env });
+      return await build(cachedToken(providerId))(req, opts);
+    }
+  };
+
+  return { ...base, chat };
 }
 
 /* ------------------------------------------------------------------ openai */

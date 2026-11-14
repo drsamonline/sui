@@ -110,3 +110,64 @@ test('the x-sui-privacy header sets the tier, and an unknown tier is a 400', asy
   assert.equal((await bad.json()).error.type, 'bad_privacy_tier');
   await gw.close();
 });
+
+/* ------------------------------------------------- B6.6 residency */
+
+test('a region requirement excludes providers outside it, with the reason', async () => {
+  const { providerMeetsRegion, regionRefusal, REGIONS } = await import('@sui/core');
+  assert.deepEqual(REGIONS.slice(0, 3), ['any', 'eu', 'us']);
+  assert.equal(providerMeetsRegion({ region: 'eu' }, 'eu'), true);
+  assert.equal(providerMeetsRegion({ region: 'us' }, 'eu'), false);
+  assert.equal(providerMeetsRegion({}, 'eu'), false, 'an unmarked provider cannot satisfy residency');
+  assert.equal(providerMeetsRegion({ region: 'us' }, 'any'), true);
+  assert.match(regionRefusal({ region: 'us' }, 'eu'), /requires region "eu".*is "us"/);
+});
+
+test('the router honours a region on the request, and fails closed', async () => {
+  const config = privacyConfig();
+  config.providers.trainer.region = 'us';
+  config.providers.clean.region = 'eu';
+  const { router } = makeRouter(config);
+
+  const inEu = await router.chat({ combo: 'mixed', body: ask('hello'), region: 'eu', privacyTier: 'any' });
+  assert.equal(inEu.meta.modelId, 'clean-1', 'only the EU provider may answer');
+  assert.equal(inEu.meta.route.region, 'eu');
+
+  await assert.rejects(
+    () => router.chat({ combo: 'mixed', body: ask('hello'), region: 'in', privacyTier: 'any' }),
+    (err) => {
+      assert.equal(err.code, 'no_route_available');
+      assert.match(err.message, /residency requires region "in"/);
+      return true;
+    },
+    'nothing in India, so nothing answers',
+  );
+});
+
+test('the x-sui-region header sets the requirement, and an unknown region is a 400', async () => {
+  const config = privacyConfig();
+  config.providers.trainer.region = 'us';
+  config.providers.clean.region = 'eu';
+  config.providers.unmarked.region = 'eu';
+  config.apiKeys = [{ name: 'k', key_hash: hashApiKey('sk-k') }];
+
+  const gw = await makeGateway(config);
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const call = (region) =>
+    fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer sk-k', 'x-sui-region': region },
+      body: JSON.stringify({ model: 'mixed', messages: [{ role: 'user', content: 'hello' }] }),
+    });
+
+  const eu = await (await call('eu')).json();
+  assert.ok(['clean-1', 'unmarked-1'].includes(eu.sui.modelId), 'an EU provider answered');
+  assert.equal(eu.sui.route.region, 'eu');
+
+  const bad = await call('mars');
+  assert.equal(bad.status, 400);
+  assert.equal((await bad.json()).error.type, 'bad_region');
+  await gw.close();
+});

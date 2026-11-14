@@ -16,7 +16,7 @@
  */
 
 import { ConfigError, ExhaustedError, ProviderError, SuiError } from '@sui/core';
-import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, providerHasCredentials, providerMeetsPrivacyTier, resolveCombo, tierRank } from '@sui/core';
+import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, providerHasCredentials, providerMeetsPrivacyTier, providerMeetsRegion, regionRefusal, resolveCombo, tierRank } from '@sui/core';
 import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
 import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
@@ -93,6 +93,7 @@ export class Router {
    */
   plan(comboName, opts = {}) {
     const privacyTier = opts.privacyTier ?? this.config.privacy?.defaultTier ?? 'any';
+    const region = opts.region ?? this.config.privacy?.region ?? 'any';
     let combo = resolveCombo(this.config, comboName);
 
     // B3.5: a cascade combo chooses its own targets from the prompt's shape.
@@ -161,6 +162,11 @@ export class Router {
       // that trains on it is not recoverable.
       if (!providerMeetsPrivacyTier(provider, privacyTier)) {
         skipped.push({ modelId, provider: providerId, reason: privacyRefusal(provider, privacyTier) });
+        continue;
+      }
+      // B6.6: residency, checked for the same reason
+      if (!providerMeetsRegion(provider, region)) {
+        skipped.push({ modelId, provider: providerId, reason: regionRefusal(provider, region) });
         continue;
       }
       if (!providerHasCredentials(provider, this.config.env, this.config)) {
@@ -290,6 +296,7 @@ export class Router {
       spentToday,
       dailyBudget,
       privacyTier,
+      region,
       learned: Boolean(combo.learning?.enabled),
       cascade,
     };
@@ -468,7 +475,8 @@ export class Router {
     const effectiveMessages = compressed.messages;
     const promptTokens = estimateTokens(effectiveMessages.map((m) => m.content).join('\n'));
 
-    const { combo, ordered, resting, skipped, privacyTier, learned, cascade } = this.plan(comboName, {
+    const { combo, ordered, resting, skipped, privacyTier, region, learned, cascade } = this.plan(comboName, {
+      region: input.region,
       promptText,
       privacyTier: input.privacyTier,
       promptTokens,
@@ -665,6 +673,7 @@ export class Router {
             route: {
               strategy: combo.strategy,
               privacyTier,
+              region,
               learned,
               cascade,
               considered: [

@@ -121,6 +121,8 @@ export function normalizeConfig(raw, opts = {}) {
     // B6.5: privacy tiers. 'any' by default — the tier is a decision, not a default.
     privacy: {
       defaultTier: PRIVACY_TIERS.includes(raw.privacy?.defaultTier) ? raw.privacy.defaultTier : 'any',
+      // B6.6: where data must be processed, if anywhere in particular
+      region: REGIONS.includes(raw.privacy?.region) ? raw.privacy.region : 'any',
     },
     // B9.2: canary rollout. Off by default; a rollout is an experiment, not a default.
     canary: raw.canary?.enabled === true
@@ -306,6 +308,30 @@ export function isPaidProvider(provider) {
 /** B6.5 — what a provider does with what you send it. */
 export const RETENTION_LEVELS = ['none', 'session', 'short', 'long', 'unknown'];
 export const PRIVACY_TIERS = ['any', 'standard', 'strict'];
+
+/** B6.6 — where a provider processes data. */
+export const REGIONS = ['any', 'eu', 'us', 'in', 'uk', 'apac'];
+
+/**
+ * Does this provider keep data where the caller requires it?
+ *
+ * `any` means the caller has no requirement. Otherwise the provider's declared
+ * region must match exactly: a provider that processes "globally" cannot satisfy
+ * a residency requirement, and guessing on its behalf is how a compliance claim
+ * becomes false.
+ *
+ * @param {any} provider
+ * @param {string} region
+ */
+export function providerMeetsRegion(provider, region = 'any') {
+  if (!region || region === 'any') return true;
+  return String(provider?.region ?? 'unknown') === region;
+}
+
+/** Why a provider was excluded by residency. */
+export function regionRefusal(provider, region) {
+  return `residency requires region "${region}", this provider is "${provider?.region ?? 'unknown'}"`;
+}
 
 /**
  * Does this provider meet a privacy tier?

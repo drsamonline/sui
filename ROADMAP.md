@@ -134,6 +134,10 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B9.4 quota windows — done**: a `429` with `Retry-After` (seconds, an HTTP date, or in the body) closes that target for exactly that long, is reported in the skip reason, is **not** a breaker trip, and reopens with a log line. `quotaWindows` in `/api/status`. 5 tests.
 
+**B9.5 token refresh — done**: a provider with an `oauth` block refreshes its access token once on a 401, retries once, and caches it until expiry (a minute early). A refused refresh reports why and does not retry the model call. 6 tests against a local fake token endpoint.
+
+**B6.6 residency — done**: providers declare a `region`; `privacy.region` or `x-sui-region` requires one; an unmarked provider is `unknown` and never matches; nothing eligible fails closed with the reason. 3 tests.
+
 **B7.7 tenant console backend — done**: `GET /api/tenants`, `PATCH /api/tenants/<name>` for a live cap change (in memory, and it says so), `sui tenants`, and an `SUI_ADMIN_TOKEN` gate when one is configured. An uncapped tenant reports `null`, not 0%. 8 tests.
 
 **B7.6 grounding check — done**: `verification.grounding` (`off`/`warn`/`block`) checks that every URL, quoted span of 8+ characters and unit-bearing number in the answer appears in the context it was given. Ungrounded answers take a 0.45 confidence penalty, which usually escalates them. With no context it reports `checked: false` rather than passing silently. 5 tests.
@@ -175,9 +179,9 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B9.5** — provider token refresh for OAuth-style providers.
-4. **B4.2** — the remaining compression engines (`lexora`-style canonicalisation).
-5. **B6.6 remainder** — residency routing and per-tenant fallback chains.
+3. **B4.2** — the remaining compression engines (`lexora`-style canonicalisation).
+4. **Phase 5** — MCP server and client, the largest piece left.
+5. **B8.6/B8.7** — keyboard navigation and the last accessibility passes.
 
 ## Risk register
 

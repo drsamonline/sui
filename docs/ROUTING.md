@@ -431,6 +431,33 @@ curl -H 'x-sui-user: sohil' -H 'x-sui-tool: cline' ...
 
 `sui cost --by user` and `--by tool` group by it; the CSV carries both columns. Nothing is inferred beyond those two labels, and neither is treated as identity.
 
+## Residency
+
+```json
+"privacy": { "region": "eu" },
+"providers": { "groq": { "region": "us" }, "mistral": { "region": "eu" } }
+```
+
+| Rule | Why |
+|---|---|
+| A provider's `region` must match exactly | "global" cannot satisfy a residency requirement |
+| An unmarked provider is `unknown` and never matches | guessing on a provider's behalf is how a compliance claim becomes false |
+| A caller may require one with `x-sui-region` | the requirement belongs to the request, not only the config |
+| Nothing eligible → fail closed with the reason | a silent fallback across a border is the failure mode |
+
+## Token refresh
+
+```json
+"providers": {
+  "someprovider": {
+    "type": "openai",
+    "oauth": { "tokenUrl": "https://…/token", "clientIdEnv": "ID", "clientSecretEnv": "SECRET", "refreshTokenEnv": "REFRESH" }
+  }
+}
+```
+
+On a `401` Sui refreshes **once**, retries **once**, and caches the token until its stated expiry (a minute early). A refresh loop would turn one expired token into an outage, so there isn't one. A provider with no `oauth` block surfaces the 401 unchanged.
+
 ## Dual-channel inspection
 
 A prompt is not the only way instructions arrive. A **tool definition** is text the model reads, and a **tool result** is text an attacker may control completely — inspecting only the prompt inspects the wrong channel.

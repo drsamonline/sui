@@ -166,6 +166,41 @@
                 ]
               }
             }
+          },
+          "region": {
+            "enum": [
+              "any",
+              "eu",
+              "us",
+              "in",
+              "uk",
+              "apac",
+              "unknown"
+            ],
+            "default": "unknown",
+            "description": "B6.6: where this provider processes data. An unmarked provider cannot satisfy a residency requirement."
+          },
+          "oauth": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "B9.5: refresh a short-lived access token once on a 401, then retry once.",
+            "properties": {
+              "tokenUrl": {
+                "type": "string"
+              },
+              "clientIdEnv": {
+                "type": "string"
+              },
+              "clientSecretEnv": {
+                "type": "string"
+              },
+              "refreshTokenEnv": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              }
+            }
           }
         }
       }
@@ -706,6 +741,17 @@
             "any",
             "standard",
             "strict"
+          ],
+          "default": "any"
+        },
+        "region": {
+          "enum": [
+            "any",
+            "eu",
+            "us",
+            "in",
+            "uk",
+            "apac"
           ],
           "default": "any"
         }

@@ -19,7 +19,7 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, tenantSnapshot, tenantSummary } from '@sui/core';
+import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@sui/core';
 import { SuiError } from '@sui/core';
 import { explainPlan } from '@sui/router';
 import { PRESETS, compress as compressText } from '@sui/compression';
@@ -388,11 +388,18 @@ export function createSuiServer(deps) {
       tool: String(req.headers['x-sui-tool'] ?? shortAgent(req.headers['user-agent']) ?? 'unattributed').slice(0, 64),
     };
 
+    // B6.6: a caller may require a region, exactly like a privacy tier
+    const requestedRegion = String(req.headers['x-sui-region'] ?? body.sui_region ?? configRef.privacy?.region ?? 'any');
+    if (!REGIONS.includes(requestedRegion)) {
+      throw new SuiError(`Unknown region "${requestedRegion}". Use ${REGIONS.join(', ')}.`, { code: 'bad_region', status: 400 });
+    }
+
     const result = await router.chat({
       combo: requested,
       body,
       keyMeta,
       attribution,
+      region: requestedRegion,
       privacyTier: requestedTier,
       // I12: naming a model directly is a deliberate act, not auto-routing, so
       // an explicitly requested tos:avoid model is allowed through.
