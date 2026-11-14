@@ -37,9 +37,11 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Four strategies** over virtual model names: `fallback`, `weighted` (per-arm attribution), `cheapest` (quality floor + cost cap), `latency` (measured p50).
 - **Circuit breaker** per target, three states, lazy recovery, invariant-correct tripping.
 - **Budgets** — daily and per provider, checked before the call, skipped with a reason rather than failed with a stack trace.
-- **Exact-match cache** with honest `cached` provenance and countable savings.
+- **Two-tier cache** — exact hash, plus an optional lexical tier (`ml-kit` tf-idf at 0.98) for near-duplicate prompts; `cacheKind` says which one answered.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
 - **Dashboard** — token-based design system, budget bar, routing-pool topology, breaker states, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token.
+- **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.
+- **Catalogue** — 26 entries from the fleet's `app-endpoints` dataset and a hand-written seed, every one an unverified identity until a probe says otherwise; `sui catalog <query>` searches it.
 - **Onboarding** with tool detection and one-click config; **migration** from 9router / OmniRoute / HubGate with a preview diff and a post-import smoke test.
 - **Eval harness** — 50-prompt golden set, nine deterministic graders, a self-test that proves the graders grade, and a regression gate against `evals/baseline.json`.
 - **Soak harness** — measures the gateway's own overhead (server-side, not client sockets) and gates p95 against the 15ms budget.
@@ -58,6 +60,11 @@ npx sui cost               # spend, latency, A/B arms    --all  --json
 npx sui tools              # point a coding tool here    --set continue
 npx sui migrate <file>     # import another router's config   --apply  --only a,b
 npx sui keys hash          # replace plaintext API keys with SHA-256
+npx sui vault init         # sealed storage for paid credentials  (set · list · remove · status)
+npx sui config set budgets.dailyUsd 7    # edit config, validated before writing
+npx sui catalog <query>    # the catalogue, and what is still unverified
+npx sui tokens --check     # WCAG AA on the dashboard tokens, computed by tokens-kit
+npx sui kits               # the vendored kits and whether they load
 ```
 
 Then anything that speaks OpenAI:
@@ -82,11 +89,13 @@ packages/
   catalog/      provider catalogue: dedupe, ToS posture, scoring
   guardrails/   prompt size, blocked patterns, output clamp
   sdk/          JavaScript client
+  kits/         loader for the vendored kits (isolated VM context)
+  vault/        AES-256-GCM sealed paid credentials
 evals/          50-prompt golden set, graders, runner, baseline
 scripts/        soak harness
 config/         annotated config + JSON schema
 docs/           architecture, routing, API, migration, reuse map, ADRs, legal
-vendor/         reserved for subtree merges (licence-gated)
+vendor/kits/    seven vendored kits, each with its upstream LICENSE and API.md
 ```
 
 npm workspaces, Node 20+, **zero runtime dependencies**. No build step.
@@ -94,7 +103,7 @@ npm workspaces, Node 20+, **zero runtime dependencies**. No build step.
 ## Commands that prove things
 
 ```bash
-npm test         # 117 tests: routing, invariants, security, dashboard, catalog, sdk, evals
+npm test         # 146 tests: routing, invariants, security, dashboard, catalog, sdk, vault, kits, evals
 npm run eval:self  # prove the graders grade (50 must-pass, 6 must-fail)
 npm run eval     # 50 prompts against a real combo, regression-gated
 npm run soak     # 1,200 requests, p95 overhead against the 15ms budget
@@ -102,7 +111,9 @@ npm run soak     # 1,200 requests, p95 overhead against the 15ms budget
 
 ## Licensing
 
-Sui is MIT. The kits in the same fleet (`tokens-kit`, `ml-kit`, `crypto-kit`, `compress-kit`, `lexora`, `app-endpoints`, `ai-bridge`, `skills`) are PolyForm Noncommercial 1.0.0, so **none of them is vendored here** — the behaviour is adapted, and [`docs/legal/LICENSE_INVENTORY.md`](docs/legal/LICENSE_INVENTORY.md) records each one and what it would take to vendor it. ADR-0002 explains why.
+Sui is MIT. Seven kits from the same fleet are vendored in `vendor/kits/` — `crypto-kit`, `ml-kit`, `search-kit`, `tokens-kit`, `compress-kit`, `export-kit`, `web-kit` — each with its upstream `LICENSE` beside it and a pinned commit in [`docs/legal/LICENSE_INVENTORY.md`](docs/legal/LICENSE_INVENTORY.md). The copyright holder authorised that use; the upstream repositories still label themselves PolyForm Noncommercial, and updating those files is the one open task recorded in the inventory. `NOTICE` carries the attribution.
+
+Third-party routers (`9router`, `OmniRoute`, `HubGate`) are not vendored; `sui migrate` reads their config files, which is a different act.
 
 ## Documentation
 
@@ -112,5 +123,5 @@ Sui is MIT. The kits in the same fleet (`tokens-kit`, `ml-kit`, `crypto-kit`, `c
 - [`docs/API.md`](docs/API.md) — every endpoint and field.
 - [`docs/MIGRATION.md`](docs/MIGRATION.md) — moving from another router.
 - [`docs/reuse-map.md`](docs/reuse-map.md) — the fleet, mapped onto phases.
-- [`docs/adr/`](docs/adr/) — six decisions, with their consequences.
+- [`docs/adr/`](docs/adr/) — seven decisions, with their consequences.
 - [`SECURITY.md`](SECURITY.md) — what this gateway is and is not, in security terms.

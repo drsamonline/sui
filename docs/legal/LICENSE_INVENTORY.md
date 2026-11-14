@@ -2,43 +2,50 @@
 
 **Required before any vendor merge** (Section 9 of the project prompt).
 
-Sui is MIT. Every repository in the fleet I would want to reuse is **PolyForm Noncommercial 1.0.0**. That is not a detail: MIT permits commercial use, PolyForm NC forbids it. Code under NC cannot be relicensed as MIT, and embedding it in an MIT distribution would bind the whole distribution by the NC terms.
+## The decision, recorded
 
-All of these repositories are authored by the same copyright holder (Dr Sohil Momin), so **relicensing is possible — it is the owner's decision, not a technical blocker.** Until that decision is made, nothing NC is vendored into this tree.
+The kits in the `drsamonline` fleet are published under **PolyForm Noncommercial 1.0.0**. Sui is **MIT**. On 2026-11-14 the copyright holder — who owns every one of these repositories — authorised their use in this MIT project:
 
-## Status of each candidate
+> "import whole kit code as required in the repo and use it … skills are all mine or mit licences individually so you can take them too"
 
-| Repo | Licence | What we would take | Status in Sui | Decision needed |
-|---|---|---|---|---|
-| `tokens-kit` | PolyForm NC 1.0.0 | 121 colour names / 187 values per mode as design tokens | **not vendored** — dashboard uses its own token ladder | relicense to MIT/Apache-2.0, or keep our ladder |
-| `mood-mixer` | PolyForm NC 1.0.0 | WCAG contrast maths for the token audit | **not vendored** — `test/dashboard.test.js` checks structure, not contrast ratios | same |
-| `ml-kit` | PolyForm NC 1.0.0 | tf-idf, k-means, PCA for the semantic cache (B4.7) and grounding score (B7.7) | **not vendored** | same |
-| `crypto-kit` | PolyForm NC 1.0.0 | AES-256-GCM sealed envelope for the paid vault (B6.7) | **not vendored** — `node:crypto` covers what exists today | same |
-| `compress-kit` | PolyForm NC 1.0.0 | gzip/deflate via Compression Streams for B4.2 | **not vendored** | same |
-| `heavenzip`, `HCS` | MIT (`heavenzip`), unverified (`HCS`) | CHCE compression binaries + orchestrator for B4.1 | **not vendored** | `heavenzip` is MIT — vendorable after a NOTICE entry; `HCS` needs its own licence read |
-| `lexora` | PolyForm NC 1.0.0 | canonicalise-then-compress for B4.1 | **not vendored** | relicense, or clean-room the canonicaliser |
-| `ai-bridge` | PolyForm NC 1.0.0 | MCP-shaped tool plumbing, adapter patterns for B5.1/B5.2 | **not vendored** | same |
-| `app-endpoints` | PolyForm NC 1.0.0 | 2,214 public APIs filterable by auth, as a catalogue seed (B2.2) | **not vendored** — `packages/catalog/seed.json` is hand-written | same |
-| `skills` | PolyForm NC 1.0.0 | Skill catalogue (11,689 files) as machine-consumable docs | **not vendored** | same |
-| `search-kit`, `web-kit`, `export-kit`, `ui-kit` | PolyForm NC 1.0.0 | Search index, storage/theme/a11y, CSV export, UI primitives | **not vendored** | same |
-| `9router`, `OmniRoute`, `HubGate` | unknown / not in this account | Vendor subtrees per Section 9 | **not vendored** — `sui migrate` imports their *configs*, which is a different act from vendoring their code | upstream licence read required before any subtree |
+That authorisation is what makes the vendoring below legitimate: the same person holds the copyright on the kits and on Sui, so they can license their own work to themselves on MIT terms. Two things follow, and both are outstanding:
 
-## What "adapting" means here
+1. **The upstream `LICENSE` files still say PolyForm NC.** Anyone cloning `crypto-kit` directly still gets the non-commercial terms. Update those files (MIT or Apache-2.0) to make the two repositories agree.
+2. **This repository keeps a copy of each upstream licence** in `vendor/kits/*.LICENSE`, so the provenance travels with the code. If the upstream licences change, replace those files with the new ones and record the commit here.
 
-Reimplementing the behaviour from the other repository's documentation, without copying its source, is the only path that keeps the MIT tree clean. Three examples already in this tree:
+Until (1) is done, the honest reading is: *Sui is MIT by its owner's grant; the upstream repositories are still labelled NC.*
 
-- `hashApiKey` / `verifyApiKey` — SHA-256 plus `timingSafeEqual` from `node:crypto`, not `crypto-kit`.
-- the design tokens — written for this dashboard, not lifted from `tokens-kit`.
-- exact-match TTL cache — written here; the embedding tier will need either `ml-kit` (post-relicence) or a small native tf-idf.
+## Vendored
 
-## If the kits are relicensed
+| Kit | Pinned commit | Used by | What it does here |
+|---|---|---|---|
+| `crypto-kit` | `f2f3499` | `packages/vault` | AES-256-GCM sealed envelope for the paid-credential vault (B6.7) |
+| `ml-kit` | `aa0713f` | `packages/telemetry` | tf-idf index for the semantic cache tier (B4.7) |
+| `search-kit` | `32675b6` | `sui catalog` | ranked search over the provider catalogue (B2.2) |
+| `tokens-kit` | `4a0200d` | `sui tokens --check` | WCAG contrast maths for the token audit (B8.1, B8.7) |
+| `compress-kit` | `9335d0f` | `sui cost --export --gzip` | gzip for usage exports |
+| `export-kit` | `135b1a6` | vendored, not yet wired | CSV/zip helpers for the export work in B7.x |
+| `web-kit` | `2acc971` | vendored, not yet wired | storage, theme and a11y helpers for the dashboard (B8.7) |
+| `app-endpoints` | `3af3769` | `scripts/build-catalog.mjs` | 2,214 public APIs, filtered to 15 model-ish keyless entries |
 
-One decision, then this table changes and the work gets shorter:
+Each file lives in `vendor/kits/<name>.js` with its `LICENSE` and its generated `API.md` beside it. `vendor/kits/app-endpoints.apis.json` is the dataset.
 
-1. Add `LICENSE` (MIT or Apache-2.0) to each kit repository.
-2. Record it here, with the commit SHA that carries the new licence.
-3. Vendor with `git subtree add --prefix vendor/<kit> <remote> main --squash`, keeping the copyright notice.
-4. Add a `NOTICE` entry: `Portions of this project include code from <repo>, Copyright 2026 Dr Sohil Momin, licensed under <licence>.`
-5. Re-run `npm test` and `npm run eval` before merging.
+**How they load:** `packages/kits` evaluates each kit in an isolated `node:vm` context, because they are browser IIFEs that attach to a global. No global pollution, no ESM/CJS mismatch, and one broken kit cannot take the gateway down. See ADR-0007.
 
-Until then: **adapt, do not copy.**
+## Not vendored, and why
+
+| Repo | Reason | Path forward |
+|---|---|---|
+| `lexora` | Python, and its canonicaliser is a whole subsystem | port the idea in Phase 4 (B4.1) rather than the code |
+| `heavenzip`, `HCS`, `ziptastic`, `kosh` | C++/Rust binaries; Sui ships no native modules | use them as external tools if a compression batch needs them |
+| `ai-bridge` | TypeScript VS Code extension; its value is the adapter patterns | reference for B5.1/B5.2 |
+| `skills` | 11,689 files of prompt documentation, not code | reference; skills live with the agent, not in the gateway |
+| `9router`, `OmniRoute`, `HubGate` | third-party, licences unknown | `sui migrate` imports their *configs*; vendoring their code needs a licence read first |
+
+## Rules for the next vendor
+
+1. Record the repository, the pinned commit and the licence here **before** the merge.
+2. Keep the upstream `LICENSE` file inside the vendored directory.
+3. Add a line to `NOTICE` at the repository root.
+4. Re-run `npm test`, `npm run eval:self` and `npm run soak`.
+5. If the licence is not MIT-compatible and the owner has not authorised it, stop.

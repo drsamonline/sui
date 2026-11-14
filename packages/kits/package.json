@@ -1,0 +1,15 @@
+{
+  "name": "@sui/kits",
+  "version": "0.3.0",
+  "description": "Vendored drsamonline kits (crypto, ml, search, tokens, compress) loaded in an isolated VM context.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src"
+  ]
+}

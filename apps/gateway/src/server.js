@@ -245,6 +245,7 @@ export function createSuiServer(deps) {
     res.setHeader('x-sui-combo', meta.combo);
     res.setHeader('x-sui-verified', String(meta.verified));
     res.setHeader('x-sui-cached', String(meta.cached));
+    if (meta.cacheKind) res.setHeader('x-sui-cache-kind', meta.cacheKind);
     res.setHeader('x-sui-cost-usd', String(meta.costUsd));
     res.setHeader('x-sui-latency-ms', String(meta.latencyMs));
 
@@ -284,6 +285,7 @@ export function provenance(meta) {
     strategy: meta.strategy,
     verified: meta.verified,
     cached: meta.cached,
+    cacheKind: meta.cacheKind ?? null,
     latencyMs: meta.latencyMs,
     ttftMs: meta.ttftMs,
     costUsd: meta.costUsd,

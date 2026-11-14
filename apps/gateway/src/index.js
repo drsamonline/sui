@@ -15,6 +15,7 @@ import { ResponseCache } from '@sui/telemetry';
 import { loadConfig, normalizeConfig, suiHome } from '@sui/core';
 import { Ledger } from '@sui/telemetry';
 import { Router } from '@sui/router';
+import { openVaultForStartup } from '@sui/vault';
 import { createSuiServer } from './server.js';
 
 export { CircuitBreaker } from '@sui/router';
@@ -59,6 +60,21 @@ export async function createGateway(opts = {}) {
     : loadConfig(opts.configPath, env);
 
   const home = suiHome(env);
+
+  // B6.7, the second half of the air-gap: sealed storage for paid credentials.
+  // Opened only when the gate (I4) is on. A locked or missing vault is a warning,
+  // never a reason to refuse free-tier traffic.
+  if (config.paidTiers?.enabled) {
+    const vaultPath = config.paidTiers.vaultPath ?? join(home, 'vault.json');
+    const opened = await openVaultForStartup({ path: vaultPath, env });
+    config.vault = { path: vaultPath, reason: opened.reason, providers: Object.keys(opened.keys).sort() };
+    for (const [providerId, key] of Object.entries(opened.keys)) {
+      const provider = config.providers[providerId];
+      if (provider?.apiKeyEnv && !config.env[provider.apiKeyEnv]) config.env[provider.apiKeyEnv] = key;
+    }
+  } else {
+    config.vault = { path: null, reason: 'paid tier is closed (I4) — the vault was not opened', providers: [] };
+  }
   const ledger = new Ledger({
     file: opts.ledgerFile === null ? null : opts.ledgerFile ?? join(home, 'ledger.jsonl'),
     salt: env.SUI_LEDGER_SALT ?? 'sui-local-salt',

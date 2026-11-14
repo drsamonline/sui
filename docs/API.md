@@ -39,12 +39,13 @@ OpenAI-compatible.
 | `sui.strategy` | string | `fallback` \| `weighted` \| `cheapest` \| `latency` |
 | `sui.verified` | bool | `true` when a real upstream answered (mock and local-unverified are `false`) |
 | `sui.cached` | bool | served from the response cache |
+| `sui.cacheKind` | `"exact"` \| `"semantic"` \| null | which cache tier answered |
 | `sui.latencyMs` | number | full turn |
 | `sui.ttftMs` | number \| null | time to first token, streaming only |
 | `sui.costUsd` | number | computed from the model's declared prices |
 | `sui.attempts` | array | `{modelId, provider, reason}` for each target tried and failed |
 
-Headers on the response: `x-sui-provider`, `x-sui-model`, `x-sui-combo`, `x-sui-verified`, `x-sui-cached`, `x-sui-cost-usd`, `x-sui-latency-ms`, and — for the overhead budget — `x-sui-handler-ms` (our handler) and `x-sui-overhead-ms` (handler minus provider time). The same two numbers appear as `sui.handlerMs` and `sui.overheadMs`, and `sui.escalation` says when a resting provider was tried under I14. With `stream: true`, also `x-sui-ttft-ms`, set when the first token is written.
+Headers on the response: `x-sui-provider`, `x-sui-model`, `x-sui-combo`, `x-sui-verified`, `x-sui-cached`, `x-sui-cost-usd`, `x-sui-latency-ms`, `x-sui-cache-kind`, and — for the overhead budget — `x-sui-handler-ms` (our handler) and `x-sui-overhead-ms` (handler minus provider time). The same two numbers appear as `sui.handlerMs` and `sui.overheadMs`, and `sui.escalation` says when a resting provider was tried under I14. With `stream: true`, also `x-sui-ttft-ms`, set when the first token is written.
 
 **Streaming.** Standard SSE: role frame, content deltas, a final frame carrying `usage` and `sui`, then `data: [DONE]`. The `x-sui-*` headers are written with the first token, so a client can render provenance before the answer finishes.
 

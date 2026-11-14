@@ -36,6 +36,15 @@ jobs:
       - name: Invariant audit
         run: node apps/cli/bin/sui.js invariants --config config/sui.config.json
 
+      - name: Vendored kits load
+        run: node apps/cli/bin/sui.js kits
+
+      - name: WCAG AA on every token pair (I9)
+        run: node apps/cli/bin/sui.js tokens --check
+
+      - name: Catalogue builds from app-endpoints
+        run: node scripts/build-catalog.mjs
+
   soak:
     runs-on: ubuntu-latest
     steps:

@@ -101,7 +101,12 @@ The dashboard shows a budget bar; past `warnAtPct` it is striped, past 100% it i
 "server": { "cache": { "enabled": true, "ttlMs": 900000, "maxEntries": 500 } }
 ```
 
-Non-streaming requests only (a stream cannot be replayed honestly as a stream from a cache entry without pretending). The key covers combo, messages, temperature, max_tokens, top_p and stop. A hit returns immediately with `cached: true` and keeps its price so savings stay countable.
+Two tiers, both non-streaming only (a stream cannot be replayed honestly as a stream from a cache entry without pretending):
+
+- **exact** — the key covers combo, messages, temperature, max_tokens, top_p and stop. A hit returns immediately with `cached: true` and keeps its price so savings stay countable.
+- **lexical** — off by default. When `server.cache.semantic.enabled` is true, prompts are indexed with `ml-kit`'s tf-idf and a query scoring ≥ `threshold` (default 0.98) is treated as the same prompt. `sui.cacheKind` says which tier answered. It is lexical, not semantic: a paraphrase will miss, a near-duplicate (extra whitespace, a changed word) will hit.
+
+The lexical tier keeps recent prompt text **in memory only** — that is why it is off by default, and why nothing about it touches the ledger or the disk.
 
 Turn it off when you are measuring latency, or when prompts contain data that should not sit in memory.
 

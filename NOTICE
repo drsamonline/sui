@@ -1,0 +1,30 @@
+Sui
+Copyright (c) 2026 Sui Router contributors
+Licensed under the MIT License. See LICENSE.
+
+--------------------------------------------------------------------------------
+Third-party and first-party components
+--------------------------------------------------------------------------------
+
+This distribution includes code from the following drsamonline repositories,
+copyright 2026 Dr Sohil Momin, used here with the copyright holder's
+authorisation (recorded in docs/legal/LICENSE_INVENTORY.md):
+
+  crypto-kit      f2f3499   AES-256-GCM, PBKDF2 sealed envelopes
+  ml-kit          aa0713f   tf-idf, k-means, naive Bayes, regression
+  search-kit      32675b6   inverted index with prefix and fuzzy matching
+  tokens-kit      4a0200d   the Lobe UI token set as data, WCAG contrast maths
+  compress-kit    9335d0f   gzip/deflate over Compression Streams
+  export-kit      135b1a6   CSV, JSON and zip export helpers
+  web-kit         2acc971   storage, i18n, theme and accessibility helpers
+
+Each vendored file keeps its upstream LICENSE beside it in vendor/kits/.
+
+The provider catalogue in packages/catalog/generated.json is derived from
+drsamonline/app-endpoints (3af3769), a directory of public APIs. Each entry
+there remains the property of the API's own operator; Sui ships names, links
+and no endpoints.
+
+Upstream repositories currently label themselves PolyForm Noncommercial 1.0.0.
+Their licence files should be updated by the copyright holder to match this
+grant; until then, treat the upstream repositories as their files describe.

@@ -231,11 +231,12 @@ export class Router {
 
     const cacheKey = this.cache?.enabled && !streamed ? ResponseCache.key({ ...body, combo: comboName }) : null;
     if (cacheKey) {
-      const hit = this.cache.get(cacheKey);
+      const hit = this.cache.get(cacheKey, promptText);
       if (hit) {
         const meta = {
-          ...hit.meta,
+          ...hit.value.meta,
           cached: true,
+          cacheKind: hit.kind,
           latencyMs: this.now() - started,
           ttftMs: 0,
           attempts: [],
@@ -247,9 +248,9 @@ export class Router {
           combo: comboName,
           arm: meta.arm,
           ok: true,
-          promptTokens: hit.usage.prompt_tokens,
-          completionTokens: hit.usage.completion_tokens,
-          costUsd: hit.meta.costUsd,
+          promptTokens: hit.value.usage.prompt_tokens,
+          completionTokens: hit.value.usage.completion_tokens,
+          costUsd: hit.value.meta.costUsd,
           latencyMs: meta.latencyMs,
           ttftMs: 0,
           cached: true,
@@ -257,7 +258,7 @@ export class Router {
           promptText,
           streamed: false,
         });
-        return { text: hit.text, usage: hit.usage, finishReason: hit.finishReason, meta };
+        return { text: hit.value.text, usage: hit.value.usage, finishReason: hit.value.finishReason, meta };
       }
     }
 
@@ -321,6 +322,7 @@ export class Router {
           combo: comboName,
           arm: arm ?? null,
           cached: false,
+          cacheKind: null,
           verified,
           latencyMs,
           ttftMs: streamed ? ttft : null,
@@ -349,7 +351,13 @@ export class Router {
           streamed,
         });
 
-        if (cacheKey) this.cache.set(cacheKey, { text: result.text, usage: result.usage, finishReason: result.finishReason, meta });
+        if (cacheKey) {
+          this.cache.set(
+            cacheKey,
+            { text: result.text, usage: result.usage, finishReason: result.finishReason, meta },
+            { promptText },
+          );
+        }
 
         return { text: result.text, usage: result.usage, finishReason: result.finishReason, meta };
       } catch (err) {

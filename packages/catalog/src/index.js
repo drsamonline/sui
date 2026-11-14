@@ -63,6 +63,7 @@ export function normalizeEntry(raw) {
     provider: String(raw.provider),
     label: raw.label ?? String(raw.provider),
     base_url: raw.base_url ?? null,
+    docs_url: raw.docs_url ?? null,
     model_family: raw.model_family ?? null,
     auth: raw.auth === 'key' ? 'key' : 'none',
     key_env: raw.key_env ?? null,

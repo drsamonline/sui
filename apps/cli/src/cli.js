@@ -20,6 +20,8 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
+import { cmdCatalog, cmdConfig, cmdKits, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { kitStatus } from '@sui/kits';
 import { ConfigError } from '@sui/core';
 
 const VERSION = '0.2.0';
@@ -37,6 +39,16 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdUp(flags);
     case 'keys':
       return cmdKeys(flags, args);
+    case 'catalog':
+      return cmdCatalog(flags, args);
+    case 'vault':
+      return cmdVault(flags, args);
+    case 'config':
+      return cmdConfig(flags, args);
+    case 'tokens':
+      return cmdTokens(flags);
+    case 'kits':
+      return cmdKits(flags);
     case 'invariants':
       return cmdInvariants(flags);
     case 'doctor':
@@ -191,6 +203,12 @@ async function cmdDoctor(flags) {
   console.log('');
   console.log(`${healthy} of ${Object.keys(config.models).length} models have credentials.`);
 
+  const kits = kitStatus();
+  const kitsBroken = kits.filter((k) => !k.loaded);
+  console.log('');
+  console.log(`Vendored kits: ${kits.length - kitsBroken.length}/${kits.length} loaded${kitsBroken.length ? ` — broken: ${kitsBroken.map((k) => k.name).join(', ')}` : ''}`);
+  console.log(`Paid vault:    ${config.vault?.reason ?? 'not opened'}`);
+
   const audit = auditConfig(config);
   const failing = audit.filter((a) => !a.ok);
   console.log('');
@@ -267,8 +285,17 @@ async function cmdCost(flags) {
     console.log('A/B arms');
     console.log(table(['combo/arm', 'turns', 'cost', 'avg latency'], armRows));
   }
-  console.log('');
-  console.log(`Export: npx sui up, then open the dashboard and press "Export CSV".`);
+  if (flags.export || flags.gzip) {
+    await writeExport({
+      ledger,
+      file: typeof flags.export === 'string' ? flags.export : undefined,
+      format: flags.json ? 'json' : 'csv',
+      gzip: Boolean(flags.gzip),
+    });
+  } else {
+    console.log('');
+    console.log('Export: npx sui cost --export usage.csv [--gzip]   (or the dashboard\'s Export CSV)');
+  }
 }
 
 async function cmdTools(flags, args) {
@@ -468,7 +495,11 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui cost            spend, latency and A/B arms           --json  --all
   npx sui tools           point a coding tool here              --set <tool-id>
   npx sui migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
-  npx sui eval           golden-set eval (see evals/run.mjs)
+  npx sui catalog [q]    the provider catalogue, and what is still unverified
+  npx sui vault <cmd>    init | set <provider> | list | remove <provider> | status
+  npx sui config <cmd>   show | get <path> | set <path> <value> | unset <path>
+  npx sui tokens --check WCAG AA on the dashboard tokens, computed by tokens-kit
+  npx sui kits           the vendored kits and whether they load
 
 Endpoint, once running:   http://127.0.0.1:8787/v1
 Dashboard:                http://127.0.0.1:8787/
@@ -479,7 +510,7 @@ Docs:                     docs/ARCHITECTURE.md, docs/ROUTING.md, docs/MIGRATION.
 /* ------------------------------------------------------------------- helpers */
 
 /** Flags that take a value, so `--config ./x.json` works as well as `--config=./x.json`. */
-const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env']);
+const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q']);
 
 function parse(argv) {
   const args = [];

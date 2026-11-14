@@ -1,0 +1,15 @@
+{
+  "name": "@sui/vault",
+  "version": "0.3.0",
+  "description": "Paid-credential vault: AES-256-GCM sealed at rest, opened only when the paid gate is on.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src"
+  ]
+}

@@ -28,6 +28,8 @@ apps/gateway (HTTP, auth, SSE, dashboard API)
 | `apps/gateway` | HTTP, auth, host allowlist, SSE, dashboard API | decide routing |
 | `apps/cli` | the human path: detect, validate, print, migrate | be the only way in |
 | `apps/dashboard` | the human surface: tokens, topology, provenance chips | hold business logic |
+| `packages/kits` | loading the vendored kits in an isolated `node:vm` context, and reporting their status | let a kit touch a host global (ADR-0007) |
+| `packages/vault` | sealing paid credentials with AES-256-GCM, opening them only when the gate is on | decide policy (that is I4, in core) |
 
 ## Request lifecycle
 
@@ -72,6 +74,11 @@ The plan is computed once per request and is pure — no network, no mutation. T
 - **I4** (paid air-gap) is checked inside `providerHasCredentials()` *before* the environment is read, so a paid key present in `.env` cannot produce a paid request while the gate is closed.
 - **I12** (ToS) and **I14** (no total outage) live in `Router#plan`: `tos: avoid` targets are skipped unless the caller named that model, and targets whose breaker is open are held in a `resting` bucket that is tried only after every healthy target has failed.
 - **I13** (breaker tripping) is one exported function, `tripsBreaker()`, so "5xx and transport only" is a test, not a comment.
+- **I4 + B6.7** are two halves of one boundary: `providerHasCredentials()` decides *whether* a paid key may be read, and `packages/vault` decides *where* it lives (sealed, opened at startup only when the gate is open).
+
+## Vendored kits
+
+`vendor/kits/` holds seven single-file kits from the same fleet, each with its upstream `LICENSE` and generated `API.md`, pinned to a commit in `docs/legal/LICENSE_INVENTORY.md`. `packages/kits` evaluates them in a `node:vm` sandbox rather than importing them, because they are browser IIFEs that attach globals. What each one powers is listed in `ROADMAP.md`.
 
 ## Decisions worth explaining
 

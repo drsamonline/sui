@@ -1,6 +1,6 @@
 {
   "name": "sui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -20,7 +20,10 @@
     "eval:self": "node evals/run.mjs --self-test",
     "soak": "node scripts/soak.mjs --minutes 1",
     "doctor": "node apps/cli/bin/sui.js doctor",
-    "link": "node scripts/link-workspaces.mjs"
+    "link": "node scripts/link-workspaces.mjs",
+    "catalog": "node scripts/build-catalog.mjs",
+    "tokens": "node apps/cli/bin/sui.js tokens --check",
+    "kits": "node apps/cli/bin/sui.js kits"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"

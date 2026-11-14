@@ -4,7 +4,7 @@
 
 This is the working plan: twelve phases, sixty batches, in dependency order. Every batch has a status, and a status is only `done` when a command in this repository proves it — a test, an eval run, or a soak report. Nothing here is marked done because it was written.
 
-Last updated: 2026-11-14 · 117 tests green · eval self-test green · soak p95 2.57ms against a 15ms budget.
+Last updated: 2026-11-14 · 146 tests green · eval self-test green · soak p95 2.57ms against a 15ms budget · 7 kits vendored and wired.
 
 ---
 
@@ -22,10 +22,11 @@ Three rules keep it honest:
 |---|---|
 | Runtime | Node 20+, ESM, **zero runtime dependencies** |
 | Layout | npm workspaces: `apps/{gateway,dashboard,cli}` · `packages/{core,providers,router,telemetry,catalog,guardrails,sdk}` |
-| Tests | 117 passing, no network, no keys (`npm test`) |
+| Tests | 146 passing, no network, no keys (`npm test`) |
 | Eval | 50-prompt golden set, 56-check self-test, regression gate against `evals/baseline.json` |
 | Soak | `npm run soak` — 1,200 requests, p95 2.57ms overhead, no unhandled errors |
-| Security | Host-header allowlist, SHA-256 key hashes with constant-time compare, no default password, no JWT |
+| Security | Host-header allowlist, SHA-256 key hashes with constant-time compare, no default password, no JWT, paid vault sealed with AES-256-GCM |
+| Kits | crypto, ml, search, tokens, compress, export, web — vendored at pinned commits, loaded in an isolated VM |
 
 ---
 
@@ -57,8 +58,8 @@ Legend: **done** = a command proves it · **partial** = shipped, with a named ga
 
 | Batch | Status | Gap |
 |---|---|---|
-| B2.1 `packages/catalog` | **partial** | Schema, dedupe by `pool_key`, ToS states, retention levels, capability list, scoring. **Target is 500+ entries; the seed ships 11 identities and no URLs.** |
-| B2.2 Catalog sync worker | todo | Sources named in the spec: awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, provider status pages. |
+| B2.1 `packages/catalog` | **partial** | Schema, dedupe by `pool_key`, ToS states, retention levels, capability list, scoring, plus a generated set. **26 entries today (11 hand-written + 15 from app-endpoints); target is 500+, and none has a verified URL.** |
+| B2.2 Catalog sync worker | **partial** | `scripts/build-catalog.mjs` ingests the fleet's `app-endpoints` dataset (2,214 APIs → 1,103 keyless → 15 model-ish, HTTPS, no-key entries) and writes `packages/catalog/generated.json`. One source, run by hand; four sources and a schedule remain. |
 | B2.3 Canary prober | todo | Three levels (liveness/readiness/suitability) with per-capability fixtures. Scoring function is ready; nothing calls it on a schedule. |
 | B2.4 ToS policy engine | **partial** | `tos: allowed\|review\|avoid` is enforced in routing (I12) and audited. No ingestion, no review workflow, no per-provider policy documents. |
 | B2.5 Keyless providers wired | **blocked** | Pollinations, OVHcloud, LLM7, Kilo are in the seed as identities with `base_url: null, needs_probe: true`. Shipping an unverified URL would violate the positioning; the prober (B2.3) has to resolve them, and their ToS must be read before customer prompts go near them. |
@@ -81,12 +82,12 @@ Legend: **done** = a command proves it · **partial** = shipped, with a named ga
 
 | Batch | Status | Gap |
 |---|---|---|
-| B4.1–B4.2 Nine compression engines | **blocked** | The reference implementations live in `heavenzip`/`HCS`/`lexora`/`compress-kit`, all PolyForm NC. Either relicense them or write clean-room engines. See ADR-0002 and the reuse map. |
+| B4.1–B4.2 Nine compression engines | todo — **unblocked** | The owner authorised the kits (ADR-0002 update), so `heavenzip`/`lexora`/`compress-kit` can be used. `compress-kit` is already wired for gzip exports; the nine prompt-compression engines are not built. |
 | B4.3 Budget manager (quota → preset) | todo | Depends on real quota telemetry, which depends on B2.3. |
 | B4.4 Output-axis dial | todo | |
 | B4.5 Cache-aware compression (CAPC) | todo | |
 | B4.6 Native prompt caching | todo | |
-| B4.7 Semantic cache | **partial** | Exact-match TTL cache with quota-free hits and honest `cached` provenance. Embedding tier not built; `ml-kit` (tf-idf, k-means, PCA) is the intended engine, pending the licence decision. |
+| B4.7 Semantic cache | **partial** | Two tiers: exact hash, and a **lexical** tier over `ml-kit` tf-idf at a 0.98 threshold — near-duplicate prompts hit without an exact key, and `cacheKind` says which tier answered. Off by default (it holds recent prompt text in memory). A true embedding tier is still todo. |
 
 ### Phase 5 — AGENTS & PROTOCOLS
 
@@ -98,7 +99,7 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 |---|---|---|
 | B6.4 Guardrail plugin architecture | **partial** | `packages/guardrails` is a clean seam with size, pattern and token-clamp checks. No provider plugins (Bedrock/Azure/Model Armor/Lakera/NeMo). |
 | B6.6 Tenant isolation | **partial** | API keys with `allowedCombos`/`allowedModels`, hashed at rest. No per-tenant budgets, rate limits or fallback chains. |
-| B6.7 Paid-tier air-gap | **partial** | The gate is enforced in code and tested (I4): a paid provider's credentials are not read while `paid_tiers.enabled` is false. No encrypted vault yet — the second half of the boundary. |
+| B6.7 Paid-tier air-gap | **done** | Gate (I4) plus sealed storage: `packages/vault` seals keys with AES-256-GCM via `crypto-kit`, opened only when the gate is on, with the key file at 0600 and the provider names inside the envelope. Limitation stated plainly: the passphrase sits beside the vault unless you supply `SUI_VAULT_PASSPHRASE`. |
 | B6.1–B6.3, B6.5 | todo | Red-team toolkit, scheduled self-test, dual-channel inspection, privacy-tiered routing. |
 
 ### Phase 7 — OBSERVABILITY & TENANCY
@@ -114,13 +115,13 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 | Batch | Status | Gap |
 |---|---|---|
-| B8.1 Design system tokens | **done** | Token ladder, one signal colour, fixed type scale, WCAG AA contrast, tabular figures. I9 is a test: no raw colour value outside `:root`. `tokens-kit` can supply a wider palette once relicensed. |
+| B8.1 Design system tokens | **done** | Token ladder, one signal colour, fixed type scale, tabular figures. I9 is a test: no raw colour value outside `:root`. `sui tokens --check` computes every pair's contrast with `tokens-kit` — and it caught a real failure (the border token was 1.97:1; it is now 3.29:1 light, 3.32:1 dark). |
 | B8.2 Chat window | **partial** | Zero-state starters (spec wording), provenance chip per response, plain-language selector with speed/quality/cost and honest locks. **Choice persists per browser, not per thread.** |
 | B8.3 Dashboard | **partial** | Skeletons, routing-pool topology, budget bar, prompt-free usage, recent turns, streaming loads, safe-toggle endpoint. Full-catalog view not built. |
 | B8.4 Onboarding | **done** | Detect keys and tools, one-click config, real round-trip before "ready" (I7), endpoint + snippet printed. |
 | B8.5 Migration wizard | **done** | Preview diff, selective import, post-migration smoke test. |
 | B8.6 Error message library | **partial** | Errors are sentences with a next step throughout; not yet one auditable library. |
-| B8.7 Accessibility pass | **partial** | Focus rings, live regions, reduced motion, labelled controls, 16px inputs, status never colour-only — all tested. No screen-reader walkthrough with a real user. |
+| B8.7 Accessibility pass | **partial** | Focus rings, live regions, reduced motion, labelled controls, 16px inputs, status never colour-only, and all 16 token pairs verified at AA numerically. No screen-reader walkthrough with a real user. |
 
 ### Phases 9–11
 
@@ -128,19 +129,30 @@ All todo: worker scheduler, canary + SLO rollback, fallback learning, quota rese
 
 ---
 
+## Vendored kits and what they power
+
+| Kit | Powers | Batch |
+|---|---|---|
+| `crypto-kit` | the paid vault's sealed envelope | B6.7 |
+| `ml-kit` | the lexical cache tier | B4.7 |
+| `search-kit` | `sui catalog <query>` | B2.2 |
+| `tokens-kit` | `sui tokens --check` (WCAG maths) | B8.1, B8.7 |
+| `compress-kit` | `sui cost --export --gzip` | B7.x |
+| `export-kit`, `web-kit` | vendored, wired in the export and accessibility batches | B7.x, B8.7 |
+
 ## The next five batches, in dependency order
 
-1. **B2.3 canary prober** — nothing else in Phase 2 is real without it, and it is the batch that makes "verified before use" mean something. Fixtures are tiny and versioned; three levels; auto-disable after 3 failures.
-2. **B2.2 catalog sync** — five sources, dedupe by `pool_key`, daily. Needs the prober to verify what it ingests.
-3. **B3.3 empty-turn retry + first-chunk clone** — the streaming gaps that make a free tier feel broken.
-4. **B3.4 verification escalation** — fail-closed at 0.7 confidence, traced. Depends on a verifier, which is why B2.3 comes first.
-5. **B6.7 vault half of the air-gap** — `crypto-kit`'s AES-256-GCM sealed envelope, reimplemented natively under MIT or vendored after relicensing.
+1. **B2.3 canary prober** — nothing else in Phase 2 is real without it, and it is what turns 26 unverified identities into routable providers. Fixtures are tiny and versioned; three levels; auto-disable after 3 failures.
+2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
+3. **B4.1 the nine compression engines** — now unblocked by the owner authorisation. `lexora`'s canonicalise-then-compress is the model for `session_dedup` + `ccr`.
+4. **B3.3 empty-turn retry + first-chunk clone** — the streaming gaps that make a free tier feel broken.
+5. **B7.2 Savings Ledger** — `savedUsd` already counts cache hits; the quota-stretched half needs B2.3's quota telemetry.
 
 ## Risk register
 
 | Risk | Why it matters | Mitigation |
 |---|---|---|
-| Licence conflict (PolyForm NC kits vs MIT Sui) | Blocks Phase 4 entirely and most of Phase 2's compression work | ADR-0002: adapters now, relicense or clean-room before vendoring. One word from the owner flips it. |
+| Licence drift (upstream still says PolyForm NC) | A reader of `crypto-kit` alone gets different terms than Sui claims | Owner action: update the upstream `LICENSE` files. Recorded in `docs/legal/LICENSE_INVENTORY.md`. |
 | Free tiers are unverifiable at build time | The whole positioning rests on verification | Nothing routable until probed; the seed ships identities, not URLs; the invariant audit reports the count of unprobed entries. |
 | Go/Rust data plane temptation | Rewriting early would stall every feature batch | ADR-0001: benchmark gate. Node must miss 15ms p95 under a 10× load before a rewrite is considered. |
 | "Done" drifting from "written" | The spec's AC1–AC7 exist to stop this | Every status in this file cites a command. `npm test` runs the invariant table, the eval self-test and the soak gate. |
