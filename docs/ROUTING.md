@@ -130,6 +130,22 @@ Each answer is scored by deterministic signals, not a judge model — a judge sp
 | `wrong_shape` | 0.40 | JSON requested, prose returned |
 | `off_topic` | 0.25 | almost no shared terms with the question |
 
+### Grounding
+
+```json
+"verification": { "enabled": true, "grounding": "block" }
+```
+
+An answer that cites a URL, quotes a sentence or states a number that is not in the **context it was given** is not grounded — it is plausible. Three deterministic checks:
+
+| Check | Rule |
+|---|---|
+| `url` | every URL in the answer must appear in the context |
+| `quote` | every quoted span of 8+ characters must appear in the context |
+| `number` | money, percentages, years and unit-bearing numbers must appear |
+
+The context is the `system` and `tool` messages. With no context there is nothing to ground against and the check reports `checked: false` — an unchecked answer is not a failed one, but it is not a verified one either. An ungrounded answer takes a 0.45 confidence penalty, which usually pushes it below the threshold and escalates.
+
 Below the threshold the router escalates to the next target once. **Fail-closed** means the default assumption is "not verified": if nothing clears the bar, the best answer is still returned — half an answer beats none — but it comes back with `verified: false` and the reasons attached.
 
 ## Cache-aware compression

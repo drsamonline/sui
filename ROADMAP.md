@@ -132,6 +132,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B10.5 eval reports — done**: `GET /api/evals` serves `evals/last-report.json`, and the dashboard shows the last run with its mode. A self-test report is labelled as a harness check, because it proves the graders grade and says nothing about a model.
 
+**B7.6 grounding check — done**: `verification.grounding` (`off`/`warn`/`block`) checks that every URL, quoted span of 8+ characters and unit-bearing number in the answer appears in the context it was given. Ungrounded answers take a 0.45 confidence penalty, which usually escalates them. With no context it reports `checked: false` rather than passing silently. 5 tests.
+
 **B9.6 worker hardening — done**: a tick that arrives while the previous one runs is **skipped, not queued** (a slow probe must not become two); a failing job backs off by doubling up to 16x and resets on the first success; the first tick is jittered so a restart does not fire every job at once. `skipped` and `failures` are on the job snapshot. 2 tests.
 
 **B10.4 compression view — done**: `POST /api/compress` and a dashboard card that shows the ratio, the steps, and which protected spans survived. Computed locally — the text is used and dropped, never stored, logged or sent to a provider.
@@ -170,8 +172,8 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
 3. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
-4. **B7.6 grounding check** — refuse an answer whose citations do not exist in the context.
-5. **B9.4/B9.5** — quota reset detection and provider token refresh.
+4. **B9.4/B9.5** — quota reset detection and provider token refresh.
+5. **B8.2/B8.3** — the dashboard gaps (model selector persistence, topology detail).
 
 ## Risk register
 

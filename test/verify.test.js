@@ -185,3 +185,75 @@ test('/api/explain answers without sending a request', async () => {
   assert.equal(missing.status, 404);
   await gw.close();
 });
+
+/* ------------------------------------------------------- B7.6 grounding */
+
+test('an answer whose claims are in the context is grounded', async () => {
+  const { checkGrounding } = await import('@sui/verify');
+  const context = 'Groq answered in 812 ms. Docs: https://example.com/docs/health-checks. Released 2024.';
+  const result = checkGrounding({
+    answer: 'It answered in 812 ms, per https://example.com/docs/health-checks, released 2024.',
+    context,
+  });
+  assert.equal(result.checked, true);
+  assert.equal(result.supported, true);
+  assert.deepEqual(result.findings, []);
+});
+
+test('a fabricated URL, quote and number are each caught', async () => {
+  const { checkGrounding } = await import('@sui/verify');
+  const context = 'The service returns 200 on the health endpoint. Docs: https://example.com/docs.';
+  const result = checkGrounding({
+    answer: 'It says "the gateway never fails over" and returns 200 at https://evil.example/x for $1.2m.',
+    context,
+  });
+  assert.equal(result.supported, false);
+  const kinds = result.findings.map((f) => f.kind);
+  assert.ok(kinds.includes('url'));
+  assert.ok(kinds.includes('quote'));
+  assert.ok(kinds.includes('number'));
+});
+
+test('with no context there is nothing to ground against, and it says so', async () => {
+  const { checkGrounding } = await import('@sui/verify');
+  const result = checkGrounding({ answer: 'Anything at all, 42%.', context: '' });
+  assert.equal(result.checked, false);
+  assert.equal(result.supported, true, 'an unchecked answer is not a failed one');
+});
+
+test('an ungrounded answer loses confidence and is not called verified', async () => {
+  const upstream = await tieredUpstream();
+  const config = tieredConfig(upstream.url);
+  config.verification = { enabled: true, threshold: 0.7, maxEscalations: 0, grounding: 'block' };
+  const { router } = makeRouter(config);
+
+  const res = await router.chat({
+    combo: 'weakonly',
+    body: {
+      messages: [
+        { role: 'system', content: 'The docs live at https://example.com/docs and the timeout is 2000 ms.' },
+        { role: 'user', content: 'what is the timeout?' },
+      ],
+    },
+  });
+
+  // the weak fake answers with a hedge, and its numbers are not in the context
+  assert.equal(res.meta.verification.grounding.checked, true);
+  assert.equal(res.meta.verified, false);
+  assert.ok(res.meta.verification.reasons.some((r) => r.signal === 'ungrounded' || r.signal === 'hedging'));
+  await upstream.close();
+});
+
+test('grounding off means no check and no finding', async () => {
+  const upstream = await tieredUpstream();
+  const config = tieredConfig(upstream.url);
+  config.verification = { enabled: true, threshold: 0.7, maxEscalations: 0 };
+  const { router } = makeRouter(config);
+
+  const res = await router.chat({
+    combo: 'tiered',
+    body: { messages: [{ role: 'system', content: 'context here' }, { role: 'user', content: 'what does a circuit breaker do' }] },
+  });
+  assert.equal(res.meta.verification.grounding, null);
+  await upstream.close();
+});

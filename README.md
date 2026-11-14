@@ -49,6 +49,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Red-team self-test** — eleven obfuscations of one injection instruction, a random canary per run, and a verdict that treats an echo as `HIGH`, not a pass.
 - **Cache-aware compression** — the system message is never compressed when prompt caching is on, so compression cannot break the provider's prefix cache.
 - **Verification escalation** — answers scored by seven deterministic signals; below 0.7 the router escalates once, and a weak answer is never presented as verified.
+- **Grounding check** — a URL, quote or number in the answer that is not in the context it was given costs 0.45 confidence and usually escalates.
 - **Explain my route** — every response carries the strategy and each target's outcome; `sui explain` narrates it without sending anything.
 - **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.

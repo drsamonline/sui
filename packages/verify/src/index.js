@@ -116,6 +116,74 @@ function contentOverlap(prompt, answer) {
 }
 
 /**
+ * B7.6 — the grounding check.
+ *
+ * An answer that cites a URL, quotes a sentence or states a number that is not in
+ * the context it was given is not grounded: it is plausible. Three checks, all
+ * deterministic, all pointable at:
+ *
+ *   url      every URL in the answer must appear in the context
+ *   quote    every quoted span of 8+ characters must appear in the context
+ *   number   every money, percentage, year or unit-bearing number must appear
+ *
+ * When there is no context, there is nothing to ground against and the check
+ * says so rather than passing the answer by default.
+ *
+ * @param {{answer: string, context: string}} input
+ * @returns {{checked: boolean, supported: boolean, findings: Array<{kind: string, claim: string}>}}
+ */
+export function checkGrounding(input) {
+  const answer = String(input.answer ?? '');
+  const context = normalise(input.context ?? '');
+
+  if (!context.trim()) {
+    return { checked: false, supported: true, findings: [] };
+  }
+
+  const findings = [];
+  const inContext = (needle) => context.includes(normalise(needle));
+
+  // 1. URLs
+  for (const raw of answer.match(/https?:\/\/[^\s<>"')]+/g) ?? []) {
+    // a URL followed by a comma is a URL and a comma, not a different URL
+    const url = raw.replace(/[.,;:]+$/, '');
+    if (!inContext(url)) findings.push({ kind: 'url', claim: url });
+  }
+
+  // 2. quoted spans — a quote that is not in the source is a fabricated quote
+  for (const m of answer.matchAll(/["“']([^"”']{8,200})["”']/g)) {
+    const quote = m[1].trim();
+    if (!inContext(quote)) findings.push({ kind: 'quote', claim: quote });
+  }
+
+  // 3. numbers that carry a unit or a currency, plus years
+  const numberPatterns = [
+    /\$\s?\d[\d,.]*(?:\s?(?:k|m|b|bn|million|billion))?/gi,
+    /\b\d[\d,.]*\s?%/g,
+    /\b(?:19|20)\d{2}\b/g,
+    /\b\d[\d,.]*\s?(?:ms|s|sec|seconds|minutes|hours|days|tokens?|chars?|requests?)\b/gi,
+  ];
+  const seen = new Set();
+  for (const pattern of numberPatterns) {
+    for (const m of answer.matchAll(pattern)) {
+      const claim = m[0].trim();
+      if (seen.has(claim.toLowerCase())) continue;
+      seen.add(claim.toLowerCase());
+      // a year or a number with no context match is the classic hallucination
+      if (!inContext(claim) && !inContext(claim.replace(/[\s,]/g, ''))) {
+        findings.push({ kind: 'number', claim });
+      }
+    }
+  }
+
+  return { checked: true, supported: findings.length === 0, findings };
+}
+
+function normalise(text) {
+  return String(text).replace(/\s+/g, ' ').toLowerCase();
+}
+
+/**
  * Should this answer be escalated to a stronger target?
  *
  * @param {{confidence: number, threshold?: number, escalationsLeft?: number}} input

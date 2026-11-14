@@ -248,6 +248,7 @@
     "enabled": false,
     "threshold": 0.7,
     "maxEscalations": 1,
+    "grounding": "off",
     "escalateTo": "next"
   },
   "canary": {

@@ -20,7 +20,7 @@ import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, provider
 import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
 import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
-import { scoreAnswer, shouldEscalate, verdict as verifyVerdict } from '@sui/verify';
+import { checkGrounding, scoreAnswer, shouldEscalate, verdict as verifyVerdict } from '@sui/verify';
 import { createAdapter, displayName } from '@sui/providers';
 import { checkPrompt, clampMaxTokens, inspectToolChannel } from '@sui/guardrails';
 import { applyStyle, choosePreset, chooseStyle, compress as compressText } from '@sui/compression';
@@ -653,6 +653,28 @@ export class Router {
               finishReason: result.finishReason,
               wantsJson: body.response_format?.type === 'json_object',
             });
+            // B7.6: grounding runs before the verdict, because an ungrounded
+            // answer is not a confident one however fluent it reads.
+            const groundingMode = verification.grounding ?? 'off';
+            let grounding = null;
+            if (groundingMode !== 'off') {
+              const contextText = messages
+                .filter((m) => m.role === 'tool' || m.role === 'function' || m.role === 'system')
+                .map((m) => (typeof m.content === 'string' ? m.content : ''))
+                .join('\n');
+              const check = checkGrounding({ answer: result.text, context: contextText });
+              grounding = { mode: groundingMode, ...check };
+              if (check.checked && !check.supported) {
+                // a fabricated URL or number is a hard signal, not a hint
+                score.reasons.push({
+                  signal: 'ungrounded',
+                  penalty: 0.45,
+                  detail: `${check.findings.length} claim(s) not found in the context: ${check.findings.slice(0, 3).map((f) => f.claim).join(', ')}`,
+                });
+                score.confidence = Math.max(0, Math.round((score.confidence - 0.45) * 100) / 100);
+              }
+            }
+
             const v = verifyVerdict({ ...score, threshold: Number(verification.threshold ?? 0.7) });
             meta.verification = {
               confidence: v.confidence,
@@ -660,6 +682,7 @@ export class Router {
               verified: v.verified,
               reasons: score.reasons,
               escalated: false,
+              grounding,
             };
 
             if (!v.ok && shouldEscalate({ confidence: v.confidence, threshold: v.threshold, escalationsLeft })) {

@@ -43,7 +43,7 @@ OpenAI-compatible.
 | `sui.compression` | object \| null | `{preset, reason, style, styleReason, ratio, savedChars, steps}` when compression or the output axis ran |
 | `sui.savedUsd` | number | what this turn's compression saved, at the model's input price |
 | `sui.toolInspection` | object \| null | `{mode, findings:[{channel, where, signal, severity, detail}]}` when inspection is on and found something |
-| `sui.verification` | object \| null | `{confidence, threshold, verified, reasons, escalated}` when verification is on |
+| `sui.verification` | object \| null | `{confidence, threshold, verified, reasons, escalated, grounding}` when verification is on |
 | `sui.route` | object | `{strategy, privacyTier, learned, considered:[{modelId, provider, outcome, reason?}]}` |
 | `sui.promptCache` | object \| null | `{warm, sends, prefixChars, fingerprint, volatile, hint, unsupported}` |
 | `sui.latencyMs` | number | full turn |

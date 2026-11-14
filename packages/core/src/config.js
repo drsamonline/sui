@@ -141,6 +141,8 @@ export function normalizeConfig(raw, opts = {}) {
       threshold: Number(raw.verification?.threshold ?? 0.7),
       maxEscalations: Number(raw.verification?.maxEscalations ?? 1),
       escalateTo: raw.verification?.escalateTo ?? 'next',
+      // B7.6: refuse answers whose claims are not in the context they were given.
+      grounding: ['off', 'warn', 'block'].includes(raw.verification?.grounding) ? raw.verification.grounding : 'off',
     },
     // B4.6: native prompt caching hints.
     promptCache: { enabled: raw.prompt_cache?.enabled !== false },
