@@ -61,9 +61,10 @@ The seven vendored kits still carry PolyForm Noncommercial 1.0.0 upstream. The o
 |---|---|---|
 | No free route is verified end to end | The positioning is "verified before use"; the prober works, but no catalogue entry has a resolved endpoint, so the claim is untested against reality | B2.5, B2.2 |
 | 72-hour soak never run | The hardening phase asks for it; a 60-second soak is what CI does | B0.3 |
-| Verification escalation missing | A route that answers is not the same as a route that answers well | B3.4 |
-| No MCP, no red-team self-test | Both are named differentiators | Phase 5, B6.2 |
-| Weather Map, explain-my-route | Named differentiators, not built | B10.1, B7.4 |
+| ~~Verification escalation missing~~ | closed: `packages/verify`, fail-closed at 0.7 | B3.4 |
+| No MCP | A named differentiator | Phase 5 |
+| ~~No red-team self-test~~ | closed: `sui redteam` + a weekly worker | B6.1, B6.2 |
+| Weather Map | A named differentiator, not built (explain-my-route is done) | B10.1 |
 | Rate limiter is per-process | Two gateway processes double the effective limit | B9.1 follow-on |
 
 ## 4. Risks accepted, stated plainly

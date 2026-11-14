@@ -110,7 +110,7 @@
   </div>
 
   <div class="strip">
-    <div class="stat"><div class="k">tests</div><div class="v num">230</div><div class="f">no network, no keys</div></div>
+    <div class="stat"><div class="k">tests</div><div class="v num">245</div><div class="f">no network, no keys</div></div>
     <div class="stat"><div class="k">p95 overhead</div><div class="v num">1.13<span style="font-size:var(--fs-16)"> ms</span></div><div class="f">budget 15 ms</div></div>
     <div class="stat"><div class="k">invariants</div><div class="v num">15</div><div class="f">each with a test</div></div>
     <div class="stat"><div class="k">verified routes</div><div class="v num">0</div><div class="f">26 await a probe</div></div>
@@ -140,6 +140,7 @@ node apps/cli/bin/sui.js init</code></pre>
           <li>Savings ledger: dollars avoided, tokens never sent</li>
           <li>Verification escalation: weak answers are never called verified</li>
           <li>Explain-my-route, in sentences, without sending a request</li>
+          <li>Red-team self-test: 11 obfuscations, a random canary per run</li>
           <li>Native prompt caching: the hint each provider understands</li>
         </ul>
       </div>
@@ -192,7 +193,7 @@ node apps/cli/bin/sui.js init</code></pre>
         <tr><td>Canary prober</td><td><span class="pill done">done</span></td><td>3 levels, 16 tests, auto disable</td></tr>
         <tr><td>Worker scheduler</td><td><span class="pill done">done</span></td><td>prober + cache sweep, /api/workers</td></tr>
         <tr><td>Empty-turn retry</td><td><span class="pill done">done</span></td><td>retry once, then fail over</td></tr>
-        <tr><td>Compression engines</td><td><span class="pill done">done</span></td><td>6 engines, 4 presets, 17 tests</td></tr>
+        <tr><td>Compression engines</td><td><span class="pill done">done</span></td><td>6 engines, 4 presets, cache-aware</td></tr>
         <tr><td>Quota budget manager</td><td><span class="pill done">done</span></td><td>60/30/10% thresholds</td></tr>
         <tr><td>Output axis + savings ledger</td><td><span class="pill done">done</span></td><td>4 styles, /api/savings</td></tr>
         <tr><td>Prompt caching + per-key limits</td><td><span class="pill done">done</span></td><td>prefix hints, 429 + Retry-After</td></tr>
@@ -213,7 +214,7 @@ node apps/cli/bin/sui.js init</code></pre>
         <ul>
           <li>No catalogue entry has a resolved endpoint, so nothing is verified yet</li>
           <li>No first-chunk clone: a mid-stream drop is reported, never spliced</li>
-          <li>No MCP, no red-team self-test, no cache-aware compression</li>
+          <li>No MCP server or client yet</li>
           <li>No tenant console or per-user cost attribution</li>
           <li>No npm package; run from source</li>
         </ul>

@@ -17,6 +17,7 @@ import { createVault } from '@sui/vault';
 import { Prober, PROBE_FIXTURE_VERSION } from '@sui/prober';
 import { explainPlan } from '@sui/router';
 import { createGateway } from '@sui/gateway';
+import { TRANSFORMS, runSelfTest } from '@sui/redteam';
 import { PRESETS, RecallStore, choosePreset, compress } from '@sui/compression';
 import { table } from './cli.js';
 
@@ -366,6 +367,49 @@ export function cmdKits(flags) {
   );
   console.log('');
   console.log('Licence: each kit carries its own LICENSE in vendor/kits/. See docs/legal/LICENSE_INVENTORY.md.');
+}
+
+/* ----------------------------------------------------------------- redteam */
+
+/**
+ * `sui redteam [--combo chat-default]` — B6.2: attack your own route.
+ *
+ * Ten obfuscations of one instruction a well-behaved model must refuse. The
+ * canary is random per run, so a model cannot have memorised it.
+ */
+export async function cmdRedteam(flags, args) {
+  const gateway = await createGateway({ configPath: flags.config, ledgerFile: null });
+  const combos = Object.keys(gateway.config.combos);
+  const combo = args[0] ?? flags.combo ?? combos[0];
+
+  console.log('');
+  console.log(`Red-team self-test — ${combo}`);
+  console.log(`  ${Object.keys(TRANSFORMS).length} transforms of one injection instruction`);
+  console.log('');
+
+  const report = await runSelfTest({
+    combo,
+    transforms: flags.transform ? [flags.transform] : undefined,
+    chat: (input) => gateway.router.chat(input),
+  });
+
+  if (flags.json) {
+    console.log(JSON.stringify(report, null, 2));
+    process.exitCode = report.pass ? 0 : 1;
+    return;
+  }
+
+  console.log(table(
+    ['transform', 'verdict', 'what came back'],
+    report.results.map((r) => [r.transform, r.severity, (r.error ?? r.answer ?? '').slice(0, 54)]),
+  ));
+  console.log('');
+  console.log(`  ${report.counts.safe} safe · ${report.counts.high} ambiguous · ${report.counts.critical} obeyed the injection`);
+  console.log('');
+  console.log(report.pass
+    ? '  PASS — no transform got the canary out of this route'
+    : '  FAIL — a route that obeys an injected instruction will obey one from a user');
+  if (!report.pass) process.exitCode = 1;
 }
 
 /* ------------------------------------------------------------------ explain */

@@ -16,6 +16,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Prober } from '@sui/prober';
+import { runSelfTest } from '@sui/redteam';
 import { dedupeEntries, loadSeed } from '@sui/catalog';
 
 /**
@@ -59,6 +60,21 @@ export function startWorkers(deps) {
       } else {
         logger.debug('prober: no catalogue entry has a base_url to probe yet');
       }
+    }
+
+    // B6.2: attack our own routes on a schedule. A weekly run is enough to catch
+    // a provider that changed behaviour; a nightly one would spend quota for the
+    // same answer.
+    if (settings.redTeam?.enabled === true && deps.router) {
+      jobs.push(
+        register('red_team_self_test', Number(settings.redTeam.intervalMs ?? 7 * 24 * 3600_000), async () => {
+          const combo = settings.redTeam.combo ?? Object.keys(deps.config.combos ?? {})[0];
+          if (!combo) return { skipped: 'no combo to test' };
+          const report = await runSelfTest({ combo, chat: (input) => deps.router.chat(input) });
+          if (!report.pass) logger.warn(`red-team self-test: ${report.counts.critical} CRITICAL, ${report.counts.high} ambiguous on "${combo}"`);
+          return { combo, pass: report.pass, counts: report.counts };
+        }),
+      );
     }
 
     const sweepMs = Number(settings.cacheSweepMs ?? 300_000);

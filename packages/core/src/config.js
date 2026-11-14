@@ -108,6 +108,8 @@ export function normalizeConfig(raw, opts = {}) {
       keepLastUserMessage: raw.compression?.keepLastUserMessage !== false,
       // B4.4: the output axis. 'off' by default — a directive changes the answer.
       outputStyle: raw.compression?.outputStyle ?? 'off',
+      // B4.5: do not compress the prefix a provider would cache.
+      preserveCachedPrefix: raw.compression?.preserveCachedPrefix !== false,
     },
     // B3.4: verification escalation, fail-closed.
     verification: {

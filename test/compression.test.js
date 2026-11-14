@@ -190,7 +190,9 @@ test('compression is off by default: the provider receives the prompt unchanged'
 test('with compression on, the older context shrinks and the question survives', async () => {
   const upstream = await capturingUpstream();
   const config = testConfig({ fakeUrl: upstream.url });
-  config.compression = { enabled: true, preset: 'aggressive', minChars: 100 };
+  // prefix protection is off here so the system message is fair game; the next
+  // test covers what happens when it is on (the default).
+  config.compression = { enabled: true, preset: 'aggressive', minChars: 100, preserveCachedPrefix: false };
   const { router } = makeRouter(config);
 
   const messages = [
@@ -206,6 +208,43 @@ test('with compression on, the older context shrinks and the question survives',
   assert.ok(res.meta.compression.savedChars > 0);
   assert.ok(res.meta.compression.steps.length > 0);
   assert.ok(res.meta.compression.ratio > 0);
+  await upstream.close();
+});
+
+test('B4.5: the cacheable prefix is left untouched so the provider cache still hits', async () => {
+  const upstream = await capturingUpstream();
+  const config = testConfig({ fakeUrl: upstream.url });
+  config.compression = { enabled: true, preset: 'ultra', minChars: 100 }; // preserveCachedPrefix defaults to true
+  const { router } = makeRouter(config);
+
+  const messages = [
+    { role: 'system', content: PROMPT },
+    { role: 'user', content: 'first question' },
+    { role: 'assistant', content: 'a long answer that repeats itself. '.repeat(20) },
+    { role: 'user', content: 'and now the real question' },
+  ];
+  const res = await router.chat({ combo: 'chain', body: { messages, max_tokens: 32 } });
+
+  const sent = upstream.bodies[0].messages;
+  assert.equal(sent[0].content, PROMPT, 'the system message is byte-for-byte what it was');
+  assert.equal(sent[3].content, 'and now the real question', 'the question is untouched');
+  assert.ok(sent[2].content.length < messages[2].content.length, 'the middle turn was compressed');
+  assert.equal(res.meta.compression.prefixProtected, true);
+  await upstream.close();
+});
+
+test('B4.5: with prefix protection on and nothing else to compress, it says why', async () => {
+  const upstream = await capturingUpstream();
+  const config = testConfig({ fakeUrl: upstream.url });
+  config.compression = { enabled: true, preset: 'aggressive', minChars: 100 };
+  const { router } = makeRouter(config);
+
+  const res = await router.chat({
+    combo: 'chain',
+    body: { messages: [{ role: 'system', content: PROMPT }, { role: 'user', content: 'hi' }], max_tokens: 32 },
+  });
+  assert.equal(res.meta.compression.savedChars, 0);
+  assert.match(res.meta.compression.skipped, /cacheable prefix was left untouched/);
   await upstream.close();
 });
 

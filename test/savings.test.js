@@ -100,7 +100,9 @@ test('with the axis off, nothing is injected and nothing is reported', async () 
 test('compression savings are valued at the model price and recorded', async () => {
   const upstream = await capturingUpstream();
   const config = testConfig({ fakeUrl: upstream.url });
-  config.compression = { enabled: true, preset: 'aggressive', minChars: 100 };
+  // prefix protection off: with it on (the default) the system message is left
+  // alone so a provider prefix cache keeps hitting — covered in compression.test.js
+  config.compression = { enabled: true, preset: 'aggressive', minChars: 100, preserveCachedPrefix: false };
   const { router, ledger } = makeRouter(config);
 
   const res = await router.chat({

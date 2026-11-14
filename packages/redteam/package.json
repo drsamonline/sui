@@ -1,0 +1,15 @@
+{
+  "name": "@sui/redteam",
+  "version": "0.8.0",
+  "description": "Prompt-injection toolkit and scheduled self-test (B6.1, B6.2).",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src"
+  ]
+}

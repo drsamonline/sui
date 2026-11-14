@@ -88,7 +88,7 @@ export async function createGateway(opts = {}) {
   // start probing the internet. `sui start` turns them on.
   const workers =
     opts.startWorkers === true
-      ? startWorkers({ config, cache, ledger, logger, catalogDir: opts.catalogDir, now: opts.now })
+      ? startWorkers({ config, cache, ledger, logger, router, catalogDir: opts.catalogDir, now: opts.now })
       : { jobs: [], prober: null, snapshot: () => ({ enabled: false, jobs: [], probes: [] }), stop() {} };
   const server = createSuiServer({ router, config, ledger, breaker, cache, logger, workers });
 

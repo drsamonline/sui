@@ -227,11 +227,19 @@ export class Router {
 
     const store = this.recallStore ?? (this.recallStore = new RecallStore({ secret: this.config.recallSecret }));
 
+    // B4.5 cache-aware compression: a provider caches a prefix, and compressing
+    // that prefix changes it, which invalidates the cache. So when prompt caching
+    // is on, the system message — the most stable part of any prompt — is left
+    // exactly as written, and compression works on the turns after it.
+    const protectPrefix = settings.preserveCachedPrefix !== false && this.config.promptCache?.enabled !== false;
+    const prefixEnd = protectPrefix ? firstNonSystemIndex(messages) : 0;
+
     let originalChars = 0;
     let compressedChars = 0;
     const steps = [];
-    const next = (settings.enabled ? messages : messages).map((message, index) => {
+    const next = messages.map((message, index) => {
       if (index === lastUserIndex) return message;
+      if (index < prefixEnd) return message; // the cacheable prefix stays untouched
       if (typeof message.content !== 'string' || message.content.length < settings.minChars) return message;
       const result = compressText(message.content, { preset, store });
       originalChars += result.originalChars;
@@ -252,6 +260,7 @@ export class Router {
 
     const meta = {
       preset: settings.enabled ? preset : null,
+      prefixProtected: protectPrefix && prefixEnd > 0,
       reason: presetReason,
       style: resolvedStyle === 'off' ? null : resolvedStyle,
       styleReason,
@@ -260,7 +269,16 @@ export class Router {
       steps,
     };
 
-    if (!steps.length && resolvedStyle === 'off') return { messages: next, meta: null };
+    // Say what happened even when nothing was compressed: "the prefix was
+    // protected" is a different fact from "there was nothing to do".
+    const skipped = steps.length
+      ? null
+      : protectPrefix && prefixEnd > 0
+        ? 'the cacheable prefix was left untouched so the provider cache still hits'
+        : 'nothing in this prompt was worth compressing';
+
+    if (!settings.enabled && resolvedStyle === 'off') return { messages: next, meta: null };
+    meta.skipped = skipped;
     return { messages: styled, meta };
   }
 
@@ -674,6 +692,13 @@ export class Router {
     if (lastError && !(lastError instanceof ProviderError)) throw lastError;
     throw err;
   }
+}
+
+/** Index of the first message that is not part of the stable system prefix. */
+function firstNonSystemIndex(messages) {
+  let i = 0;
+  while (i < messages.length && messages[i].role === 'system') i += 1;
+  return i;
 }
 
 /**
