@@ -355,6 +355,14 @@
       </div>
     </section>
 
+    <section class="card" id="weather-card" aria-labelledby="weather-h" hidden>
+      <header>
+        <h2 id="weather-h">Free-tier weather</h2>
+        <span class="hint">only providers in your pool</span>
+      </header>
+      <div class="body" id="weather-body"></div>
+    </section>
+
     <section class="card flush" id="probes-card" aria-labelledby="probes-h" hidden>
       <header>
         <h2 id="probes-h">Probes</h2>
@@ -459,6 +467,7 @@ function render() {
   renderPool(pool);
   renderCombos(combos);
   renderSavings(metrics.totals);
+  renderWeather(state.probes ?? []);
   renderProbes(state.probes ?? []);
   renderTraces(promptUsage);
   renderRecent(metrics.recent);
@@ -552,6 +561,71 @@ function renderSavings(totals) {
         <tr><td>would have cost</td><td class="num">${money(wouldHaveCost)}</td></tr>
       </tbody>
     </table>`;
+}
+
+/**
+ * B10.1 — the Weather Map. A word, a sentence and a trend line, in that order:
+ * a colour is never the only signal.
+ */
+function renderWeather(probes) {
+  const card = document.querySelector('#weather-card');
+  const body = document.querySelector('#weather-body');
+  if (!card || !body) return;
+  if (!probes.length) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  body.innerHTML = probes.map((p) => {
+    const weather = p.weather ?? 'unverified';
+    const history = p.history ?? [];
+    const sentence = weatherSentence(p);
+    return `
+      <div style="display:grid;grid-template-columns: minmax(0,1fr) auto;gap:var(--space-3);align-items:center;padding:var(--space-2) 0;border-bottom:1px solid var(--line)">
+        <div>
+          <div style="display:flex;gap:var(--space-2);align-items:baseline;flex-wrap:wrap">
+            <strong>${escapeHtml(p.provider)}</strong>
+            <span class="pill" data-tone="${weather === 'thriving' ? 'accent' : 'none'}">${escapeHtml(weather)}</span>
+          </div>
+          <div class="hint">${escapeHtml(sentence)}</div>
+        </div>
+        ${sparkline(history)}
+      </div>`;
+  }).join('');
+
+  body.insertAdjacentHTML('beforeend',
+    '<p class="hint" style="margin-top:var(--space-3)">Every catalogue entry, verified or not, is in <code>sui catalog</code>.</p>');
+}
+
+/** Latency trend as a polyline; failures are marked with a taller tick. */
+function sparkline(history) {
+  if (!history.length) return '<span class="hint">no history</span>';
+  const w = 120, h = 28, pad = 2;
+  const values = history.map((h) => (h.ok ? (h.latencyMs ?? 1) : null));
+  const max = Math.max(1, ...values.filter((v) => v != null));
+  const step = history.length > 1 ? (w - pad * 2) / (history.length - 1) : 0;
+  const points = values
+    .map((v, i) => (v == null ? null : `${(pad + i * step).toFixed(1)},${(h - pad - (v / max) * (h - pad * 2)).toFixed(1)}`))
+    .filter(Boolean)
+    .join(' ');
+  const failures = values
+    .map((v, i) => (v == null ? `<circle cx="${(pad + i * step).toFixed(1)}" cy="${h - pad}" r="1.6" />` : ''))
+    .join('');
+
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Latency trend over the last ${history.length} probes, failures marked at the baseline">
+    <line x1="0" y1="${h - pad}" x2="${w}" y2="${h - pad}" stroke="var(--line)" stroke-width="1" />
+    <polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" />
+    <g fill="var(--line-strong)">${failures}</g>
+  </svg>`;
+}
+
+function weatherSentence(p) {
+  const name = p.provider;
+  if ((p.weather ?? 'unverified') === 'unverified') return `${name}: not probed yet, so it is not in the pool.`;
+  if (p.weather === 'thriving') return `${name}: thriving — ${(p.history ?? []).length} probe(s) on record, last one answered in ${p.latencyMs ?? '—'} ms.`;
+  const why = (p.reasons ?? [])[0] ?? 'no reason recorded';
+  return `${name}: ${p.weather} — ${p.failures} consecutive failure(s). ${why}.`;
 }
 
 function renderProbes(probes) {

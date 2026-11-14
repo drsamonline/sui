@@ -47,7 +47,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Explain my route** — every response carries the strategy and each target's outcome; `sui explain` narrates it without sending anything.
 - **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
-- **Dashboard** — token-based design system, budget bar, savings panel, routing-pool topology, breaker states, probes, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token, with "Why this route?" on demand.
+- **Dashboard** — token-based design system, budget bar, savings panel, routing-pool topology, **free-tier weather** (thriving / resting / down with a latency trend), breaker states, probes, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token, with "Why this route?" on demand.
 - **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.
 - **Background workers** — prober and cache sweep run off the request path, with `/api/workers` and a Probes table on the dashboard.
 - **Catalogue + canary prober** — 26 entries, every one an unverified identity until a probe says otherwise; `sui probe` checks liveness, readiness and suitability (streaming, JSON, tools) with versioned synthetic fixtures, disables a route after three failures and re-enables it on recovery.
@@ -143,6 +143,7 @@ Third-party routers (`9router`, `OmniRoute`, `HubGate`) are not vendored; `sui m
 - [`docs/ROUTING.md`](docs/ROUTING.md) — strategies, breakers, budgets, cache, guardrails, per-key policy.
 - [`docs/API.md`](docs/API.md) — every endpoint and field.
 - [`docs/quickstarts/`](docs/quickstarts/) — cURL, Node, Python and PHP, run against a live gateway.
+- [`docs/tutorials/`](docs/tutorials/) — seven walkthroughs: first five minutes, connect a coding tool, understand routing, red-team your own routes, self-host for a team, build a free agent, troubleshooting.
 - [`docs/MIGRATION.md`](docs/MIGRATION.md) — moving from another router.
 - [`docs/reuse-map.md`](docs/reuse-map.md) — the fleet, mapped onto phases.
 - [`docs/adr/`](docs/adr/) — seven decisions, with their consequences.

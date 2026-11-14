@@ -7,6 +7,10 @@
  *   CHROME_PATH=/usr/local/bin/chromium node scripts/render-dashboard.mjs
  */
 
+import { createServer } from 'node:http';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createGateway } from '@sui/gateway';
 
 const config = {
@@ -34,7 +38,44 @@ const config = {
   apiKeys: [],
 };
 
-const gw = await createGateway({ configObject: config, ledgerFile: null, env: { ...process.env } });
+// A tiny fake upstream plus a catalogue, so the Weather Map has real history to
+// draw instead of an empty card.
+const upstream = createServer(async (req, res) => {
+  let raw = '';
+  for await (const c of req) raw += c;
+  if (req.method === 'GET') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{"data":[]}');
+    return;
+  }
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ready' }, finish_reason: 'stop' }] }));
+});
+await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+const upstreamUrl = `http://127.0.0.1:${upstream.address().port}/v1`;
+
+const catalogDir = mkdtempSync(join(tmpdir(), 'sui-render-'));
+writeFileSync(
+  join(catalogDir, 'seed.json'),
+  JSON.stringify({
+    entries: [
+      { provider: 'demo-a', base_url: upstreamUrl, auth: 'none', model_family: 'demo', capabilities: ['chat'], needs_probe: true },
+      { provider: 'demo-b', base_url: upstreamUrl, auth: 'none', model_family: 'demo-2', capabilities: ['chat'], needs_probe: true },
+      { provider: 'demo-c', base_url: 'http://127.0.0.1:1/v1', auth: 'none', model_family: 'demo-3', capabilities: ['chat'], needs_probe: true },
+      { provider: 'unresolved', auth: 'none', capabilities: ['chat'] },
+    ],
+  }),
+);
+
+config.workers = { enabled: true, kickoffMs: 40, cacheSweepMs: 0, prober: { enabled: true, intervalMs: 60000, timeoutMs: 400 } };
+
+const gw = await createGateway({
+  configObject: config,
+  ledgerFile: null,
+  env: { ...process.env },
+  startWorkers: true,
+  catalogDir,
+});
 await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
 const port = gw.server.address().port;
 
@@ -55,6 +96,10 @@ for (let i = 0; i < 24; i++) {
 gw.breaker.recordFailure('careful', 'demo-c is rate-limiting requests right now.');
 gw.breaker.recordFailure('careful', 'demo-c is rate-limiting requests right now.');
 
+// Two probe runs so the trend line has more than one point.
+await gw.workers.prober?.runOnce();
+await gw.workers.prober?.runOnce();
+
 const puppeteerPath = process.env.PUPPETEER_PATH ?? 'puppeteer-core';
 const { default: puppeteer } = await import(puppeteerPath);
 const browser = await puppeteer.launch({
@@ -70,6 +115,9 @@ await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }
 await new Promise((r) => setTimeout(r, 400));
 await page.screenshot({ path: 'docs/screenshots/dashboard-dark.png', fullPage: true });
 await browser.close();
+gw.workers.stop();
 gw.server.closeAllConnections?.();
 gw.server.close();
+upstream.closeAllConnections?.();
+upstream.close();
 console.log('rendered docs/screenshots/dashboard-{light,dark}.png');

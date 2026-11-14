@@ -249,3 +249,40 @@ test('start() schedules and stop() clears, without holding the process open', as
   assert.ok(prober.runs >= 2, 'the schedule should have run more than once');
   await fake.close();
 });
+
+/* -------------------------------------------------- B10.1 the Weather Map */
+
+test('the weather vocabulary is three words plus "not checked yet"', async () => {
+  const { weatherLabel } = await import('@sui/prober');
+  assert.equal(weatherLabel('healthy'), 'thriving');
+  assert.equal(weatherLabel('degraded'), 'resting');
+  assert.equal(weatherLabel('disabled'), 'down');
+  assert.equal(weatherLabel('unverified'), 'unverified', 'never checked is not the same as down');
+});
+
+test('the snapshot carries history and a weather word for the map', async () => {
+  const fake = await startFake();
+  const prober = new Prober({ entries: [entryFor(fake.url)] });
+  await prober.runOnce();
+  await prober.runOnce();
+
+  const row = prober.snapshot()[0];
+  assert.equal(row.weather, 'thriving');
+  assert.equal(row.history.length, 2, 'two observations for the trend line');
+  assert.equal(row.history[0].ok, true);
+  assert.ok(row.history[0].at);
+  await fake.close();
+});
+
+test('a provider that fails reads as down, with the reason attached', async () => {
+  const fake = await startFake({ readiness: '500' });
+  const prober = new Prober({ entries: [entryFor(fake.url)], failuresBeforeDisable: 2 });
+  await prober.runOnce();
+  await prober.runOnce();
+
+  const row = prober.snapshot()[0];
+  assert.equal(row.weather, 'down');
+  assert.ok(row.reasons.length > 0);
+  assert.equal(row.history.filter((h) => h.ok === false).length, 2);
+  await fake.close();
+});

@@ -131,9 +131,13 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B9.1 worker scheduler — done**: `apps/gateway/src/workers.js` runs the prober (hourly) and a cache sweep, off the request path, with a delayed kickoff so startup never waits on the network, `stop()` that clears every timer, `/api/workers` for state and a Probes table on the dashboard. Workers are opt-in for programmatic gateways and on for `sui start` (`--no-workers` to disable). 7 tests.
 
+**B10.1 Weather Map — done**: thriving / resting / down plus "unverified" as its own answer, a plain sentence per provider, and a latency trend line from the prober's 24-observation history. Default view is the routing pool; the full catalogue is `sui catalog`.
+
 **B10.2 Savings panel and B7.4 explain panel — done** (dashboard): the Savings card shows spent, saved by cache, saved by compression, tokens not sent, the would-have-cost total and the share avoided as a bar; "Why this route?" in the playground fetches `/api/explain` and lists the decision, noting that nothing was sent.
 
-Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota reset detection, token refresh; Weather Map, compression view, eval reports UI; seven tutorials (the four quickstarts are done); ADRs (seven written).
+**B11.1–B11.7 tutorials — done**: seven task-oriented walkthroughs in `docs/tutorials/` (first five minutes, connect a coding tool, understand routing, red-team your own routes, self-host for a team, build a free agent, troubleshooting with doctor).
+
+Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota reset detection, token refresh; compression view and eval reports UI; B11.9 ADRs beyond the seven written.
 
 ---
 
@@ -152,9 +156,9 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B11.1–B11.7 tutorials** — seven task-oriented docs (the four quickstarts are done).
-4. **B10.1 Weather Map** — the prober keeps 24 observations per target; the map does not exist.
-5. **B9.2 canary rollout + SLO rollback** — the last automation batch with no external dependency.
+3. **B9.2 canary rollout + SLO rollback** — the last automation batch with no external dependency.
+4. **B6.3 dual-channel inspection** — inspect tool definitions and tool results, not just prompts.
+5. **B4.7 embedding tier** — a real semantic tier behind the lexical one.
 
 ## Risk register
 

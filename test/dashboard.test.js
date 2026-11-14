@@ -90,3 +90,14 @@ test('the model selector shows speed, quality and cost, and locks what cannot an
   assert.match(html, /disabled/);
   assert.match(html, /nothing available/);
 });
+
+test('the weather map is present, labelled in words, and never colour-only', () => {
+  assert.match(html, /id="weather-card"/);
+  assert.match(html, /Free-tier weather/);
+  assert.match(html, /only providers in your pool/);
+  assert.match(html, /sparkline/);
+  assert.match(html, /thriving/);
+  assert.match(html, /resting/);
+  assert.match(html, /not probed yet/);
+  assert.match(html, /role="img" aria-label="Latency trend/);
+});

@@ -64,7 +64,7 @@ The seven vendored kits still carry PolyForm Noncommercial 1.0.0 upstream. The o
 | ~~Verification escalation missing~~ | closed: `packages/verify`, fail-closed at 0.7 | B3.4 |
 | No MCP | A named differentiator | Phase 5 |
 | ~~No red-team self-test~~ | closed: `sui redteam` + a weekly worker | B6.1, B6.2 |
-| Weather Map | A named differentiator, not built (explain-my-route is done) | B10.1 |
+| ~~Weather Map~~ | closed: thriving/resting/down with trend lines | B10.1 |
 | Rate limiter is per-process | Two gateway processes double the effective limit | B9.1 follow-on |
 
 ## 4. Risks accepted, stated plainly

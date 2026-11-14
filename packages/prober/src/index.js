@@ -300,6 +300,34 @@ function firstLine(s) {
 }
 
 /**
+ * B10.1 — the Weather Map's vocabulary.
+ *
+ * Three labels, because a person reading a status page needs a word, not a state
+ * machine: thriving, resting, down. `unverified` is its own answer — "nobody has
+ * checked yet" is not the same as "down", and saying so is the point.
+ *
+ * @param {string} status
+ */
+export function weatherLabel(status) {
+  if (status === 'healthy') return 'thriving';
+  if (status === 'degraded') return 'resting';
+  if (status === 'disabled') return 'down';
+  if (status === 'unverified') return 'unverified';
+  return 'down';
+}
+
+/** A one-line, plain-language reading of a probe row. */
+export function weatherSentence(row) {
+  const name = row.provider;
+  if (row.weather === 'unverified') return `${name}: not probed yet, so it is not in the pool.`;
+  if (row.weather === 'thriving') {
+    return `${name}: thriving — ${row.history?.length ?? 0} probe(s) on record, last one answered in ${row.latencyMs ?? '—'} ms.`;
+  }
+  const why = (row.reasons ?? [])[0] ?? 'no reason recorded';
+  return `${name}: ${row.weather} — ${row.failures} consecutive failure(s). ${why}.`;
+}
+
+/**
  * The prober: state, thresholds and the schedule.
  *
  * `auto_disable_after_failures` and `auto_re_enable_on_recovery` are the two
@@ -390,12 +418,15 @@ export class Prober {
       pool_key: s.pool_key,
       provider: s.provider,
       status: s.status,
+      weather: weatherLabel(s.status),
       failures: s.failures,
       lastProbeAt: s.lastProbeAt,
       lastOkAt: s.lastOkAt,
       latencyMs: s.lastResult?.latencyMs ?? null,
       reasons: s.lastResult?.reasons ?? [],
       suitability: s.lastResult?.levels?.suitability ?? {},
+      // the last 24 observations, for the trend line (B10.1)
+      history: s.history ?? [],
     }));
   }
 
