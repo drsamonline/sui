@@ -69,6 +69,21 @@ test('the Probes table exists and stays hidden until there is probe state', () =
   assert.match(html, /liveness · readiness · suitability/);
 });
 
+test('the savings panel reports what was avoided, not just what was spent', () => {
+  assert.match(html, /id="savings"/);
+  assert.match(html, /saved by cache/);
+  assert.match(html, /saved by compression/);
+  assert.match(html, /tokens not sent/);
+  assert.match(html, /would have cost/);
+});
+
+test('explain-my-route is reachable from the playground and says nothing was sent', () => {
+  assert.match(html, /id="explain-route"/);
+  assert.match(html, /id="explain-panel"/);
+  assert.match(html, /aria-controls="explain-panel"/);
+  assert.match(html, /Nothing was sent/);
+});
+
 test('the model selector shows speed, quality and cost, and locks what cannot answer', () => {
   assert.match(html, /quality/);
   assert.match(html, /cost/);

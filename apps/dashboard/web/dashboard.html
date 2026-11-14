@@ -266,9 +266,15 @@
             <textarea id="prompt" placeholder="Ask anything — the gateway picks the provider"></textarea>
           </div>
           <div class="row" style="justify-content: flex-end">
+            <button class="ghost small" id="explain-route" type="button" aria-expanded="false" aria-controls="explain-panel">Why this route?</button>
             <button class="ghost small" id="clear" type="button">Clear</button>
             <button class="primary" id="send" type="button">Send</button>
           </div>
+        </div>
+        <div id="explain-panel" hidden style="border-top: 1px solid var(--line); padding: var(--space-3) var(--space-4)">
+          <div class="who" style="font-size: var(--fs-12); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: var(--space-2)">Route explanation</div>
+          <ul id="explain-lines" style="margin: 0; padding-left: 1.1rem; font-size: var(--fs-13)"></ul>
+          <p class="hint" style="margin-top: var(--space-2)">Computed from your config and the ledger. Nothing was sent.</p>
         </div>
       </div>
     </section>
@@ -280,6 +286,14 @@
         <header><h2 id="budget-h">Budget today</h2><span class="hint" id="budget-note"></span></header>
         <div class="body budget" id="budget">
           <div class="skeleton block" style="height: 46px"></div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="savings-h">
+        <header><h2 id="savings-h">Savings</h2><span class="hint" id="savings-note">today</span></header>
+        <div class="body" id="savings">
+          <div class="skeleton line" style="width: 70%"></div>
+          <div class="skeleton line" style="width: 50%"></div>
         </div>
       </section>
 
@@ -444,6 +458,7 @@ function render() {
   renderKpis(metrics.totals, cache);
   renderPool(pool);
   renderCombos(combos);
+  renderSavings(metrics.totals);
   renderProbes(state.probes ?? []);
   renderTraces(promptUsage);
   renderRecent(metrics.recent);
@@ -476,7 +491,7 @@ function renderKpis(totals, cache) {
     ['spend', money(totals.costUsd), `${num(totals.promptTokens)} in / ${num(totals.completionTokens)} out`],
     ['p50 latency', ms(totals.p50LatencyMs), `p95 ${ms(totals.p95LatencyMs)}`],
     ['cache hit', `${Math.round(cache.hitRate * 100)}%`, `${cache.entries} entries`],
-    ['saved', money(totals.savings?.totalUsd ?? 0), `${num(totals.savings?.tokensSaved ?? 0)} tokens not sent`],
+
   ].map(([label, value, foot]) => `
     <div class="kpi"><div class="label">${label}</div><div class="value">${value}</div><div class="foot">${foot}</div></div>`).join('');
 }
@@ -510,6 +525,33 @@ function renderCombos(combos) {
       <td class="num">${num(c.turnsToday)}</td>
       <td class="num">${money(c.costToday)}</td>
     </tr>`).join('');
+}
+
+function renderSavings(totals) {
+  const el = $('#savings');
+  if (!el) return;
+  const s = totals.savings ?? { cacheUsd: 0, compressionUsd: 0, totalUsd: 0, tokensSaved: 0, cacheHits: 0, compressedTurns: 0 };
+  const spent = totals.costUsd ?? 0;
+  const wouldHaveCost = spent + s.totalUsd;
+  const share = wouldHaveCost ? Math.round((s.totalUsd / wouldHaveCost) * 100) : null;
+
+  el.innerHTML = `
+    <div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3)">
+      <span class="num" style="font-size: var(--fs-28); font-weight: 600">${money(s.totalUsd)}</span>
+      <span class="hint">${share == null ? 'nothing spent yet' : `${share}% of what these turns would have cost`}</span>
+    </div>
+    <div class="track" role="img" aria-label="Share of cost avoided: ${share ?? 0} percent">
+      <div class="fill" style="width: ${share ?? 0}%"></div>
+    </div>
+    <table style="margin-top: var(--space-3)">
+      <tbody>
+        <tr><td>spent</td><td class="num">${money(spent)}</td></tr>
+        <tr><td>saved by cache</td><td class="num">${money(s.cacheUsd)} <span class="hint">(${s.cacheHits} hit${s.cacheHits === 1 ? '' : 's'})</span></td></tr>
+        <tr><td>saved by compression</td><td class="num">${money(s.compressionUsd)} <span class="hint">(${s.compressedTurns} turn${s.compressedTurns === 1 ? '' : 's'})</span></td></tr>
+        <tr><td>tokens not sent</td><td class="num">${num(s.tokensSaved)}</td></tr>
+        <tr><td>would have cost</td><td class="num">${money(wouldHaveCost)}</td></tr>
+      </tbody>
+    </table>`;
 }
 
 function renderProbes(probes) {
@@ -788,6 +830,28 @@ $('#copy-endpoint').addEventListener('click', async () => {
     toast('Endpoint copied');
   } catch {
     toast('Copy failed — select the address manually');
+  }
+});
+$('#explain-route').addEventListener('click', async () => {
+  const panel = $('#explain-panel');
+  const button = $('#explain-route');
+  if (!panel.hidden) {
+    panel.hidden = true;
+    button.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  button.setAttribute('aria-expanded', 'true');
+  const list = $('#explain-lines');
+  list.innerHTML = '<li class="hint">Working it out…</li>';
+  panel.hidden = false;
+  try {
+    const res = await fetch(`/api/explain?combo=${encodeURIComponent(selectedCombo ?? '')}`);
+    const json = await res.json();
+    list.innerHTML = (json.lines ?? [json.error?.message ?? 'No explanation available.'])
+      .map((line) => `<li>${escapeHtml(line)}</li>`)
+      .join('');
+  } catch {
+    list.innerHTML = '<li>Could not reach the gateway.</li>';
   }
 });
 $('#export-csv').addEventListener('click', () => { window.location.href = '/api/metrics.csv'; });

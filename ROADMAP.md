@@ -129,7 +129,9 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B9.1 worker scheduler — done**: `apps/gateway/src/workers.js` runs the prober (hourly) and a cache sweep, off the request path, with a delayed kickoff so startup never waits on the network, `stop()` that clears every timer, `/api/workers` for state and a Probes table on the dashboard. Workers are opt-in for programmatic gateways and on for `sui start` (`--no-workers` to disable). 7 tests.
 
-Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota reset detection, token refresh; Weather Map UI, Savings Ledger UI, explain-my-route UI, eval reports UI; seven tutorials, four quickstarts, ADRs (seven written so far).
+**B10.2 Savings panel and B7.4 explain panel — done** (dashboard): the Savings card shows spent, saved by cache, saved by compression, tokens not sent, the would-have-cost total and the share avoided as a bar; "Why this route?" in the playground fetches `/api/explain` and lists the decision, noting that nothing was sent.
+
+Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota reset detection, token refresh; Weather Map, compression view, eval reports UI; seven tutorials (the four quickstarts are done); ADRs (seven written).
 
 ---
 
