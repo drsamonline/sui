@@ -24,7 +24,8 @@
     "catalog": "node scripts/build-catalog.mjs",
     "tokens": "node apps/cli/bin/sui.js tokens --check",
     "kits": "node apps/cli/bin/sui.js kits",
-    "probe": "node apps/cli/bin/sui.js probe"
+    "probe": "node apps/cli/bin/sui.js probe",
+    "audit": "node scripts/audit.mjs"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"

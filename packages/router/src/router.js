@@ -16,7 +16,7 @@
  */
 
 import { ConfigError, ExhaustedError, ProviderError, SuiError } from '@sui/core';
-import { estimatedCost, estimateTokens, providerHasCredentials, resolveCombo } from '@sui/core';
+import { estimatedCost, estimateTokens, isPaidProvider, providerHasCredentials, resolveCombo } from '@sui/core';
 import { ResponseCache } from '@sui/telemetry';
 import { RecallStore } from '@sui/compression';
 import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
@@ -128,7 +128,7 @@ export class Router {
         skipped.push({
           modelId,
           provider: providerId,
-          reason: isPaid(provider) && this.config.paidTiers?.enabled !== true
+          reason: isPaidProvider(provider) && this.config.paidTiers?.enabled !== true
             ? 'paid tier is closed (paid_tiers.enabled is false)'
             : provider?.apiKeyEnv
               ? `no API key set (${provider.apiKeyEnv})`
@@ -632,11 +632,6 @@ function pickWeighted(items, random) {
     if (r <= 0) return item;
   }
   return items[items.length - 1];
-}
-
-/** Is this provider gated behind the paid air-gap? */
-function isPaid(provider) {
-  return Boolean(provider && (provider.tier === 'paid' || provider.paid === true));
 }
 
 /**

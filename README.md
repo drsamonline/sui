@@ -119,6 +119,7 @@ npm test         # 214 tests: routing, invariants, security, dashboard, catalog,
 npm run eval:self  # prove the graders grade (50 must-pass, 6 must-fail)
 npm run eval     # 50 prompts against a real combo, regression-gated
 npm run soak     # 1,200 requests, p95 overhead against the 15ms budget
+npm run audit    # invariants→tests, routes→API.md, dead exports, secrets
 ```
 
 ## Licensing
@@ -133,7 +134,11 @@ Third-party routers (`9router`, `OmniRoute`, `HubGate`) are not vendored; `sui m
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — modules, request lifecycle, decisions.
 - [`docs/ROUTING.md`](docs/ROUTING.md) — strategies, breakers, budgets, cache, guardrails, per-key policy.
 - [`docs/API.md`](docs/API.md) — every endpoint and field.
+- [`docs/quickstarts/`](docs/quickstarts/) — cURL, Node, Python and PHP, run against a live gateway.
 - [`docs/MIGRATION.md`](docs/MIGRATION.md) — moving from another router.
 - [`docs/reuse-map.md`](docs/reuse-map.md) — the fleet, mapped onto phases.
 - [`docs/adr/`](docs/adr/) — seven decisions, with their consequences.
 - [`SECURITY.md`](SECURITY.md) — what this gateway is and is not, in security terms.
+- [`PRIVACY.md`](PRIVACY.md) — what leaves the machine, what stays, and how to erase it.
+- [`TERMS.md`](TERMS.md) — responsibilities, AI output, no warranty.
+- [`AUDIT.md`](AUDIT.md) — the audit of this repository, with findings and fixes.

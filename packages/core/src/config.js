@@ -13,8 +13,8 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ConfigError } from './errors.js';
 
-export const STRATEGIES = ['fallback', 'weighted', 'cheapest', 'latency'];
-export const PROVIDER_TYPES = ['openai', 'anthropic', 'gemini', 'mock'];
+const STRATEGIES = ['fallback', 'weighted', 'cheapest', 'latency'];
+const PROVIDER_TYPES = ['openai', 'anthropic', 'gemini', 'mock'];
 
 export function suiHome(env = process.env) {
   return env.SUI_HOME ? resolve(env.SUI_HOME) : join(homedir(), '.sui');
@@ -296,13 +296,6 @@ export function verifyApiKey(presented, entry) {
     : Buffer.from(hashApiKey(String(entry.key ?? '')), 'hex');
   if (presentedHash.length !== expected.length) return false;
   return timingSafeEqual(presentedHash, expected);
-}
-
-/** @param {any} config */
-export function availableModels(config) {
-  return Object.entries(config.models)
-    .filter(([, m]) => providerHasCredentials(config.providers[/** @type {any} */ (m).provider], config.env, config))
-    .map(([id]) => id);
 }
 
 /**

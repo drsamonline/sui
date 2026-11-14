@@ -513,11 +513,12 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui                 first run: find keys, find tools, prove the route, start
   npx sui init            the same, explicitly      --demo  --force  --port 8787
   npx sui start           run the gateway            --port 8787  --config <file>  --no-workers
+                          (aliases: up, serve)
   npx sui invariants      every hard constraint, and which are enforced
   npx sui keys hash       replace plaintext API keys with SHA-256 hashes
   npx sui doctor          one real turn per combo, and say what broke
   npx sui models          the combos and what they can reach   --json
-  npx sui cost            spend, latency and A/B arms           --json  --all
+  npx sui cost            spend, latency and A/B arms           --json  --all   (alias: usage)
   npx sui tools           point a coding tool here              --set <tool-id>
   npx sui migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
   npx sui catalog [q]    the provider catalogue, and what is still unverified

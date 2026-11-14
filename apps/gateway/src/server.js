@@ -139,9 +139,6 @@ export function createSuiServer(deps) {
         cache.clear();
         return sendJson(res, 200, { ok: true, cache: cache.stats() });
       }
-      if (req.method === 'POST' && path === '/api/reload') {
-        return sendJson(res, 200, { ok: false, message: 'Restart `sui up` to load a new config; in-flight requests are never interrupted by a reload.' });
-      }
 
       return sendJson(res, 404, { error: { message: `No route for ${req.method} ${path}.`, type: 'not_found' } });
     } catch (err) {

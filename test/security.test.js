@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { request } from 'node:http';
 import { makeGateway, testConfig } from './helpers.js';
 import { hashApiKey, verifyApiKey } from '@sui/core';
+import { hostAllowed } from '@sui/gateway/src/server.js';
 import { run as cli } from '@sui/cli/src/cli.js';
 
 async function boot(config) {
@@ -43,6 +44,19 @@ test('host allowlist: a forged Host header is refused', async () => {
   assert.match(json.error.message, /does not answer to the host/);
   assert.match(json.error.message, /allowedHosts/);
   await gw.stop();
+});
+
+test('hostAllowed: the default list is loopback only, and an explicit list replaces it', () => {
+  const config = { server: {} };
+  assert.equal(hostAllowed(config, '127.0.0.1:8787'), true);
+  assert.equal(hostAllowed(config, 'localhost'), true);
+  assert.equal(hostAllowed(config, '[::1]:8787'), true);
+  assert.equal(hostAllowed(config, 'evil.example.com'), false);
+  assert.equal(hostAllowed(config, undefined), true, 'a missing Host header is not an attack');
+
+  const custom = { server: { allowedHosts: ['sui.internal'] } };
+  assert.equal(hostAllowed(custom, 'sui.internal:80'), true);
+  assert.equal(hostAllowed(custom, '127.0.0.1'), false, 'an explicit list is not extended by defaults');
 });
 
 test('host allowlist: localhost and 127.0.0.1 with a port are allowed', async () => {

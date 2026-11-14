@@ -169,6 +169,18 @@ B7.2 — what cache hits and compression did not spend.
   "note": "Hashes only. Prompt text is never stored unless guardrails.logPrompts is on." }
 ```
 
+## GET /api/workers
+
+Background job state (B9.1).
+
+```json
+{ "enabled": true,
+  "jobs": [{ "name": "prober", "intervalMs": 3600000, "runs": 3, "lastRunAt": 1763000000000, "nextRunAt": 1763003600000, "lastError": null, "lastResult": { "probed": 7, "verified": 0 } }],
+  "probes": [{ "provider": "groq", "status": "degraded", "failures": 1, "reasons": ["liveness: timed out"] }] }
+```
+
+Programmatic gateways run no workers (`enabled: false`) — `sui start` is what turns them on.
+
 ## GET /api/invariants
 
 The fifteen invariants with their status, the config-level audit, and the paid-gate state.
@@ -213,6 +225,6 @@ The commit gate for a toggle. A change is refused when its dependency is missing
 
 Empties the response cache. Returns the new cache stats.
 
-## GET /
+## GET / and GET /dashboard
 
-The dashboard. Self-contained HTML, no external requests, no build step.
+The dashboard. Self-contained HTML, no external requests, no build step. Both paths serve the same file.

@@ -48,6 +48,9 @@ jobs:
       - name: Prober reports honestly with no endpoints resolved
         run: node apps/cli/bin/sui.js probe --json | head -40
 
+      - name: Project audit — invariants, docs, dead code, secrets
+        run: node scripts/audit.mjs
+
   soak:
     runs-on: ubuntu-latest
     steps:
