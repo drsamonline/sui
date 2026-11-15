@@ -25,7 +25,10 @@
     "tokens": "node apps/cli/bin/sui.js tokens --check",
     "kits": "node apps/cli/bin/sui.js kits",
     "probe": "node apps/cli/bin/sui.js probe",
-    "audit": "node scripts/audit.mjs"
+    "audit": "node scripts/audit.mjs && node scripts/adr-check.mjs",
+    "adr": "node scripts/adr-check.mjs",
+    "publish:dry": "node scripts/publish.mjs --dry-run",
+    "publish:real": "node scripts/publish.mjs"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"
@@ -34,7 +37,7 @@
   "devDependencies": {},
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-org/sui.git"
+    "url": "https://github.com/drsamonline/sui.git"
   },
   "keywords": [
     "llm",
@@ -44,5 +47,10 @@
     "openai-compatible",
     "verification",
     "privacy"
-  ]
+  ],
+  "homepage": "https://drsamonline.github.io/sui/",
+  "bugs": {
+    "url": "https://github.com/drsamonline/sui/issues"
+  },
+  "author": "Dr Sohil Momin"
 }

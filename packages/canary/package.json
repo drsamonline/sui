@@ -11,5 +11,15 @@
   },
   "files": [
     "src"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/drsamonline/sui.git",
+    "directory": "packages/canary"
+  },
+  "homepage": "https://github.com/drsamonline/sui#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }

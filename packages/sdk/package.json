@@ -14,5 +14,15 @@
     "bin",
     "LICENSE"
   ],
-  "types": "./src/index.d.ts"
+  "types": "./src/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/drsamonline/sui.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/drsamonline/sui#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }

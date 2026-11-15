@@ -176,7 +176,9 @@ const record = (check, problems, okDetail) => {
       file.startsWith('evals/') ||
       file.startsWith('test/') ||
       file.startsWith('docs/') ||
-      file.includes('/bin/')
+      file.includes('/bin/') ||
+      // spawned as a child process, never imported: a runner has no importer
+      file.endsWith('/runner.js')
     ) continue;
     const base = relative(ROOT, join(ROOT, file)).replace(/\\/g, '/');
     const stem = base.replace(/\.js$/, '');
