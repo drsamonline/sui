@@ -60,6 +60,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Explain my route** — every response carries the strategy and each target's outcome; `sui explain` narrates it without sending anything.
 - **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
+- **Sandbox** — `sui sandbox` runs model-written code in a separate process with no filesystem, no network and no environment, and proves it with a 14-case attack suite.
 - **Two-plane split** — a model plane that holds the keys and an agent plane that faces agents and holds none.
 - **Bounded runs** — spend, steps, wall clock and repeated-call limits per agent run, with per-call approval gates.
 - **Trend history** — health samples on disk, bucketed into a sparkline that survives a restart.

@@ -424,6 +424,68 @@ export async function cmdRedteam(flags, args) {
   if (!report.pass) process.exitCode = 1;
 }
 
+/* ------------------------------------------------------------------- sandbox */
+
+/**
+ * `sui sandbox` — B5.6. Run a snippet in a contained process, or prove the
+ * boundary with the attack suite.
+ */
+export async function cmdSandbox(flags, args) {
+  const { runCode, runAttackSuite, sandboxCapabilities } = await import('@sui/sandbox');
+  const capabilities = await sandboxCapabilities();
+
+  if (flags['self-test']) {
+    console.log('');
+    console.log('Attack suite — 14 ways out, and what happened to each');
+    console.log('');
+    const suite = await runAttackSuite({ runCode, capabilities });
+    for (const r of suite.results) {
+      console.log(`  ${r.contained ? 'contained' : 'ESCAPED  '} ${r.name.padEnd(40)} ${String(r.ms).padStart(5)}ms  ${r.stderr.slice(0, 44)}`);
+    }
+    console.log('');
+    console.log(`  ${suite.contained} of ${suite.total} contained`);
+    console.log(`  permission model: ${capabilities.permissionModel ? 'on' : 'OFF'} · network namespace: ${capabilities.networkIsolated ? 'on' : 'OFF'}`);
+    if (!capabilities.fullyIsolated) {
+      console.log('  This machine cannot isolate fully. `requireNoNetwork` would refuse to run at all.');
+    }
+    if (suite.failed) process.exitCode = 1;
+    return;
+  }
+
+  const file = args[0] ?? flags.file;
+  if (!file) {
+    console.error('Usage: sui sandbox <file.js> [--wall 5000] [--heap 128]');
+    console.error('       sui sandbox --self-test    run the attack suite');
+    process.exitCode = 1;
+    return;
+  }
+
+  const code = readFileSync(file, 'utf8');
+  const result = await runCode({
+    code,
+    capabilities,
+    requireNoNetwork: Boolean(flags['require-no-network']),
+    limits: {
+      ...(flags.wall ? { wallMs: Number(flags.wall) } : {}),
+      ...(flags.heap ? { heapMb: Number(flags.heap) } : {}),
+    },
+  });
+
+  if (result.refused) {
+    console.error(result.reason);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  console.log('');
+  console.log(
+    `  exit ${result.exitCode ?? '—'} · ${result.ms}ms · ${result.killed ? 'killed at the wall clock' : 'finished'} · permission model ${result.capabilities.permissionModel ? 'on' : 'off'} · network ${result.capabilities.networkIsolated ? 'isolated' : 'NOT isolated'}`,
+  );
+  if (!result.ok) process.exitCode = 1;
+}
+
 /* --------------------------------------------------------------------- local */
 
 /**

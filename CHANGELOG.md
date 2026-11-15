@@ -45,7 +45,11 @@ The version where the gateway became usable by agents, and stopped being one pro
 
 ### Verified at this version
 
-459 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
+472 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
+
+### Sandbox (B5.6)
+
+- `sui sandbox <file>` runs a snippet in a separate process with Node's permission model, a network namespace, a stripped environment and hard limits; `sui sandbox --self-test` runs a 14-case attack suite. Not on the request path.
 
 ### Known gaps
 
@@ -53,7 +57,7 @@ The version where the gateway became usable by agents, and stopped being one pro
 |---|---|
 | Catalog sync and keyless endpoints (B2.2, B2.5) | a networked machine |
 | 72-hour soak (B0.3) | a machine held for three days |
-| Sandboxed code execution (B5.6) | an explicit owner decision |
+| — | — |
 | A lawyer's read of `OWNER_GRANT.md` | the owner |
 | `npm publish` | the owner |
 

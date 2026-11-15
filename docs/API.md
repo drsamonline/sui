@@ -142,6 +142,10 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## Sandbox (B5.6)
+
+`sui sandbox <file.js>` — a contained process, not a `vm` context: permission model, network namespace, stripped environment, hard limits. `sui sandbox --self-test` runs the 14-case attack suite. See [`SANDBOX.md`](SANDBOX.md). It is deliberately **not** on the request path.
+
 ## Planes in `/api/status` (B5.7)
 
 ```json

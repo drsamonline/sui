@@ -1,0 +1,13 @@
+{
+  "name": "@sui/sandbox",
+  "version": "0.10.0",
+  "description": "Run model-authored code in a contained process: permission model, network namespace, hard limits.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": ["src"]
+}
