@@ -1,0 +1,17 @@
+{
+  "name": "local-only",
+  "title": "Local only",
+  "description": "Keeps the paid gate closed and points at an OpenAI-compatible local server (Ollama, llama.cpp, LM Studio). Nothing leaves the machine.",
+  "patch": {
+    "providers": {
+      "local": { "type": "openai", "baseUrl": "http://127.0.0.1:11434/v1", "apiKeyEnv": null, "tier": "free", "region": "in", "privacy": { "retention": "none", "trainsOnData": false } }
+    },
+    "models": {
+      "local-model": { "provider": "local", "model": "qwen2.5-coder:7b", "costPer1kIn": 0, "costPer1kOut": 0, "quality": 3, "tier": "free" }
+    },
+    "combos": {
+      "local": { "label": "Local only", "strategy": "fallback", "targets": ["local-model"] }
+    },
+    "settings": { "paidTiers.enabled": false }
+  }
+}

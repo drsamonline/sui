@@ -71,7 +71,7 @@ test('startWorkers registers the prober and the cache sweep', async () => {
   const workers = startWorkers({ config, cache, ledger: { record() {} }, catalogDir: dir, now: Date.now });
   try {
     const names = workers.snapshot().jobs.map((j) => j.name);
-    assert.deepEqual(names, ['prober', 'budget_alerts', 'cache_sweep']);
+    assert.deepEqual(names, ['prober', 'budget_alerts', 'drift_monitor', 'cache_sweep']);
 
     // wait for the kickoff run to finish, not for a fixed guess
     const deadline = Date.now() + 3000;
@@ -94,7 +94,7 @@ test('startWorkers registers the prober and the cache sweep', async () => {
 test('the prober job can be switched off without switching off the sweep', async () => {
   const config = { ...testConfig(), workers: { enabled: true, kickoffMs: 10, prober: { enabled: false } } };
   const workers = startWorkers({ config, cache: new ResponseCache({}), ledger: { record() {} }, catalogDir: catalogDirWith('http://127.0.0.1:9/v1') });
-  assert.deepEqual(workers.snapshot().jobs.map((j) => j.name), ['budget_alerts', 'cache_sweep']);
+  assert.deepEqual(workers.snapshot().jobs.map((j) => j.name), ['budget_alerts', 'drift_monitor', 'cache_sweep']);
   workers.stop();
 });
 

@@ -60,6 +60,8 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Explain my route** — every response carries the strategy and each target's outcome; `sui explain` narrates it without sending anything.
 - **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
+- **Recipes** — `sui recipe apply free-tier-stack` and four more named setups, applied without overwriting your work.
+- **Drift detection** — EWMA plus a two-sided CUSUM, so a slow slide is caught that no breaker can see.
 - **MCP server and client** — the gateway as a Model Context Protocol server over stdio or HTTP, and an MCP server as just another provider inside a combo.
 - **Dashboard** — token-based design system, budget bar, savings panel, compression view, routing-pool topology, **free-tier weather** (thriving / resting / down with a latency trend), breaker states, probes, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token, with "Why this route?" on demand.
 - **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.

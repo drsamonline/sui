@@ -5,7 +5,8 @@
  * Kept out of cli.js so the command table stays readable.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
@@ -421,6 +422,118 @@ export async function cmdRedteam(flags, args) {
     ? '  PASS — no transform got the canary out of this route'
     : '  FAIL — a route that obeys an injected instruction will obey one from a user');
   if (!report.pass) process.exitCode = 1;
+}
+
+/* ------------------------------------------------------------------- recipes */
+
+/** Where recipes live: the repo's own folder, then the user's config dir. */
+function recipeDirs() {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const root = join(here, '..', '..', '..');
+  return [join(root, 'recipes'), join(homedir(), '.sui', 'recipes')];
+}
+
+function loadRecipes() {
+  const found = new Map();
+  for (const dir of recipeDirs()) {
+    if (!existsSync(dir)) continue;
+    for (const file of readdirSync(dir).filter((f) => f.endsWith('.json'))) {
+      try {
+        const recipe = JSON.parse(readFileSync(join(dir, file), 'utf8'));
+        if (recipe.name && !found.has(recipe.name)) found.set(recipe.name, recipe);
+      } catch {
+        /* a broken recipe must not stop the others from loading */
+      }
+    }
+  }
+  return found;
+}
+
+export async function cmdRecipe(flags, args) {
+  const [action = 'list', name] = args;
+  const recipes = loadRecipes();
+
+  if (action === 'list') {
+    if (!recipes.size) {
+      console.log('No recipes found. Looked in:', recipeDirs().join(', '));
+      return;
+    }
+    console.log('');
+    console.log('Recipes');
+    console.log('');
+    for (const recipe of recipes.values()) {
+      console.log(`  ${recipe.name.padEnd(18)} ${recipe.title}`);
+      console.log(`  ${''.padEnd(18)} ${recipe.description}`);
+      console.log('');
+    }
+    console.log('Apply one: npx sui recipe apply <name> [--dry-run] [--force]');
+    return;
+  }
+
+  if (!name) {
+    console.error(`Which recipe? Try: ${[...recipes.keys()].join(', ')}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const recipe = recipes.get(name);
+  if (!recipe) {
+    console.error(`No recipe called "${name}". Available: ${[...recipes.keys()].join(', ')}.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (action === 'show') {
+    console.log('');
+    console.log(`${recipe.title} (${recipe.name})`);
+    console.log('');
+    console.log(`  ${recipe.description}`);
+    console.log('');
+    console.log(JSON.stringify(recipe.patch, null, 2).replace(/^/gm, '  '));
+    return;
+  }
+
+  if (action !== 'apply') {
+    console.error(`Unknown action "${action}". Use list, show or apply.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const { applyRecipe, describeRecipe } = await import('@sui/core');
+  const gateway = await createGateway({ configPath: flags.config });
+  const result = applyRecipe(gateway.config, recipe, { force: Boolean(flags.force) });
+
+  console.log('');
+  console.log(describeRecipe(recipe));
+  console.log('');
+
+  if (result.missingEnv.length) {
+    console.log(`  needs env: ${result.missingEnv.join(', ')} — set these before the recipe does anything useful`);
+    console.log('');
+  }
+  for (const change of result.changes) console.log(`  + ${change.path}${change.note ? ` (${change.note})` : ''}`);
+  for (const conflict of result.conflicts) console.log(`  = ${conflict.path}: ${conflict.reason}`);
+
+  if (!result.changes.length) {
+    console.log('  nothing to change — this recipe is already applied.');
+    console.log('');
+    return;
+  }
+
+  if (flags['dry-run']) {
+    console.log('');
+    console.log('Dry run: nothing was written. Run without --dry-run to apply.');
+    return;
+  }
+
+  const path = flags.config ?? gateway.config.path ?? 'sui.config.json';
+  const onDisk = JSON.parse(readFileSync(path, 'utf8'));
+  // Merge the recipe's additions into the file as it is, so anything the user
+  // edited by hand survives.
+  const merged = applyRecipe(onDisk, recipe, { force: Boolean(flags.force) }).config;
+  writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`);
+  console.log('');
+  console.log(`Written to ${path}. Restart the gateway to pick it up.`);
 }
 
 /* ---------------------------------------------------------------------- mcp */

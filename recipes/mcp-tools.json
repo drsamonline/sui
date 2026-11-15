@@ -1,0 +1,16 @@
+{
+  "name": "mcp-tools",
+  "title": "MCP tools as providers",
+  "description": "Shows the shape of an MCP server used as a provider: a combo that routes to a tool instead of a model. Edit the url/command and the tool name for your own server.",
+  "patch": {
+    "providers": {
+      "mcp-example": { "type": "mcp", "command": "npx", "args": ["-y", "some-mcp-server"], "tool": "ask", "transport": "stdio" }
+    },
+    "models": {
+      "mcp-tool": { "provider": "mcp-example", "model": "ask", "costPer1kIn": 0, "costPer1kOut": 0, "quality": 3 }
+    },
+    "combos": {
+      "tools": { "label": "Tool-backed", "strategy": "fallback", "targets": ["mcp-tool"] }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "privacy-strict",
+  "title": "Privacy strict",
+  "description": "Refuses any provider that trains on data or keeps it, and sets the gateway default to the strict tier. Requests that cannot be served cleanly fail instead of falling back to a provider that can.",
+  "patch": {
+    "settings": { "privacy.defaultTier": "strict", "verification.grounding": "block" }
+  }
+}

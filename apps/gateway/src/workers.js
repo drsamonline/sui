@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { Prober } from '@sui/prober';
 import { runSelfTest } from '@sui/redteam';
 import { THRESHOLDS, checkBudgets, dedupe } from './alerts.js';
+import { DriftMonitor, driftFromLedger } from '@sui/telemetry';
 import { dedupeEntries, loadSeed } from '@sui/catalog';
 
 /**
@@ -95,6 +96,21 @@ export function startWorkers(deps) {
       }),
     );
     deps.alerts = { log: () => [...alertLog], sent: () => [...sentAlerts] };
+
+    // B3.7: drift runs on a slow timer, off the request path, and never on the
+    // same samples twice — it reads what the ledger has recorded since last time.
+    const driftMonitor = new DriftMonitor({ baselineSamples: 10, threshold: Number(settings.driftThreshold ?? 5) });
+    jobs.push(
+      register('drift_monitor', Number(settings.driftIntervalMs ?? 300_000), async () => {
+        const records = deps.ledger.records ?? [];
+        const { alarms } = driftFromLedger({ records, monitor: driftMonitor, since: 0, minSamples: 10 });
+        for (const alarm of alarms) {
+          logger.warn(`drift on ${alarm.key}: ${alarm.alarm.direction} (cusum ${alarm.alarm.cusum}, baseline ${alarm.baseline}, now ${alarm.ewma})`);
+        }
+        return { series: driftMonitor.series.size, alarms: alarms.length };
+      }),
+    );
+    deps.drift = { snapshot: () => [...driftMonitor.series.keys()].map((k) => driftMonitor.snapshot(k)), alarms: () => driftMonitor.alarms() };
 
     const sweepMs = Number(settings.cacheSweepMs ?? 300_000);
     if (cache?.sweep && sweepMs > 0) {

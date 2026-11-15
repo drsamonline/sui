@@ -1,0 +1,16 @@
+{
+  "name": "coding",
+  "title": "Coding",
+  "description": "A cascade that sends short questions to the cheap model and real coding tasks to the strong one, with compression on and code protected.",
+  "patch": {
+    "settings": { "compression.enabled": true, "compression.preset": "standard" },
+    "combos": {
+      "coding": {
+        "label": "Coding",
+        "strategy": "fallback",
+        "targets": ["groq-70b", "gemini-flash"],
+        "cascade": { "enabled": true, "simple": ["groq-70b"], "complex": ["gemini-flash"] }
+      }
+    }
+  }
+}

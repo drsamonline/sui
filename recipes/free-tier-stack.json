@@ -1,0 +1,20 @@
+{
+  "name": "free-tier-stack",
+  "title": "Free-tier stack",
+  "description": "Three keyless-friendly providers with a fallback chain, so the gateway answers without a paid key. Free targets rank first automatically (B3.1).",
+  "requires": { "env": { "GROQ_API_KEY": "from console.groq.com", "GEMINI_API_KEY": "from aistudio.google.com" } },
+  "patch": {
+    "providers": {
+      "groq": { "type": "openai", "baseUrl": "https://api.groq.com/openai/v1", "apiKeyEnv": "GROQ_API_KEY", "tier": "free", "privacy": { "retention": "none", "trainsOnData": false } },
+      "gemini": { "type": "gemini", "baseUrl": "https://generativelanguage.googleapis.com/v1beta", "apiKeyEnv": "GEMINI_API_KEY", "tier": "free", "privacy": { "retention": "session", "trainsOnData": false } }
+    },
+    "models": {
+      "groq-70b": { "provider": "groq", "model": "llama-3.3-70b-versatile", "costPer1kIn": 0, "costPer1kOut": 0, "quality": 4, "tier": "free" },
+      "gemini-flash": { "provider": "gemini", "model": "gemini-2.0-flash", "costPer1kIn": 0, "costPer1kOut": 0, "quality": 3, "tier": "free" }
+    },
+    "combos": {
+      "free-default": { "label": "Free default", "strategy": "fallback", "targets": ["groq-70b", "gemini-flash"], "learning": { "enabled": true, "minSamples": 10 } }
+    },
+    "settings": { "budgets.dailyUsd": 5 }
+  }
+}

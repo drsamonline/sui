@@ -134,6 +134,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B9.4 quota windows — done**: a `429` with `Retry-After` (seconds, an HTTP date, or in the body) closes that target for exactly that long, is reported in the skip reason, is **not** a breaker trip, and reopens with a log line. `quotaWindows` in `/api/status`. 5 tests.
 
+**B5.3 recipes — done**: `sui recipe list|show|apply`, five shipped recipes, and three rules enforced by test — never overwrite silently, applying twice is a no-op, a dry run touches nothing. `requires.env` is reported before anything is applied. 11 tests.
+
 **B5.4 MCP client — done**: `type: "mcp"` makes an MCP server a provider, so a combo can route to a tool and every existing rule (breaker, budget, privacy, canary, verification, ledger) applies unchanged. Both transports; the prompt argument is configurable because only the operator knows their tool. Token counts are estimated and labelled as such. 10 tests.
 
 **B5.1/B5.2 MCP server — done**: `packages/mcp` implements JSON-RPC 2.0 over **stdio** (newline-delimited, logs to stderr) and **HTTP** (`POST /mcp`, 405 on GET with a reason, 202 for a notification). Six tools — `sui_chat`, `sui_models`, `sui_explain`, `sui_cost`, `sui_compress`, `sui_status` — with provenance in `structuredContent`. One protocol revision is implemented and echoed; resources and prompts are advertised empty rather than faked. 11 tests, plus both transports smoke-tested through the CLI.
@@ -183,7 +185,7 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B3.7** — EWMA/CUSUM drift detection on latency and error rate.
+3. **B5.5** — sandboxed code execution (needs an explicit decision, see AUDIT.md).
 4. **B0.3** — the 72-hour soak, which needs a machine held for three days.
 5. **B1.4** — SQLite for a shared ledger, if more than one process is ever wanted.
 
