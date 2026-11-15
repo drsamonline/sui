@@ -1,6 +1,6 @@
 {
   "name": "@sui/prober",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Canary prober: liveness, readiness and suitability checks that decide what may be routed to.",
   "type": "module",
   "license": "MIT",

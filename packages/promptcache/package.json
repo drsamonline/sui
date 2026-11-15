@@ -1,6 +1,6 @@
 {
   "name": "@sui/promptcache",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Native prompt caching: stable-prefix detection, per-provider hints, warm/cold tracking.",
   "type": "module",
   "license": "MIT",

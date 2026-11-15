@@ -2,9 +2,9 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
-## 0.10.0 — 2026-11-15
+## 0.11.0 — 2026-11-15
 
-The version where the gateway became usable by agents, and stopped being one process doing everything.
+The version where the gateway became usable by agents, stopped being one process doing everything, and learned to run code it does not trust.
 
 ### Agent surface
 
