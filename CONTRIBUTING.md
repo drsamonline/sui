@@ -1,90 +1,96 @@
 # Contributing
 
-Zero dependencies is a feature, not an accident. Before adding one, open an issue explaining what breaks without it.
+Sui is a gateway that makes claims — "a paid provider is never called", "a weak answer is never presented as verified", "your prompt is not in the ledger". Every claim in the README has a test that fails if the claim stops being true. That is the whole discipline, and it is the only rule that matters here.
 
-## Get running
+## The invariant rule
 
-```bash
-git clone https://github.com/your-org/sui
-cd sui
-node --version                 # 20 or newer
-npm install                    # links the workspaces; installs nothing else
-npm test                       # 117 tests, no network, no keys
-npm run eval:self              # proves the eval graders grade
-npm run soak                   # p95 overhead against the 15ms budget
-node apps/cli/bin/sui.js init  # writes ./sui.config.json and proves the route
+The 15 invariants live in `packages/core/src/invariants.js` as data:
+
+```js
+{ id: 'I4', claim: 'A paid provider is never called while the gate is closed',
+  enforcedBy: ['packages/router/src/router.js#plan'],
+  provenBy: ['test/invariants.test.js'] }
 ```
 
-Nothing is built. There is no compile step and no runtime dependency (ADR-0003).
+`test/invariants.test.js` fails if **either** field is missing or names something that does not exist. So there are three ways to add an invariant, and all three are required:
 
-The test suite never touches the internet: a fake OpenAI-shaped upstream runs on a local socket, and a `mock` provider covers the no-network path. If a test needs a key, it is testing the wrong thing.
+1. Add the entry with a claim written as a falsifiable sentence.
+2. Add the enforcement — and name the function that does it.
+3. Add the proof — a test that would fail if the enforcement were removed.
 
-## Where things live
+If you cannot write (3), the invariant is a wish, not an invariant.
 
-| Path | What belongs there |
+## The four harnesses
+
+Run all four before a PR. They are cheap and they are the point.
+
+```bash
+npm test              # unit and integration, no network, no keys
+npm run audit         # 8 static checks: dead modules, undocumented routes, stale invariant refs, config keys nobody reads
+npm run eval:self     # 56 checks on the graders themselves
+npm run soak          # server-side overhead against a 15ms budget, and a memory gate
+```
+
+The audit is deliberately unforgiving: it has caught unused exports, routes that exist but are undocumented, and a config key nothing read. When it fails, the fix is almost never to relax the check.
+
+## Tests that are allowed to be wrong
+
+Three kinds of failure are worth distinguishing, because the fix differs:
+
+| Symptom | Usually means |
 |---|---|
-| `packages/core/src/config.js` | loading, validation, combo resolution, `checkToggle`, the paid gate, key hashing |
-| `packages/core/src/invariants.js` | the fifteen invariants and the config-level audit |
-| `packages/router/src/router.js` | planning and execution — no HTTP, no provider protocols |
-| `packages/router/src/breaker.js` | the health state machine |
-| `packages/providers/src/index.js` | one function per wire format, all returning the same shape |
-| `packages/guardrails/src/index.js` | prompt checks before any provider is called |
-| `packages/telemetry/src/*` | ledger, cache, aggregation, CSV |
-| `packages/catalog/src/index.js` | catalogue schema, dedupe, ToS posture, scoring |
-| `apps/gateway/src/server.js` | HTTP, auth, host allowlist, SSE, dashboard API |
-| `apps/cli/src/*` | the human path |
-| `apps/dashboard/web/dashboard.html` | the dashboard — one file, no build, no external requests |
-| `evals/` | golden set, graders, runner, baseline |
-| `scripts/soak.mjs` | the overhead harness |
+| the test fails, the code is wrong | fix the code |
+| the test fails, the **test** is wrong | fix the test — and say so in the commit message |
+| the test fails **sometimes** | the test is lying to you; make it deterministic before you trust it again |
 
-## Rules the code holds itself to
+The third one is the dangerous one. A circuit-breaker test used a 200 ms cooldown against the real clock and passed by luck for days; on a loaded machine it half-opened mid-test. The fix was a 60 s cooldown, not a retry.
 
-0. **An invariant is only real if a test proves it.** Add it to `packages/core/src/invariants.js` with its `enforced` module and its `test` name, or `npm test` will reject the change.
+## Adding a provider adapter
 
-1. **Errors are sentences.** Name the field, say what to do next, never a stack trace. `new ConfigError('combos.chain.strategy is "fallbak" — use one of: …')`.
-2. **Validate at load, not at request time.** Anything knowable from the config is checked in `normalizeConfig`.
-3. **Decisions are pure.** `Router#plan()` takes no network action. If you cannot test a routing rule without a provider, the rule is in the wrong place.
-4. **Observability never breaks a request.** The ledger write is wrapped; a full disk must not become a 500.
-5. **The ledger records failures.** A failed attempt is evidence. Do not filter it out to make numbers look tidy.
-6. **No secrets in logs, in `/api/config`, or in error messages.** Env var *names* are fine; values never.
-7. **Dashboard tokens only.** No raw colour values in components; one neutral ladder, one signal colour, a fixed type scale, `font-variant-numeric: tabular-nums` on numbers, WCAG 2.2 AA contrast, status never signalled by colour alone, keyboard navigable.
-8. **Skeletons, not spinners.** And the first streamed token is the loading state.
-9. **JSDoc annotations** on exported functions — they give editors types without a build step.
+An adapter honours one contract:
 
-## Tests
-
-```bash
-npm test                            # everything
-node --test test/router.test.js     # one file
-npm run eval:self                   # the graders themselves
-node evals/run.mjs --combo cheap    # a real eval against a live provider
+```js
+{ chat(req) -> { text, usage: { prompt_tokens, completion_tokens }, finishReason } }
 ```
 
-New behaviour needs a test that would fail without it. For routing changes, that usually means a test in `test/router.test.js` asserting the *order* and the *reason*, not just the final answer.
+Everything upstream — fallback, breakers, budgets, privacy, residency, canary, verification, the ledger — applies to it automatically. If you find yourself adding a special case in the router, stop: the adapter is probably wrong.
 
-Test naming is a sentence about behaviour: `'circuit breaker: half-open after cooldown, closed after a success'`.
+The MCP client (`type: "mcp"`) is the reference for this. It took one adapter to make an entire protocol routable.
+
+## Adding a compression engine
+
+Engines run in a fixed order and must honour the protected-span guarantee: code blocks, URLs, JSON and identifiers are lifted out before anything is dropped and put back afterwards. An engine that loses a protected span fails `test/compression.test.js`, and that test is not negotiable — it is the difference between compression and corruption.
+
+Every engine reports `droppedChars` and a `note`. An engine that cannot describe what it did has not been written yet.
+
+## Kits
+
+Kits are vendored under `vendor/kits/` and loaded in an isolated `node:vm` context (ADR-0007), never imported for side effects. The provenance of each one — upstream repo, pinned commit, licence — is in `docs/legal/LICENSE_INVENTORY.md`. **Do not add a kit whose licence has not been checked against MIT.**
+
+## Honesty in the docs
+
+Three things are labelled as approximations everywhere they appear: `llmlingua_2`, `ccr`, and the embedding tier. They are useful and they are not what their names suggest. If you improve one, remove the label; until then, leaving it in is the feature.
+
+The same rule applies to failures: a skipped target carries a reason that names the fix, not just the failure ("add GROQ_API_KEY", not "no credentials").
 
 ## Commits
 
-Conventional Commits, one idea per commit:
+One batch per commit, message naming the batch id, then what changed and **what broke on the way**. The second part is not modesty — it is the only record of which failure modes this codebase has already hit.
 
 ```
-feat(router): add latency strategy based on measured p50
-fix(server): send provenance headers with the first streamed token
-docs(routing): explain why a mid-stream failure is not retried
+feat: B9.6 worker hardening
+
+- a tick arriving mid-run is skipped and counted, not queued
+- a failing job doubles its interval up to 16x and resets on first success
+
+Two bugs on the way:
+- reschedule() referenced tick from outside its scope, so any job that failed
+  once threw a ReferenceError instead of backing off
 ```
 
-## Pull requests
+## What not to do
 
-Include: what changed, why, how you verified it (the command and its output), and anything you deliberately did not do. If a change touches the request path, say what happens when a provider fails mid-request.
-
-## Adding a provider
-
-1. Write `myProviderChat(providerId, provider, apiKey, req, opts)` in `src/providers/index.js` returning `{ text, usage, finishReason, raw }`, calling `opts.onToken(delta)` per streamed chunk.
-2. Throw `ProviderError` with `retryable` set honestly — that flag is what the router and the breaker act on.
-3. Register the type in `createAdapter` and in `PROVIDER_TYPES` (`src/config.js`).
-4. Add the model entries to `config/sui.config.json` with prices you have checked against the provider's page, and say in the PR where you checked them.
-
-## Licence
-
-MIT. By contributing you agree your work is licensed under it.
+- Do not add a runtime dependency. The zero-dependency rule (ADR-0003) is what makes `npx sui` work on a fresh machine.
+- Do not make a paid provider reachable without the gate. That is I4, and it is the invariant the project exists for.
+- Do not write a prompt, a key or an answer into the ledger. Hashes and counts only (I11).
+- Do not claim a protocol revision, a model capability or a compression ratio you have not measured.
