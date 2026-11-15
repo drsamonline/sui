@@ -21,7 +21,7 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
-import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdProbe, cmdRedteam, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdMcp, cmdProbe, cmdRedteam, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
 import { kitStatus } from '@sui/kits';
 import { ConfigError } from '@sui/core';
 
@@ -62,6 +62,8 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdExplain(flags, args);
     case 'tenants':
       return cmdTenants(flags);
+    case 'mcp':
+      return cmdMcp(flags);
     case 'redteam':
       return cmdRedteam(flags, args);
     case 'vault':
@@ -553,6 +555,7 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui savings        what cache hits and compression did not spend   --all
   npx sui explain [combo] why a route would go where it goes (B7.4)
   npx sui tenants        what each API key has spent, and what it may reach
+  npx sui mcp            serve the gateway over MCP   --transport stdio|http  --port 8788
   npx sui redteam [combo] attack your own route with 10 obfuscations (B6.2)
   npx sui vault <cmd>    init | set <provider> | list | remove <provider> | status
   npx sui config <cmd>   show | get <path> | set <path> <value> | unset <path>
@@ -568,7 +571,7 @@ Docs:                     docs/ARCHITECTURE.md, docs/ROUTING.md, docs/MIGRATION.
 /* ------------------------------------------------------------------- helpers */
 
 /** Flags that take a value, so `--config ./x.json` works as well as `--config=./x.json`. */
-const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout', 'by']);
+const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout', 'by', 'transport']);
 
 function parse(argv) {
   const args = [];

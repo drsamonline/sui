@@ -142,6 +142,10 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## MCP endpoint
+
+`sui mcp --transport http` serves the Model Context Protocol at `POST /mcp` on its own port (8788 by default). See [`MCP.md`](MCP.md). It is deliberately not mounted on the gateway port: a request handler that has already answered cannot be second-guessed.
+
 ## GET /api/tenants (B7.7)
 
 The tenant console: what each key has spent today, what is left, how fast it is going, and what it may reach.

@@ -1,0 +1,15 @@
+{
+  "name": "@sui/mcp",
+  "version": "0.10.0",
+  "description": "Model Context Protocol server: stdio and HTTP transports over the gateway.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src"
+  ]
+}

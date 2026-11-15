@@ -18,6 +18,17 @@ import { Prober, PROBE_FIXTURE_VERSION } from '@sui/prober';
 import { explainPlan } from '@sui/router';
 import { createGateway } from '@sui/gateway';
 import { TRANSFORMS, runSelfTest } from '@sui/redteam';
+import { createHttpHandler, createMcpServer, runStdio, SUPPORTED_PROTOCOL_VERSIONS } from '@sui/mcp';
+
+/** Read from package.json so the banner and the package cannot disagree. */
+const VERSION = (() => {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    return JSON.parse(readFileSync(join(here, '..', '..', '..', 'package.json'), 'utf8')).version;
+  } catch {
+    return '0.0.0';
+  }
+})();
 import { PRESETS, RecallStore, choosePreset, compress } from '@sui/compression';
 import { table } from './cli.js';
 
@@ -410,6 +421,65 @@ export async function cmdRedteam(flags, args) {
     ? '  PASS — no transform got the canary out of this route'
     : '  FAIL — a route that obeys an injected instruction will obey one from a user');
   if (!report.pass) process.exitCode = 1;
+}
+
+/* ---------------------------------------------------------------------- mcp */
+
+/**
+ * `sui mcp` — the gateway as a Model Context Protocol server.
+ *
+ * stdio is what an editor launches; http is what a remote agent can reach. Both
+ * serve the same tools, so an agent does not need to know which one you chose.
+ */
+export async function cmdMcp(flags) {
+  const gateway = await createGateway({ configPath: flags.config, ledgerFile: undefined });
+  const transport = String(flags.transport ?? 'stdio');
+  const server = createMcpServer({ gateway, version: VERSION });
+
+  if (transport === 'http') {
+    const port = Number(flags.port ?? 8788);
+    const handleMcp = createHttpHandler({ server });
+
+    // Its own listener, not the gateway's: a request handler that has already
+    // answered cannot be second-guessed, and MCP deserves its own port anyway.
+    const http = await import('node:http');
+    const mcpHttp = http.createServer(async (req, res) => {
+      const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+      const handled = await handleMcp(req, res, url);
+      if (!handled) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: `No MCP route for ${req.method} ${url.pathname}. The endpoint is /mcp.` }));
+      }
+    });
+
+    await new Promise((resolve, reject) => {
+      mcpHttp.once('error', reject);
+      mcpHttp.listen(port, gateway.config.server.host, resolve);
+    });
+
+    console.log('');
+    console.log(`sui ${VERSION} — MCP over HTTP`);
+    console.log(`  endpoint   http://${gateway.config.server.host}:${port}/mcp`);
+    console.log(`  protocol   ${SUPPORTED_PROTOCOL_VERSIONS.join(', ')}`);
+    console.log(`  tools      ${['sui_chat', 'sui_models', 'sui_explain', 'sui_cost', 'sui_compress', 'sui_status'].join(', ')}`);
+    console.log('');
+    console.log('POST a JSON-RPC message to the endpoint. Ctrl-C to stop.');
+
+    await new Promise((resolve) => {
+      const stop = () => {
+        mcpHttp.closeAllConnections?.();
+        mcpHttp.close(() => resolve(undefined));
+      };
+      process.once('SIGINT', stop);
+      process.once('SIGTERM', stop);
+    });
+    return;
+  }
+
+  // stdout is the protocol. The banner goes to stderr, or the client sees a
+  // non-JSON line and drops the connection.
+  console.error(`sui ${VERSION} — MCP over stdio (protocol ${SUPPORTED_PROTOCOL_VERSIONS[0]}). Logs go to stderr.`);
+  await runStdio({ server });
 }
 
 /* ------------------------------------------------------------------ tenants */
