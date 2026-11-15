@@ -1,6 +1,6 @@
 {
   "name": "@sui/dashboard",
-  "version": "0.2.0",
+  "version": "0.10.0",
   "description": "Dashboard UI, served by the gateway.",
   "type": "module",
   "license": "MIT",

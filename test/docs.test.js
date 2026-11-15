@@ -42,3 +42,38 @@ test('CONTRIBUTING states the invariant rule and names the four harnesses', asyn
   assert.match(body, /provenBy/);
   assert.match(body, /Do not add a runtime dependency/);
 });
+
+test('the changelog names the current version and what it costs to adopt', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'));
+  const changelog = readFileSync(join(process.cwd(), 'CHANGELOG.md'), 'utf8');
+
+  assert.ok(changelog.includes(`## ${pkg.version} —`), `CHANGELOG.md has no entry for ${pkg.version}`);
+  assert.match(changelog, /### Known gaps/, 'every release states what it does not do');
+  assert.match(changelog, /### Verified at this version/);
+});
+
+test('every package carries the same version as the root', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const root = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).version;
+  const dirs = ['packages', 'apps'].flatMap((dir) =>
+    readdirSync(join(process.cwd(), dir), { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => join(process.cwd(), dir, d.name, 'package.json')),
+  );
+  for (const path of dirs) {
+    const version = JSON.parse(readFileSync(path, 'utf8')).version;
+    assert.equal(version, root, `${path} is at ${version}, the root is at ${root}`);
+  }
+});
+
+test('the landing page claims the same invariant count as the code', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { INVARIANTS } = await import('@sui/core');
+  const html = readFileSync(join(process.cwd(), 'docs', 'index.html'), 'utf8');
+  assert.ok(html.includes(`${INVARIANTS.length} enforced`), `the landing page does not say ${INVARIANTS.length} enforced`);
+  assert.ok(html.includes(`<div class="v num">${INVARIANTS.length}</div>`), 'the headline count is stale');
+});

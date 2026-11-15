@@ -1,6 +1,6 @@
 {
   "name": "@sui/catalog",
-  "version": "0.2.0",
+  "version": "0.10.0",
   "description": "Provider catalog: schema, dedupe, ToS policy, scoring.",
   "type": "module",
   "license": "MIT",

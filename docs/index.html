@@ -135,13 +135,19 @@ node apps/cli/bin/sui.js init</code></pre>
           <li>Four strategies: fallback, weighted, cheapest, latency</li>
           <li>Per-target circuit breaker, three states</li>
           <li>Budgets per day and per provider</li>
-          <li>Two-tier cache: exact, plus lexical similarity</li>
-          <li>Quota-aware prompt compression, six engines, code preserved</li>
+          <li>Free-first ordering: a free target outranks a paid one, always</li>
+          <li>Speculative cascade: a 50 ms classifier picks cheap or strong</li>
+          <li>Quota windows: a 429 with Retry-After closes a target for exactly that long</li>
+          <li>Fallback learning from measured health, not declared order</li>
+          <li>Two-tier cache: exact, plus lexical or hashed-vector similarity</li>
+          <li>Quota-aware prompt compression, seven engines, code preserved</li>
           <li>Savings ledger: dollars avoided, tokens never sent</li>
           <li>Verification escalation: weak answers are never called verified</li>
           <li>Explain-my-route, in sentences, without sending a request</li>
           <li>Red-team self-test: 11 obfuscations, a random canary per run</li>
-          <li>Native prompt caching: the hint each provider understands</li>
+          <li>Native prompt caching: the hint each provider understands
+          <li>Grounding check: a claim that is not in the context costs confidence</li>
+          <li>Residency: a request can require a region, and an unmarked provider never satisfies it</li>
         </ul>
       </div>
       <div class="card">
@@ -149,8 +155,11 @@ node apps/cli/bin/sui.js init</code></pre>
         <ul>
           <li>Paid air-gap: gate in code, vault sealed with AES-256-GCM</li>
           <li><code>tos: avoid</code> is never auto-routed</li>
-          <li>Prompts hashed, never stored</li>
-          <li>Host-header allowlist, SHA-256 API keys</li>
+          <li>Prompts hashed, never stored — and health history has no field for one</li>
+          <li>Host-header allowlist, SHA-256 API keys, constant-time comparisons</li>
+          <li>Bounded runs: spend, steps, time and loop limits per agent run</li>
+          <li>Two-plane split: the agent-facing half holds no provider key</li>
+          <li>Owner licence grant, enforced by a test</li>
           <li>WCAG AA verified numerically on every token pair</li>
         </ul>
       </div>
@@ -162,6 +171,11 @@ node apps/cli/bin/sui.js init</code></pre>
           <li>CSV export, gzip via <code>compress-kit</code></li>
           <li>Onboarding that detects your tools and writes their config</li>
           <li>Migration from another router with a preview diff</li>
+          <li>MCP server over stdio and HTTP, and MCP servers as providers</li>
+          <li>Recipes: five named setups that never overwrite your work</li>
+          <li><code>sui local</code> finds a model server on this machine</li>
+          <li>Drift detection (EWMA + CUSUM) and trend history on disk</li>
+          <li>Tenant console: what each key spent, and what it may reach</li>
         </ul>
       </div>
       <div class="card">
@@ -170,7 +184,8 @@ node apps/cli/bin/sui.js init</code></pre>
           <li>50-prompt golden set, nine deterministic graders</li>
           <li>Self-test that proves the graders grade</li>
           <li>Soak harness gating p95 against a 15 ms budget</li>
-          <li>Invariant table: statement, enforcer, test</li>
+          <li>Invariant table: 19 statements, each with an enforcer and a test</li>
+          <li>Two audits in the repository, with accepted risks stated</li>
           <li>Regression gate on every PR</li>
         </ul>
       </div>
@@ -185,11 +200,11 @@ node apps/cli/bin/sui.js init</code></pre>
       <tbody>
         <tr><td>Gateway, streaming, SSE</td><td><span class="pill done">done</span></td><td>14 server tests</td></tr>
         <tr><td>Routing + breaker + budgets</td><td><span class="pill done">done</span></td><td>17 router tests</td></tr>
-        <tr><td>Invariants as data</td><td><span class="pill done">done</span></td><td>15 enforced, audited by CLI</td></tr>
+        <tr><td>Invariants as data</td><td><span class="pill done">done</span></td><td>19 enforced, audited by CLI</td></tr>
         <tr><td>Paid gate + sealed vault</td><td><span class="pill done">done</span></td><td>15 kit and vault tests</td></tr>
         <tr><td>Eval harness + regression gate</td><td><span class="pill done">done</span></td><td>56 self-checks, baseline gate</td></tr>
         <tr><td>Dashboard + onboarding + migration</td><td><span class="pill done">done</span></td><td>screenshots, 22 UI tests</td></tr>
-        <tr><td>Catalogue</td><td><span class="pill">partial</span></td><td>26 entries, 0 resolved</td></tr>
+        <tr><td>Catalogue</td><td><span class="pill">partial</span></td><td>entries loaded; resolution needs egress</td></tr>
         <tr><td>Canary prober</td><td><span class="pill done">done</span></td><td>3 levels, 16 tests, auto disable</td></tr>
         <tr><td>Worker scheduler</td><td><span class="pill done">done</span></td><td>prober + cache sweep, /api/workers</td></tr>
         <tr><td>Empty-turn retry</td><td><span class="pill done">done</span></td><td>retry once, then fail over</td></tr>
@@ -198,7 +213,12 @@ node apps/cli/bin/sui.js init</code></pre>
         <tr><td>Output axis + savings ledger</td><td><span class="pill done">done</span></td><td>4 styles, /api/savings</td></tr>
         <tr><td>Prompt caching + per-key limits</td><td><span class="pill done">done</span></td><td>prefix hints, 429 + Retry-After</td></tr>
         <tr><td>Audit + legal docs</td><td><span class="pill done">done</span></td><td>8 checks in CI, PRIVACY, TERMS</td></tr>
-        <tr><td>MCP / A2A / agents</td><td><span class="pill">not started</span></td><td>Phase 5</td></tr>
+        <tr><td>MCP server + client</td><td><span class="pill done">done</span></td><td>6 tools, stdio and HTTP, 21 tests</td></tr>
+        <tr><td>Bounded runs + approvals</td><td><span class="pill done">done</span></td><td>4 bounds, single-use gates, 15 tests</td></tr>
+        <tr><td>Two-plane split</td><td><span class="pill done">done</span></td><td>credential boundary, 14 tests</td></tr>
+        <tr><td>Recipes + local discovery</td><td><span class="pill done">done</span></td><td>5 recipes, loopback scan, 18 tests</td></tr>
+        <tr><td>Drift + trend history</td><td><span class="pill done">done</span></td><td>EWMA/CUSUM, /api/history, 21 tests</td></tr>
+        <tr><td>Sandboxed code execution</td><td><span class="pill">not built</span></td><td>B5.6 — owner decision</td></tr>
         <tr><td>Verification + explain-my-route</td><td><span class="pill done">done</span></td><td>7 signals, /api/explain</td></tr>
         <tr><td>Savings + explain panels</td><td><span class="pill done">done</span></td><td>dashboard, /api/savings</td></tr>
         <tr><td>Canary + SLO rollback</td><td><span class="pill done">done</span></td><td>outages excluded, 12 tests</td></tr>

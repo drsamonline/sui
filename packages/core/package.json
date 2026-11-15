@@ -1,6 +1,6 @@
 {
   "name": "@sui/core",
-  "version": "0.2.0",
+  "version": "0.10.0",
   "description": "Shared types, config schema, error taxonomy, invariants.",
   "type": "module",
   "license": "MIT",
