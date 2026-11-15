@@ -136,6 +136,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B11.9 ADRs — done**: ADR-0008 (drift), 0009 (MCP both directions), 0010 (recipes), 0011 (attribution and tenants), 0012 (the four routing policies) join the original seven. `CONTRIBUTING.md` records the invariant discipline, the four harnesses, the three kinds of test failure, and the rules for adapters, engines and kits.
 
+**B5.5 bounded runs and approval gates — done**: four bounds (spend, steps, wall clock, repeated call) plus a per-call approval gate, enforced on the chat path through an `x-sui-run` header. Over a bound is a `409` with the reason; an unknown run id is a `404` rather than a silent unbounded call; an approval is single-use. 15 tests.
+
 **B2.7 trend history — done**: the prober's 24 in-memory observations are now backed by a rolling file — capped at 20,000 rows and 7 days, pruned on write, rewritten atomically. `/api/history` serves bucketed series with p50, error rate and uptime per bucket. 11 tests, including a torn-line recovery and a "no field a prompt could occupy" assertion.
 
 **B2.6 local runtime discovery — done**: `sui local` probes the ports those servers use, asks each one what it serves, and `--write` adds what it found through the same applier recipes use, so a second run is a no-op. Loopback-only, unauthenticated GETs, 300 ms per port in parallel.
@@ -191,7 +193,8 @@ Still todo in Phases 9–11: canary + SLO rollback, fallback learning, quota res
 
 1. **B2.5 resolve the keyless endpoints** — the prober can now verify a route; what it lacks is a base URL to verify. Pollinations, OVHcloud, LLM7 and Kilo need their endpoints resolved and their ToS read.
 2. **B2.2 the other four sources** — awesome-free-ai-coding, freellmpool, OmniRoute catalog, OpenRouter `:free`, plus a schedule. The app-endpoints ingest proves the shape.
-3. **B5.5** — sandboxed code execution (needs an explicit decision, see AUDIT.md).
+3. **B5.6** — sandboxed code execution (needs an explicit decision, see AUDIT.md).
+4. **B5.7** — the two-gateway split (model plane vs agent plane).
 4. **B0.3** — the 72-hour soak, which needs a machine held for three days.
 5. **B1.4** — SQLite for a shared ledger, if more than one process is ever wanted.
 

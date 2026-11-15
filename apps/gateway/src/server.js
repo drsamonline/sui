@@ -19,6 +19,7 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { RunRegistry } from '@sui/guardrails';
 import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@sui/core';
 import { SuiError } from '@sui/core';
 import { explainPlan } from '@sui/router';
@@ -33,6 +34,9 @@ const DASHBOARD = join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html');
  */
 export function createSuiServer(deps) {
   const { router, config, ledger, breaker, cache, workers, canary } = deps;
+  // B5.5: one run registry per process. A run is a caller-supplied id with
+  // bounds; a request that names one is counted, costed and gated.
+  const runs = new RunRegistry({});
   const logger = deps.logger ?? { info() {}, warn() {}, debug() {} };
   const limiter = deps.limiter ?? new RateLimiter();
   let configRef = config;
@@ -81,6 +85,41 @@ export function createSuiServer(deps) {
       if (req.method === 'GET' && path === '/api/status') {
         return sendJson(res, 200, statusPayload(configRef, ledger, breaker, cache, router, workers));
       }
+      // B5.5: bounded runs. A caller that names a run gets its calls counted,
+      // costed and gated; a caller that does not is unbounded, exactly as before.
+      if (path === '/api/runs' || path.startsWith('/api/runs/')) {
+        if (req.method === 'POST' && path === '/api/runs') {
+          const body = await readJson(req);
+          const id = String(body.id ?? `run-${Date.now().toString(36)}`);
+          if (runs.get(id)) throw new SuiError(`Run "${id}" already exists.`, { code: 'run_exists', status: 409 });
+          const tracker = runs.start(id, body.limits ?? {});
+          return sendJson(res, 201, { id, run: tracker.snapshot() });
+        }
+
+        if (req.method === 'GET' && path === '/api/runs') {
+          return sendJson(res, 200, { runs: runs.list() });
+        }
+
+        const rest = path.slice('/api/runs/'.length).split('/');
+        const id = decodeURIComponent(rest[0]);
+        const tracker = runs.get(id);
+        if (!tracker) throw new SuiError(`No run called "${id}".`, { code: 'unknown_run', status: 404 });
+
+        if (req.method === 'GET' && rest.length === 1) return sendJson(res, 200, { id, run: tracker.snapshot() });
+
+        if (req.method === 'POST' && rest[1] === 'approve') {
+          const body = await readJson(req);
+          if (!body.tool) throw new SuiError('Say which tool to approve.', { code: 'bad_approval', status: 400 });
+          const signature = tracker.approve({ tool: String(body.tool), input: body.input ?? {} });
+          return sendJson(res, 200, { id, approved: signature, run: tracker.snapshot() });
+        }
+
+        if (req.method === 'POST' && rest[1] === 'finish') {
+          runs.finish(id);
+          return sendJson(res, 200, { id, run: tracker.snapshot() });
+        }
+      }
+
       // B2.7: health over time. Bucketed, prompt-free, and bounded.
       if (req.method === 'GET' && path === '/api/history') {
         const history = workers?.history;
@@ -405,6 +444,23 @@ export function createSuiServer(deps) {
       throw new SuiError(`Unknown region "${requestedRegion}". Use ${REGIONS.join(', ')}.`, { code: 'bad_region', status: 400 });
     }
 
+    // B5.5: a named run is bounded. The check happens before the call, and the
+    // record happens after, so a loop cannot slip past on a technicality.
+    const runId = req.headers['x-sui-run'] ? String(req.headers['x-sui-run']) : null;
+    const tracker = runId ? runs.get(runId) : null;
+    if (runId && !tracker) {
+      throw new SuiError(`No run called "${runId}". Create one with POST /api/runs first.`, { code: 'unknown_run', status: 404 });
+    }
+    if (tracker) {
+      const decision = tracker.check({ tool: 'chat', input: { combo: requested, prompt: body?.messages?.at(-1)?.content ?? '' } });
+      if (decision.decision === 'deny') {
+        throw new SuiError(decision.reason, { code: 'run_bounded', status: 409, detail: decision.signature });
+      }
+      if (decision.decision === 'needsApproval') {
+        throw new SuiError(decision.reason, { code: 'run_needs_approval', status: 409, detail: decision.signature });
+      }
+    }
+
     const result = await router.chat({
       combo: requested,
       body,
@@ -420,6 +476,12 @@ export function createSuiServer(deps) {
         target = t;
       },
     });
+
+    // B5.5: the call happened, so it counts against the run — before the
+    // response is written, so a client cannot outrun the bound.
+    if (tracker) {
+      tracker.record({ tool: 'chat', input: { combo: requested, prompt: body?.messages?.at(-1)?.content ?? '' }, costUsd: result.meta?.costUsd ?? 0 });
+    }
 
     if (stream) {
       const meta = result.meta;

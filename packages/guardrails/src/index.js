@@ -158,3 +158,4 @@ export function clampMaxTokens(requested, guardrails) {
   const asked = Number(requested ?? policy);
   return Math.max(1, Math.min(asked, policy));
 }
+export { RunTracker, RunRegistry, callSignature } from './runs.js';

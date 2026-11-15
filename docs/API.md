@@ -142,6 +142,28 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## Bounded runs (B5.5)
+
+A caller that names a run gets its calls counted, costed and gated. A caller that does not is unbounded, exactly as before.
+
+```bash
+curl -X POST localhost:8787/api/runs -d '{"id":"nightly","limits":{"maxSteps":20,"maxUsd":0.05,"maxMs":600000,"maxRepeats":3,"requireApproval":["shell"]}}'
+curl localhost:8787/v1/chat/completions -H 'x-sui-run: nightly' -d '{"model":"chain","messages":[{"role":"user","content":"hi"}]}'
+```
+
+| Bound | Stops |
+|---|---|
+| `maxUsd` | a run that spends |
+| `maxSteps` | a loop that is cheap per call |
+| `maxMs` | a loop that is cheap and endless |
+| `maxRepeats` / `loopWindow` | the same tool with the same input, N times in a window |
+
+`POST /api/runs` creates one (201), `GET /api/runs` lists them, `GET /api/runs/<id>` shows one, `POST /api/runs/<id>/approve` approves **one exact call** (`{tool, input}`), `POST /api/runs/<id>/finish` closes it.
+
+Over the bound, the chat endpoint answers `409` with `run_bounded` and the reason (`step limit reached (2/2) — raise maxSteps or start a new run`). A gated tool answers `409` `run_needs_approval` until that exact call is approved; the approval is **single-use**, because one that carries over to the next call is not an approval, it is a blank cheque.
+
+An `x-sui-run` naming a run that does not exist is a `404`, not a silent unbounded call.
+
 ## GET /api/history (B2.7)
 
 Health over time, bucketed, for the Weather Map trend line.

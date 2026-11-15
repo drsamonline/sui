@@ -60,6 +60,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Explain my route** — every response carries the strategy and each target's outcome; `sui explain` narrates it without sending anything.
 - **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
 - **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
+- **Bounded runs** — spend, steps, wall clock and repeated-call limits per agent run, with per-call approval gates.
 - **Trend history** — health samples on disk, bucketed into a sparkline that survives a restart.
 - **Local discovery** — `sui local` finds a model server on this machine and wires it up, loopback-only.
 - **Recipes** — `sui recipe apply free-tier-stack` and four more named setups, applied without overwriting your work.
