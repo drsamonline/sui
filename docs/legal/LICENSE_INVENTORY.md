@@ -8,12 +8,16 @@ The kits in the `drsamonline` fleet are published under **PolyForm Noncommercial
 
 > "import whole kit code as required in the repo and use it … skills are all mine or mit licences individually so you can take them too"
 
-That authorisation is what makes the vendoring below legitimate: the same person holds the copyright on the kits and on Sui, so they can license their own work to themselves on MIT terms. Two things follow, and both are outstanding:
+That authorisation is what makes the vendoring below legitimate: the same person holds the copyright on the kits and on Sui, so they can license their own work on different terms for this distribution.
 
-1. **The upstream `LICENSE` files still say PolyForm NC.** Anyone cloning `crypto-kit` directly still gets the non-commercial terms. Update those files (MIT or Apache-2.0) to make the two repositories agree.
-2. **This repository keeps a copy of each upstream licence** in `vendor/kits/*.LICENSE`, so the provenance travels with the code. If the upstream licences change, replace those files with the new ones and record the commit here.
+**Decision, 2026-11-15 — the upstream repositories stay PolyForm Noncommercial.** The owner's grant is the instrument, not a relicence: see [`OWNER_GRANT.md`](OWNER_GRANT.md), which names every work, its pinned commit, and the exact scope of the MIT licence it grants to *these copies*.
 
-Until (1) is done, the honest reading is: *Sui is MIT by its owner's grant; the upstream repositories are still labelled NC.*
+What that means in practice:
+
+1. **Sui is MIT.** Every file in this repository, including `vendor/kits/*`, is distributed under the MIT licence in `/LICENSE`, by the owner's grant.
+2. **The upstream repositories are still NC** for everyone else. Someone who clones `crypto-kit` directly gets the non-commercial terms — as its own `LICENSE` says. The two facts coexist because the copyright holder licensed their work differently in two places, which is their right.
+3. **This repository keeps a copy of each upstream licence** in `vendor/kits/*.LICENSE`, so the provenance travels with the code even though the terms here are MIT.
+4. **`test/licence.test.js` enforces the paperwork.** A vendored kit that is not named in both this table and the grant fails the build.
 
 ## Vendored
 
@@ -45,7 +49,10 @@ Each file lives in `vendor/kits/<name>.js` with its `LICENSE` and its generated 
 ## Rules for the next vendor
 
 1. Record the repository, the pinned commit and the licence here **before** the merge.
-2. Keep the upstream `LICENSE` file inside the vendored directory.
-3. Add a line to `NOTICE` at the repository root.
-4. Re-run `npm test`, `npm run eval:self` and `npm run soak`.
+2. Add a matching row to [`OWNER_GRANT.md`](OWNER_GRANT.md) §2 — a kit not named there is not covered by the MIT grant, and `test/licence.test.js` will fail.
+3. Keep the upstream `LICENSE` file inside the vendored directory.
+4. Add a line to `NOTICE` at the repository root.
+5. Re-run `npm test`, `npm run eval:self` and `npm run soak`.
+
+A kit that is **not** authored by the owner cannot be covered by an owner grant. It needs its own licence check, and MIT-compatible terms, before it goes anywhere near `vendor/`.
 5. If the licence is not MIT-compatible and the owner has not authorised it, stop.

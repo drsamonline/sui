@@ -1,6 +1,6 @@
 # ADR-0002 — MIT core, PolyForm-NC kits stay outside the tree
 
-**Status:** superseded in part · 2026-11-14 (owner authorisation, same day)
+**Status:** superseded in part · 2026-11-14 (owner authorisation, same day) · **amended 2026-11-15**: the kits stay PolyForm upstream and are used here under a written owner grant — see [`docs/legal/OWNER_GRANT.md`](../legal/OWNER_GRANT.md)
 
 ## Context
 
@@ -14,6 +14,12 @@ The same person holds the copyright on all of it, so this is a decision, not an 
 2. **Where a kit's behaviour is needed, it is adapted** — reimplemented from documented behaviour, with `node:*` built-ins where they suffice (SHA-256 and `timingSafeEqual` instead of `crypto-kit`).
 3. **Where a kit is MIT** (`heavenzip`), it may be vendored with a `NOTICE` entry and a licence check at the commit SHA.
 4. **Relicensing is the owner's call.** If the kits move to MIT or Apache-2.0, this ADR is superseded, the inventory is updated with the commit SHA, and the vendor subtrees can be added.
+
+## Amendment, 2026-11-15
+
+The original decision kept the kits **outside** the tree because their NC terms could not be reconciled with MIT. The copyright holder then chose a third path, which is available only to them: the upstream repositories keep PolyForm Noncommercial, and they grant this project MIT terms for the specific vendored copies, in writing.
+
+That grant — [`OWNER_GRANT.md`](../legal/OWNER_GRANT.md) — is now the instrument the licence chain rests on. It names each work and its pinned commit, it is irrevocable for published versions, and `test/licence.test.js` fails if a vendored kit is added without being named in it. The reasoning still holds: **an owner grant is only available to the owner.** A third-party kit under NC cannot be treated this way, which is why the inventory now says so explicitly.
 
 ## Consequences
 

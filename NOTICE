@@ -7,8 +7,14 @@ Third-party and first-party components
 --------------------------------------------------------------------------------
 
 This distribution includes code from the following drsamonline repositories,
-copyright 2026 Dr Sohil Momin, used here with the copyright holder's
-authorisation (recorded in docs/legal/LICENSE_INVENTORY.md):
+copyright 2026 Dr Sohil Momin. Those upstream repositories are published under
+PolyForm Noncommercial 1.0.0; the copies below are distributed here under the
+MIT License by the copyright holder's written grant, which names each work and
+its pinned commit:
+
+    docs/legal/OWNER_GRANT.md
+
+The works covered:
 
   crypto-kit      f2f3499   AES-256-GCM, PBKDF2 sealed envelopes
   ml-kit          aa0713f   tf-idf, k-means, naive Bayes, regression
@@ -25,6 +31,11 @@ drsamonline/app-endpoints (3af3769), a directory of public APIs. Each entry
 there remains the property of the API's own operator; Sui ships names, links
 and no endpoints.
 
-Upstream repositories currently label themselves PolyForm Noncommercial 1.0.0.
-Their licence files should be updated by the copyright holder to match this
-grant; until then, treat the upstream repositories as their files describe.
+The upstream repositories remain PolyForm Noncommercial 1.0.0 for everyone else:
+cloning them directly gives you their terms, not this grant. This grant applies
+to the copies vendored into Sui and to nothing else. Each vendored file keeps its
+upstream LICENSE beside it so the provenance is visible.
+
+If any of these works contains material authored by someone other than the
+copyright holder, that material is not covered by the grant and requires that
+author's permission.

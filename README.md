@@ -149,7 +149,11 @@ npm run audit    # invariants→tests, routes→API.md, dead exports, secrets
 
 ## Licensing
 
-Sui is MIT. Seven kits from the same fleet are vendored in `vendor/kits/` — `crypto-kit`, `ml-kit`, `search-kit`, `tokens-kit`, `compress-kit`, `export-kit`, `web-kit` — each with its upstream `LICENSE` beside it and a pinned commit in [`docs/legal/LICENSE_INVENTORY.md`](docs/legal/LICENSE_INVENTORY.md). The copyright holder authorised that use; the upstream repositories still label themselves PolyForm Noncommercial, and updating those files is the one open task recorded in the inventory. `NOTICE` carries the attribution.
+MIT for everything in this repository — including the vendored kits.
+
+Eight works from the owner's own fleet are vendored in `vendor/kits/` — `crypto-kit`, `ml-kit`, `search-kit`, `tokens-kit`, `compress-kit`, `export-kit`, `web-kit` and the `app-endpoints` catalogue. Those upstream repositories are published under **PolyForm Noncommercial 1.0.0**. They are distributed *here* under MIT by a written owner grant that names each work and its pinned commit: [`docs/legal/OWNER_GRANT.md`](docs/legal/OWNER_GRANT.md).
+
+The upstream repositories keep their NC terms for everyone else — cloning one directly gives you those terms, not this grant. An owner grant is available only to the copyright holder: a third-party kit under NC could not be used this way. `test/licence.test.js` keeps the chain honest, and fails the build if a vendored kit is added without being named in both the inventory and the grant.
 
 Third-party routers (`9router`, `OmniRoute`, `HubGate`) are not vendored; `sui migrate` reads their config files, which is a different act.
 
