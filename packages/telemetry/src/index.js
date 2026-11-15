@@ -2,3 +2,4 @@
 export * from './ledger.js';
 export * from './cache.js';
 export { DriftMonitor, driftFromLedger } from './drift.js';
+export { HistoryStore, SAMPLE_FIELDS } from './history.js';

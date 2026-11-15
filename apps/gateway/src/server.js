@@ -81,6 +81,17 @@ export function createSuiServer(deps) {
       if (req.method === 'GET' && path === '/api/status') {
         return sendJson(res, 200, statusPayload(configRef, ledger, breaker, cache, router, workers));
       }
+      // B2.7: health over time. Bucketed, prompt-free, and bounded.
+      if (req.method === 'GET' && path === '/api/history') {
+        const history = workers?.history;
+        if (!history) return sendJson(res, 200, { enabled: false, series: [] });
+        const model = url.searchParams.get('model');
+        const hours = Number(url.searchParams.get('hours') ?? 24);
+        const buckets = Number(url.searchParams.get('buckets') ?? 24);
+        const series = model ? [history.series(model, { hours, buckets })] : history.all({ hours, buckets });
+        return sendJson(res, 200, { enabled: true, hours, buckets, series, summary: history.summary() });
+      }
+
       if (req.method === 'GET' && path === '/api/metrics') {
         const since = sinceParam(url);
         return sendJson(res, 200, ledger.aggregate({ since }));

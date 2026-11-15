@@ -142,6 +142,21 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## GET /api/history (B2.7)
+
+Health over time, bucketed, for the Weather Map trend line.
+
+```json
+{ "enabled": true, "hours": 24, "buckets": 24,
+  "series": [{ "modelId": "groq-70b", "uptime": 0.98, "samples": 288,
+               "points": [{ "t": 1763000000000, "samples": 12, "ok": true, "p50": 812, "errorRate": 0, "state": "closed" }] }],
+  "summary": { "rows": 2880, "last24h": 288, "models": 6, "oldest": 1762900000000, "maxRows": 20000 } }
+```
+
+`?model=` narrows it to one target; `?hours=` and `?buckets=` control the window and resolution. A bucket with no samples reports `samples: 0` and `null` statistics rather than inventing zeros.
+
+Samples are `{ts, modelId, ok, latencyMs, state}` and nothing else — there is no field a prompt could occupy, and a row carrying one is dropped on load. History lives at `<SUI_HOME>/history.jsonl`, capped at 20,000 rows and 7 days, pruned on write.
+
 ## MCP endpoint
 
 `sui mcp --transport http` serves the Model Context Protocol at `POST /mcp` on its own port (8788 by default). See [`MCP.md`](MCP.md). It is deliberately not mounted on the gateway port: a request handler that has already answered cannot be second-guessed.

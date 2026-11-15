@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { Prober } from '@sui/prober';
 import { runSelfTest } from '@sui/redteam';
 import { THRESHOLDS, checkBudgets, dedupe } from './alerts.js';
-import { DriftMonitor, driftFromLedger } from '@sui/telemetry';
+import { DriftMonitor, HistoryStore, driftFromLedger } from '@sui/telemetry';
 import { dedupeEntries, loadSeed } from '@sui/catalog';
 
 /**
@@ -40,6 +40,14 @@ export function startWorkers(deps) {
   let stopped = false;
 
   if (enabled) {
+    // B2.7: created before any job, so /api/history works even when the prober
+    // is switched off — the history file is the record, not the prober's memory.
+    const history = new HistoryStore({
+      file: deps.historyFile ?? settings.historyFile ?? null,
+      maxRows: Number(settings.historyMaxRows ?? 20_000),
+    });
+    deps.history = history;
+
     if (settings.prober?.enabled !== false) {
       const entries = loadProbeTargets(deps.catalogDir);
       if (entries.length) {
@@ -56,6 +64,17 @@ export function startWorkers(deps) {
         jobs.push(
           register('prober', Number(settings.prober?.intervalMs ?? 3600_000), async () => {
             const results = await prober.runOnce();
+            // B2.7: one sample per target per pass — a timestamp, an id, a
+            // duration and a boolean. There is nowhere for a prompt to go.
+            for (const result of results) {
+              history.record({
+                modelId: result.pool_key ?? result.provider ?? 'unknown',
+                ok: Boolean(result.ok),
+                latencyMs: result.latencyMs ?? null,
+                state: result.ok ? 'closed' : 'open',
+                ts: result.checkedAt ?? Date.now(),
+              });
+            }
             return { probed: results.length, verified: results.filter((r) => r.verified).length };
           }),
         );
@@ -200,6 +219,11 @@ export function startWorkers(deps) {
     get prober() {
       return prober;
     },
+    // B2.7: the store is on the returned object, not only on `deps`, so a caller
+    // does not have to know how startWorkers was wired internally.
+    get history() {
+      return deps.history ?? null;
+    },
     snapshot() {
       return {
         enabled,
@@ -216,6 +240,7 @@ export function startWorkers(deps) {
         })),
         probes: prober ? prober.snapshot() : [],
         alerts: deps.alerts?.log?.() ?? [],
+        drift: deps.drift?.alarms?.() ?? [],
       };
     },
     stop() {

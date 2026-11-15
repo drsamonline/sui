@@ -99,8 +99,18 @@ export async function createGateway(opts = {}) {
   // start probing the internet. `sui start` turns them on.
   const workers =
     opts.startWorkers === true
-      ? startWorkers({ config, cache, ledger, logger, router, catalogDir: opts.catalogDir, now: opts.now })
-      : { jobs: [], prober: null, snapshot: () => ({ enabled: false, jobs: [], probes: [] }), stop() {} };
+      ? startWorkers({
+          config,
+          cache,
+          ledger,
+          logger,
+          router,
+          catalogDir: opts.catalogDir,
+          now: opts.now,
+          // B2.7: health history lives beside the ledger, and nowhere else
+          historyFile: opts.historyFile === null ? null : opts.historyFile ?? join(home, 'history.jsonl'),
+        })
+      : { jobs: [], prober: null, history: null, snapshot: () => ({ enabled: false, jobs: [], probes: [] }), stop() {} };
   const server = createSuiServer({ router, config, ledger, breaker, cache, logger, workers, canary });
 
   return {

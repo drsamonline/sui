@@ -121,11 +121,12 @@ export function makeRouter(config, opts = {}) {
 }
 
 /** A full gateway (server included) for HTTP-level tests. */
-export async function makeGateway(config) {
+export async function makeGateway(config, opts = {}) {
   return createGateway({
     configObject: config,
     env: { ...process.env },
     ledgerFile: null,
+    ...opts,
   });
 }
 
