@@ -424,6 +424,76 @@ export async function cmdRedteam(flags, args) {
   if (!report.pass) process.exitCode = 1;
 }
 
+/* --------------------------------------------------------------------- local */
+
+/**
+ * `sui local` — B2.6, find a model server on this machine and wire it up.
+ *
+ * Loopback only, unauthenticated GETs, nothing written unless asked.
+ */
+export async function cmdLocal(flags) {
+  const { discoverLocalRuntimes, toConfigPatch } = await import('@sui/prober');
+
+  console.log('');
+  console.log('Looking for local model servers on loopback (127.0.0.1)…');
+
+  const found = await discoverLocalRuntimes({ timeoutMs: Number(flags.timeout ?? 300) });
+
+  if (!found.length) {
+    console.log('');
+    console.log('  nothing answered. Servers this looks for, and their default ports:');
+    console.log('    Ollama          11434');
+    console.log('    LM Studio       1234');
+    console.log('    llama.cpp       8080');
+    console.log('    vLLM / LocalAI  8000 / 5000');
+    console.log('');
+    console.log('  Start one and run this again. Nothing was probed outside 127.0.0.1.');
+    return;
+  }
+
+  console.log('');
+  for (const runtime of found) {
+    console.log(`  ${runtime.kind} on port ${runtime.port} — ${runtime.models.length} model(s), answered in ${runtime.latencyMs}ms`);
+    for (const model of runtime.models.slice(0, 8)) console.log(`    ${model}`);
+    if (runtime.models.length > 8) console.log(`    … and ${runtime.models.length - 8} more`);
+  }
+
+  if (!flags.write) {
+    console.log('');
+    console.log('Nothing was written. Run with --write to add these to sui.config.json.');
+    return;
+  }
+
+  const { applyRecipe } = await import('@sui/core');
+  const gateway = await createGateway({ configPath: flags.config });
+  const path = flags.config ?? gateway.config.path ?? 'sui.config.json';
+  const onDisk = JSON.parse(readFileSync(path, 'utf8'));
+
+  let merged = onDisk;
+  let added = 0;
+  for (const runtime of found) {
+    const recipe = {
+      name: 'local-discovery',
+      title: `Local ${runtime.kind}`,
+      description: 'Discovered on loopback',
+      patch: toConfigPatch(runtime),
+    };
+    const result = applyRecipe(merged, recipe, { force: Boolean(flags.force) });
+    merged = result.config;
+    added += result.changes.length;
+  }
+
+  if (!added) {
+    console.log('');
+    console.log('  already in the config — nothing to add.');
+    return;
+  }
+
+  writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`);
+  console.log('');
+  console.log(`Wrote ${added} change(s) to ${path}. Restart the gateway to pick them up.`);
+}
+
 /* ------------------------------------------------------------------- recipes */
 
 /** Where recipes live: the repo's own folder, then the user's config dir. */

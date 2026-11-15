@@ -136,6 +136,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B11.9 ADRs — done**: ADR-0008 (drift), 0009 (MCP both directions), 0010 (recipes), 0011 (attribution and tenants), 0012 (the four routing policies) join the original seven. `CONTRIBUTING.md` records the invariant discipline, the four harnesses, the three kinds of test failure, and the rules for adapters, engines and kits.
 
+**B2.6 local runtime discovery — done**: `sui local` probes the ports those servers use, asks each one what it serves, and `--write` adds what it found through the same applier recipes use, so a second run is a no-op. Loopback-only, unauthenticated GETs, 300 ms per port in parallel.
+
 **B5.3 recipes — done**: `sui recipe list|show|apply`, five shipped recipes, and three rules enforced by test — never overwrite silently, applying twice is a no-op, a dry run touches nothing. `requires.env` is reported before anything is applied. 11 tests.
 
 **B5.4 MCP client — done**: `type: "mcp"` makes an MCP server a provider, so a combo can route to a tool and every existing rule (breaker, budget, privacy, canary, verification, ledger) applies unchanged. Both transports; the prompt argument is configurable because only the operator knows their tool. Token counts are estimated and labelled as such. 10 tests.

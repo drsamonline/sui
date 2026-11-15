@@ -410,6 +410,21 @@ A caller may ask for a stricter tier than the default: `x-sui-privacy: strict` (
 
 Two deliberate choices: **an unmarked provider counts as `unknown`, and `unknown` fails `strict`** — not knowing is not the same as being safe. And a strict request with nothing eligible **fails closed** with the reasons, rather than quietly downgrading to a provider that trains on your data.
 
+## Local runtimes
+
+```bash
+sui local            # find Ollama / LM Studio / llama.cpp / vLLM on this machine
+sui local --write    # add what it found to sui.config.json
+```
+
+| Constraint | Why |
+|---|---|
+| **Loopback only** — `127.0.0.1`, `::1`, `localhost`; anything else throws | a scan that can reach the network is a port scanner, and shipping one inside a gateway is how a helpful feature becomes a liability |
+| Unauthenticated GET of a public listing endpoint only | discovery changes nothing on the server |
+| 300 ms per port, all ports in parallel | a closed port must cost milliseconds, not the request budget |
+
+It asks two questions, because that covers the field: Ollama's `/api/tags` and the OpenAI-compatible `/v1/models`. The ids it derives are stable, so running it twice merges to a no-op.
+
 ## Tenants
 
 ```bash

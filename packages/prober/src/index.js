@@ -446,3 +446,4 @@ export class Prober {
     this.timer = null;
   }
 }
+export { discoverLocalRuntimes, toConfigPatch, isLoopback, DEFAULT_PORTS } from './local.js';

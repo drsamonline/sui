@@ -21,7 +21,7 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
-import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdMcp, cmdProbe, cmdRecipe, cmdRedteam, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdLocal, cmdMcp, cmdProbe, cmdRecipe, cmdRedteam, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
 import { kitStatus } from '@sui/kits';
 import { ConfigError } from '@sui/core';
 
@@ -66,6 +66,8 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdMcp(flags);
     case 'recipe':
       return cmdRecipe(flags, args);
+    case 'local':
+      return cmdLocal(flags);
     case 'redteam':
       return cmdRedteam(flags, args);
     case 'vault':
@@ -559,6 +561,7 @@ sui ${VERSION} — one endpoint for every LLM
   npx sui tenants        what each API key has spent, and what it may reach
   npx sui mcp            serve the gateway over MCP   --transport stdio|http  --port 8788
   npx sui recipe list    named config patches: list, show, apply  --dry-run  --force
+  npx sui local          find a model server on this machine   --write  --timeout 300
   npx sui redteam [combo] attack your own route with 10 obfuscations (B6.2)
   npx sui vault <cmd>    init | set <provider> | list | remove <provider> | status
   npx sui config <cmd>   show | get <path> | set <path> <value> | unset <path>
