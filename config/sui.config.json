@@ -285,5 +285,10 @@
     "logPrompts": false,
     "redactPiiInLogs": true
   },
-  "apiKeys": []
+  "apiKeys": [],
+  "planes": {
+    "role": "both",
+    "modelPlaneUrl": null,
+    "serviceTokenEnv": "SUI_PLANE_TOKEN"
+  }
 }

@@ -116,6 +116,12 @@ export function normalizeConfig(raw, opts = {}) {
       // B4.5: do not compress the prefix a provider would cache.
       preserveCachedPrefix: raw.compression?.preserveCachedPrefix !== false,
     },
+    // B5.7: which half of the split this process is, and where its other half is
+    planes: {
+      role: ['both', 'model', 'agent'].includes(raw.planes?.role) ? raw.planes.role : 'both',
+      modelPlaneUrl: raw.planes?.modelPlaneUrl ?? null,
+      serviceTokenEnv: raw.planes?.serviceTokenEnv ?? 'SUI_PLANE_TOKEN',
+    },
     // B3.1: free before paid, unless a combo says otherwise.
     routing: { freeFirst: raw.routing?.freeFirst !== false },
     // B6.5: privacy tiers. 'any' by default — the tier is a decision, not a default.

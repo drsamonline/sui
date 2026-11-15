@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RunRegistry } from '@sui/guardrails';
+import { createModelPlaneClient, createPlaneGuard, describePlane } from './planes.js';
 import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@sui/core';
 import { SuiError } from '@sui/core';
 import { explainPlan } from '@sui/router';
@@ -37,6 +38,19 @@ export function createSuiServer(deps) {
   // B5.5: one run registry per process. A run is a caller-supplied id with
   // bounds; a request that names one is counted, costed and gated.
   const runs = new RunRegistry({});
+  // B5.7: which half of the split this process is
+  const planes = config.planes ?? { role: 'both', modelPlaneUrl: null, serviceTokenEnv: 'SUI_PLANE_TOKEN' };
+  const planeToken = config.env?.[planes.serviceTokenEnv] ?? process.env[planes.serviceTokenEnv] ?? '';
+  const guard = createPlaneGuard({ serviceToken: planeToken, role: planes.role });
+  const modelPlane = planes.role === 'agent' && planes.modelPlaneUrl
+    ? createModelPlaneClient({ modelPlaneUrl: planes.modelPlaneUrl, serviceToken: planeToken })
+    : null;
+  const planesInfo = describePlane({
+    role: planes.role,
+    modelPlaneUrl: planes.modelPlaneUrl,
+    hasServiceToken: Boolean(planeToken),
+    hasProviderCredentials: planes.role !== 'agent',
+  });
   const logger = deps.logger ?? { info() {}, warn() {}, debug() {} };
   const limiter = deps.limiter ?? new RateLimiter();
   let configRef = config;
@@ -66,6 +80,13 @@ export function createSuiServer(deps) {
     }
 
     try {
+      // B5.7: the plane boundary comes first, or a route that returns early
+      // would serve a caller the model plane should have refused.
+      const planeCheck = guard.check(req, path);
+      if (!planeCheck.ok) {
+        throw new SuiError(planeCheck.message, { code: planeCheck.code, status: planeCheck.status });
+      }
+
       if (req.method === 'GET' && (path === '/' || path === '/dashboard')) {
         return sendHtml(res, readDashboard());
       }
@@ -83,7 +104,7 @@ export function createSuiServer(deps) {
 
       // ---- dashboard API --------------------------------------------------
       if (req.method === 'GET' && path === '/api/status') {
-        return sendJson(res, 200, statusPayload(configRef, ledger, breaker, cache, router, workers));
+        return sendJson(res, 200, statusPayload(configRef, ledger, breaker, cache, router, workers, planesInfo));
       }
       // B5.5: bounded runs. A caller that names a run gets its calls counted,
       // costed and gated; a caller that does not is unbounded, exactly as before.
@@ -461,6 +482,43 @@ export function createSuiServer(deps) {
       }
     }
 
+    // B5.7: an agent plane has no providers. It bounds the run, then asks the
+    // model plane to do the work.
+    if (planes.role === 'agent') {
+      if (tracker) {
+        const decision = tracker.check({ tool: 'chat', input: { combo: requested, prompt: body?.messages?.at(-1)?.content ?? '' } });
+        if (decision.decision !== 'allow') {
+          throw new SuiError(decision.reason, {
+            code: decision.decision === 'deny' ? 'run_bounded' : 'run_needs_approval',
+            status: 409,
+            detail: decision.signature,
+          });
+        }
+      }
+      if (!modelPlane) {
+        throw new SuiError('This is the agent plane and it has no modelPlaneUrl to forward to.', {
+          code: 'model_plane_not_configured',
+          status: 503,
+        });
+      }
+      const forwarded = await modelPlane.forward({
+        path: '/v1/chat/completions',
+        method: 'POST',
+        body,
+        headers: { 'x-sui-user': attribution.user, 'x-sui-tool': attribution.tool, 'x-sui-region': requestedRegion },
+      });
+      if (tracker && forwarded.status === 200) {
+        tracker.record({
+          tool: 'chat',
+          input: { combo: requested, prompt: body?.messages?.at(-1)?.content ?? '' },
+          costUsd: forwarded.json?.sui?.costUsd ?? 0,
+        });
+      }
+      res.writeHead(forwarded.status, { 'content-type': 'application/json' });
+      res.end(forwarded.text);
+      return;
+    }
+
     const result = await router.chat({
       combo: requested,
       body,
@@ -591,7 +649,7 @@ function modelList(config, all) {
   return [...combos, ...models];
 }
 
-function statusPayload(config, ledger, breaker, cache, router, workers = null) {
+function statusPayload(config, ledger, breaker, cache, router, workers = null, planesInfo = null) {
   const agg = ledger.aggregate({ since: startOfToday() });
   const spent = ledger.todaySpendUsd();
   const daily = config.budgets.dailyUsd;
@@ -623,6 +681,8 @@ function statusPayload(config, ledger, breaker, cache, router, workers = null) {
 
   return {
     server: { host: config.server.host, port: config.server.port, uptimeSeconds: Math.round(process.uptime()) },
+    // B5.7: which half of the split this is, and what it can reach
+    planes: planesInfo,
     // B9.4: quota windows the router is currently honouring
     quotaWindows: router.quotaSnapshot?.() ?? [],
     // B6.4: what each provider does with what you send it, and which tiers it

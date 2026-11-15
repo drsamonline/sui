@@ -804,6 +804,29 @@
           "default": true
         }
       }
+    },
+    "planes": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "B5.7: split the gateway into a model plane (holds keys, has egress) and an agent plane (faces agents, holds no keys).",
+      "properties": {
+        "role": {
+          "enum": [
+            "both",
+            "model",
+            "agent"
+          ],
+          "default": "both"
+        },
+        "modelPlaneUrl": {
+          "type": "string",
+          "description": "Where the agent plane forwards to."
+        },
+        "serviceTokenEnv": {
+          "type": "string",
+          "default": "SUI_PLANE_TOKEN"
+        }
+      }
     }
   }
 }

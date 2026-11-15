@@ -142,6 +142,16 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## Planes in `/api/status` (B5.7)
+
+```json
+"planes": { "role": "model", "agentFacing": false, "holdsProviderCredentials": true,
+            "modelPlaneUrl": null, "serviceTokenConfigured": true,
+            "serves": { "chat": true, "models": true, "runs": false, "mcp": false } }
+```
+
+See [`PLANES.md`](PLANES.md).
+
 ## Bounded runs (B5.5)
 
 A caller that names a run gets its calls counted, costed and gated. A caller that does not is unbounded, exactly as before.
