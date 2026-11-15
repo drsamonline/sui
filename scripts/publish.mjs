@@ -46,6 +46,13 @@ const ORDER = [
 const problems = [];
 const rootPkg = read('package.json');
 
+// 0. a publish needs a logged-in account; say so before doing any work
+try {
+  execFileSync('npm', ['whoami'], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' });
+} catch {
+  problems.push('not logged in to npm. Run `npm login` (or set //registry.npmjs.org/:_authToken), then `npm whoami` should print your username.');
+}
+
 // 1. a clean tree, because an uncommitted fix is not in the tarball
 const status = execFileSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).trim();
 if (status && !dryRun) problems.push(`working tree is dirty:\n${status.split('\n').slice(0, 5).join('\n')}`);

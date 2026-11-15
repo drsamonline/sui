@@ -16,6 +16,18 @@ The blueprint asks for Turborepo + pnpm, a compiled Go/Rust data plane, and SQLi
    Re-measured at 0.11.0 (2026-11-15, 20 rps over 60s): p50 0.21ms, p95 0.96ms, p99 1.58ms — the handler got faster as features were added, because the new work (classifier, quota windows, run bounds) is all microsecond-scale and off the hot path.
 3. **JSONL ledger before SQLite.** The ledger is append-only by design (I11 keeps prompts out of it, and the aggregate is a fold over records). SQLite buys indexing and concurrency we do not need yet, and costs a native dependency. Revisit when the ledger exceeds ~100k records or two processes must share it.
 
+## The gates, made runnable
+
+`npm run adr:gate` runs all three and exits non-zero when one is breached, so this ADR is a measurement rather than a memory.
+
+Last run (2026-11-15, at 0.11.0):
+
+| Gate | Measured | Verdict |
+|---|---|---|
+| data plane p95 < 15ms at 200 rps | p50 0.43ms · p95 2.29ms · p99 8.96ms | holds, 7× under budget |
+| ledger < 100k records | 0 records in this environment | holds |
+| no build step | none | holds |
+
 ## Consequences
 
 - Fast iteration: no compile step, no native modules, `npx sui` runs the source.

@@ -24,6 +24,8 @@ npm run publish:dry            # 18 packages, all 'free'
 npm run publish:real
 ```
 
+**Decision (2026-11-15): scoped, `@sui/*`.** A registry search for `scope:sui` returns zero packages, so the scope looks unused; keeping 18 tiny packages in one namespace beats squatting 18 unscoped names. If the org turns out to be taken, the fallback is a mechanical rename, not a redesign.
+
 **The `@sui` scope must be yours.** Publishing `@sui/core` requires that your account owns or belongs to the `@sui` organisation on npm. A 404 on `npm view @sui/core` only proves the *package* is unpublished — it says nothing about who owns the scope.
 
 If the scope is not yours, there are two routes:

@@ -28,7 +28,8 @@
     "audit": "node scripts/audit.mjs && node scripts/adr-check.mjs",
     "adr": "node scripts/adr-check.mjs",
     "publish:dry": "node scripts/publish.mjs --dry-run",
-    "publish:real": "node scripts/publish.mjs"
+    "publish:real": "node scripts/publish.mjs",
+    "adr:gate": "node scripts/adr-gate.mjs"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"
