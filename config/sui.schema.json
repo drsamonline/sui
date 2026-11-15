@@ -74,7 +74,8 @@
               "openai",
               "anthropic",
               "gemini",
-              "mock"
+              "mock",
+              "mcp"
             ]
           },
           "baseUrl": {
@@ -201,6 +202,42 @@
                 "type": "string"
               }
             }
+          },
+          "tool": {
+            "type": "string",
+            "description": "B5.4: the MCP tool that answers a chat request."
+          },
+          "url": {
+            "type": "string",
+            "description": "MCP HTTP endpoint."
+          },
+          "command": {
+            "type": "string",
+            "description": "MCP stdio command to launch."
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "argument": {
+            "type": "string",
+            "default": "prompt",
+            "description": "Which tool argument carries the prompt."
+          },
+          "systemArgument": {
+            "type": "string",
+            "description": "Which tool argument carries the system message, if any."
+          },
+          "maxTokensArgument": {
+            "type": "string"
+          },
+          "transport": {
+            "enum": [
+              "stdio",
+              "http"
+            ]
           }
         }
       }

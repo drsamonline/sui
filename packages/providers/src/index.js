@@ -117,6 +117,19 @@ export function createAdapter(providerId, provider, env = process.env) {
   const initialKey = cachedToken(providerId) ?? provider.apiKey ?? (provider.apiKeyEnv ? env[provider.apiKeyEnv] : undefined);
   const base = { id: providerId, type: provider.type, name: displayName(providerId), hasKey: Boolean(initialKey) };
 
+  // An MCP server is a provider like any other (B5.4). Imported lazily because
+  // @sui/mcp depends on the router, which depends on this package.
+  if (provider.type === 'mcp') {
+    return {
+      ...base,
+      type: 'mcp',
+      chat: async (req, opts = {}) => {
+        const { createMcpAdapter } = await import('@sui/mcp');
+        return createMcpAdapter(providerId, provider, env).chat(req, opts);
+      },
+    };
+  }
+
   /** Build the concrete call for a given key. */
   const build = (key) => {
     if (provider.type === 'openai') return (req, opts) => openaiChat(providerId, provider, key, req, opts);

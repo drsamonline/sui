@@ -14,7 +14,7 @@ import { join, resolve } from 'node:path';
 import { ConfigError } from './errors.js';
 
 const STRATEGIES = ['fallback', 'weighted', 'cheapest', 'latency'];
-const PROVIDER_TYPES = ['openai', 'anthropic', 'gemini', 'mock'];
+const PROVIDER_TYPES = ['openai', 'anthropic', 'gemini', 'mock', 'mcp'];
 
 export function suiHome(env = process.env) {
   return env.SUI_HOME ? resolve(env.SUI_HOME) : join(homedir(), '.sui');
@@ -398,6 +398,8 @@ export function providerHasCredentials(provider, env = process.env, config = nul
   if (!provider) return false;
   if (config && isPaidProvider(provider) && config.paidTiers?.enabled !== true) return false;
   if (provider.type === 'mock') return true;
+  // B5.4: an MCP server authenticates itself (a command or a URL), not via env
+  if (provider.type === 'mcp') return Boolean(provider.url || provider.command);
   if (provider.local) return true;
   if (provider.apiKey) return true;
   if (provider.apiKeyEnv === null) return true;

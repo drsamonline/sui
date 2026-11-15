@@ -57,6 +57,33 @@ Or a URL, for the HTTP transport:
 { "mcpServers": { "sui": { "url": "http://127.0.0.1:8788/mcp" } } }
 ```
 
-## What is not built yet
+## Sui as an MCP client
 
-The **client** half — Sui calling other MCP servers as a provider — is B5.4 and is not written. Resources and prompts are advertised as empty capability objects rather than being faked: an agent that asks gets an empty list, not an error and not an invention.
+An MCP server can be a **provider**. It takes a prompt and returns text, which is the same contract every other adapter honours — so fallback, breakers, budgets, privacy tiers, canary, verification and the ledger all apply to it with no special case.
+
+```json
+{
+  "providers": {
+    "my-mcp": { "type": "mcp", "url": "http://127.0.0.1:8788/mcp", "tool": "summarise" },
+    "local-mcp": { "type": "mcp", "command": "npx", "args": ["-y", "some-mcp-server"], "tool": "ask" }
+  },
+  "models": {
+    "summariser": { "provider": "my-mcp", "model": "summarise", "costPer1kIn": 0, "costPer1kOut": 0, "quality": 3 }
+  },
+  "combos": { "docs": { "strategy": "fallback", "targets": ["summariser"] } }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `tool` | which MCP tool answers a chat request (required) |
+| `url` / `command` | the transport: an endpoint, or a command to launch |
+| `argument` | which tool argument carries the prompt (default `prompt`) |
+| `arguments` | extra arguments passed on every call |
+| `systemArgument`, `maxTokensArgument` | optional mappings for the other two |
+
+The tool's text blocks are joined into the answer; `structuredContent` is kept in `raw` for anyone who wants it. A tool that reports `isError` becomes a provider failure with the tool's own words, so the router falls back exactly as it would from a 500.
+
+**Token counts for an MCP tool are estimated** (characters ÷ 4), because the protocol does not report usage. The ledger records the estimate; it is not a measurement.
+
+Resources and prompts are advertised as empty capability objects rather than being faked: an agent that asks gets an empty list, not an error and not an invention.
