@@ -156,7 +156,7 @@ test('the invariants endpoint reports the audit for the running config', async (
   const gw = await boot(config);
 
   const json = await (await fetch(`${gw.base}/api/invariants`)).json();
-  assert.equal(json.invariants.length, 15);
+  assert.equal(json.invariants.length, 19);
   const i15 = json.audit.find((a) => a.id === 'I15');
   assert.equal(i15.ok, false, 'a plaintext key should be flagged');
   assert.equal(json.paidTiers.enabled, false);

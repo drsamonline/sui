@@ -6,7 +6,9 @@ import { tripsBreaker } from '@sui/router';
 import { Ledger } from '@sui/telemetry';
 
 test('every invariant has an enforcement point and a test, or says it does not', () => {
-  assert.equal(INVARIANTS.length, 15);
+  // the count is asserted so that adding an invariant is a deliberate act: this
+  // test is the reminder to write its enforcement and its proof
+  assert.equal(INVARIANTS.length, 19);
   for (const inv of INVARIANTS) {
     assert.match(inv.id, /^I\d+$/);
     assert.ok(inv.statement.length > 10, `${inv.id} needs a statement`);

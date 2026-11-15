@@ -350,3 +350,19 @@ test('canonicalise does not damage protected spans', () => {
   const result = compress(`${'prose '.repeat(60)}\n\n${code}`, { preset: 'lite' });
   assert.ok(result.text.includes('const a = 1;'), 'the code block is untouched');
 });
+
+test('the compression preview refuses an input large enough to block the loop', async () => {
+  const { makeGateway } = await import('./helpers.js');
+  const gw = await makeGateway(testConfig());
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const res = await fetch(`http://127.0.0.1:${port}/api/compress`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'word '.repeat(50_000), preset: 'standard' }),
+  });
+  assert.equal(res.status, 413);
+  assert.equal((await res.json()).error.type, 'text_too_long');
+  await gw.close();
+});

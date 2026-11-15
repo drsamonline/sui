@@ -136,6 +136,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B11.9 ADRs — done**: ADR-0008 (drift), 0009 (MCP both directions), 0010 (recipes), 0011 (attribution and tenants), 0012 (the four routing policies) join the original seven. `CONTRIBUTING.md` records the invariant discipline, the four harnesses, the three kinds of test failure, and the rules for adapters, engines and kits.
 
+**Audit 2026-11-15 — done**: a second audit (`AUDIT-2026-11-15.md`). Four guarantees that had shipped as prose are now invariants I16–I19 with enforcement points and proofs; the security read found one real issue (`POST /api/compress` accepted 20 MB of CPU-bound work on the event loop, now capped at 200 KB with a test) and confirmed no dynamic code execution, no request-controlled file paths, and constant-time comparison in both places secrets are compared. Accepted risks are listed rather than buried.
+
 **B5.7 two-plane split — done**: `role: model|agent|both`. The model plane holds the credentials and is the only thing that needs egress; the agent plane faces agents and holds none, forwarding through a constant-time-checked service token. Run bounds apply before forwarding; health and status stay open; the model plane refuses the agent surface even with a valid token. 13 tests. `docs/PLANES.md`.
 
 **B5.5 bounded runs and approval gates — done**: four bounds (spend, steps, wall clock, repeated call) plus a per-call approval gate, enforced on the chat path through an `x-sui-run` header. Over a bound is a `409` with the reason; an unknown run id is a `404` rather than a silent unbounded call; an approval is single-use. 15 tests.

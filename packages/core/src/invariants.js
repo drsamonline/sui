@@ -122,6 +122,34 @@ export const INVARIANTS = [
     status: 'partial',
     gap: 'Sui issues no JWTs, so there is no fallback secret to leak — the session secret is generated on first boot and stored 0600. No default password exists because there is no password login. Host-header allowlist and hashed API keys are enforced.',
   },
+  {
+    id: 'I16',
+    statement: 'An agent plane holds no provider credential, and cannot route.',
+    enforced: 'apps/gateway/src/planes.js planePolicy(): role "agent" reports holdsProviderCredentials false and the chat path forwards instead of routing',
+    test: 'test/planes.test.js — "an agent plane with no modelPlaneUrl says so instead of pretending"',
+    status: 'enforced',
+  },
+  {
+    id: 'I17',
+    statement: 'A bounded run cannot exceed its limits: spend, steps, wall clock or a repeated call.',
+    enforced: 'packages/guardrails/src/runs.js RunTracker.check(), called before the call is made and recorded after it returns',
+    test: 'test/runs.test.js — "a bounded run answers until its step limit, then 409 with the reason"',
+    status: 'enforced',
+  },
+  {
+    id: 'I18',
+    statement: 'A free target ranks before a paid one, whatever order it was declared in.',
+    enforced: 'packages/router plan(): usable targets are sorted by tierRank before any strategy ordering',
+    test: 'test/tier-order.test.js — "a paid target declared first does not get the traffic"',
+    status: 'enforced',
+  },
+  {
+    id: 'I19',
+    statement: 'The health history holds no prompt content, and drops any row that carries it.',
+    enforced: 'packages/telemetry/src/history.js HistoryStore: SAMPLE_FIELDS is the whole shape, and a row with an extra field is discarded on load',
+    test: 'test/history.test.js — "there is nowhere for a prompt to go"',
+    status: 'enforced',
+  },
 ];
 
 /** Look one up, for CLIs and error messages that want to quote the rule. */

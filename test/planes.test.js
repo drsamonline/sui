@@ -190,3 +190,7 @@ test('describePlane reports what it was told, not what it assumes', () => {
   assert.equal(described.serviceTokenConfigured, false);
   assert.equal(described.modelPlaneUrl, 'http://127.0.0.1:8787');
 });
+
+test('an unknown role is refused rather than defaulted to both', () => {
+  assert.throws(() => planePolicy('agentplane'), /Unknown plane role/);
+});

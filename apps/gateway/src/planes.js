@@ -19,7 +19,9 @@
 
 import { timingSafeEqual } from 'node:crypto';
 
-export const PLANE_ROLES = ['both', 'model', 'agent'];
+// not exported: the config schema is the authority on valid roles, and a second
+// list would be a second thing to keep in step
+const PLANE_ROLES = ['both', 'model', 'agent'];
 
 /**
  * Compare two secrets without leaking their length or content through timing.
@@ -45,6 +47,11 @@ export function tokenMatches(presented, expected) {
  * @param {string} role
  */
 export function planePolicy(role) {
+  // An unknown role is a configuration mistake, and defaulting it to `both`
+  // would silently give a misconfigured agent plane the whole surface.
+  if (!PLANE_ROLES.includes(role)) {
+    throw new Error(`Unknown plane role "${role}". Use one of: ${PLANE_ROLES.join(', ')}.`);
+  }
   const isModel = role === 'model';
   const isAgent = role === 'agent';
   return {

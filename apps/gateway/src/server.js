@@ -205,6 +205,15 @@ export function createSuiServer(deps) {
           });
         }
         if (!text.trim()) throw new SuiError('Send some text to compress.', { code: 'empty_text', status: 400 });
+        // The body limit is 20 MB, but compression is CPU-bound: a 20 MB prompt
+        // would hold the event loop for seconds. This endpoint is a preview, so
+        // it takes a preview-sized input.
+        if (text.length > 200_000) {
+          throw new SuiError('That is too long to preview — send up to 200,000 characters.', {
+            code: 'text_too_long',
+            status: 413,
+          });
+        }
 
         const result = compressText(text, { preset });
         return sendJson(res, 200, {
