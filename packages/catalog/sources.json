@@ -1,0 +1,69 @@
+{
+  "_comment": "Where endpoint knowledge comes from. Every entry here was read by a person (or by a script in this repository) and its facts — labels and base URLs — were imported into seed.json. This is the provenance ledger for B2.2's sync worker: a source is added deliberately, with its licence and a pinned commit, never fetched at runtime from an unknown place.",
+  "version": 1,
+  "sources": [
+    {
+      "id": "9router-auto-free",
+      "url": "https://github.com/herliansyah/9router-auto-free",
+      "commit": "ae6c91d",
+      "licence": "MIT",
+      "taken": "provider labels, base URLs, the project's own exclusion list",
+      "notTaken": "no code — discovery adapters, credential scanners and scheduler are not used",
+      "importer": "scripts/import-9router.mjs"
+    },
+    {
+      "id": "free-coding-models",
+      "url": "https://github.com/vava-nessa/free-coding-models",
+      "commit": "b9269a5",
+      "licence": "MIT (with added disclaimers)",
+      "taken": "base URLs only",
+      "notTaken": "no code, no model lists",
+      "importer": "scripts/import-endpoints.mjs"
+    },
+    {
+      "id": "openproxy",
+      "url": "https://github.com/quangdang46/openproxy",
+      "commit": "0cc2282",
+      "licence": "MIT",
+      "taken": "base URLs only",
+      "notTaken": "no code — this is a Rust proxy with its own architecture",
+      "importer": "scripts/import-endpoints.mjs"
+    },
+    {
+      "id": "free-model-router",
+      "url": "https://github.com/tokkkie/free-model-router",
+      "commit": "2949c38",
+      "licence": "MIT",
+      "taken": "base URLs only",
+      "notTaken": "no code",
+      "importer": "scripts/import-endpoints.mjs"
+    },
+    {
+      "id": "free-ai-models",
+      "url": "https://github.com/ClawLabsAI/free-ai-models",
+      "commit": "9a0a8fb",
+      "licence": "MIT",
+      "taken": "base URLs only",
+      "notTaken": "no code, no scoring model",
+      "importer": "scripts/import-endpoints.mjs"
+    },
+    {
+      "id": "free-ai-router",
+      "url": "https://github.com/ihuzaifashoukat/free-ai-router",
+      "commit": "4e8652c",
+      "licence": "none declared — facts only",
+      "taken": "base URLs only; a URL is a fact, not creative expression",
+      "notTaken": "no code and no text, because no licence is declared",
+      "importer": "scripts/import-endpoints.mjs"
+    },
+    {
+      "id": "free-llm-gateway",
+      "url": "https://github.com/malda231125/free-llm-gateway",
+      "commit": "5d86d4a",
+      "licence": "none declared — facts only",
+      "taken": "base URLs only",
+      "notTaken": "no code and no text, because no licence is declared",
+      "importer": "scripts/import-endpoints.mjs"
+    }
+  ]
+}

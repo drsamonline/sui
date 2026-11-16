@@ -34,7 +34,8 @@
         "vision"
       ],
       "needs_probe": true,
-      "paid_only": true
+      "paid_only": true,
+      "notes": "Endpoint documented by the provider itself; not imported from a third party."
     },
     {
       "provider": "bai",
@@ -84,6 +85,70 @@
       "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. The upstream project excludes this provider from its own routing."
     },
     {
+      "provider": "chutes",
+      "label": "Chutes",
+      "auth": "key",
+      "key_env": "CHUTES_API_KEY",
+      "base_url": "https://api.chutes.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by 9router-auto-free@ae6c91d. Unverified by this gateway."
+    },
+    {
+      "provider": "deepinfra",
+      "label": "DeepInfra",
+      "auth": "key",
+      "key_env": "DEEPINFRA_API_KEY",
+      "base_url": "https://api.deepinfra.com/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by free-coding-models@b9269a5, openproxy@0cc2282, free-ai-router@4e8652c. Unverified by this gateway."
+    },
+    {
+      "provider": "featherless",
+      "label": "Featherless",
+      "auth": "key",
+      "key_env": "FEATHERLESS_API_KEY",
+      "base_url": "https://api.featherless.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by openproxy@0cc2282. Unverified by this gateway."
+    },
+    {
+      "provider": "fireworks",
+      "label": "Fireworks",
+      "auth": "key",
+      "key_env": "FIREWORKS_API_KEY",
+      "base_url": "https://api.fireworks.ai/inference/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by free-ai-router@4e8652c, openproxy@0cc2282. Unverified by this gateway."
+    },
+    {
       "provider": "gemini",
       "label": "Google Gemini",
       "base_url": "https://generativelanguage.googleapis.com/v1beta",
@@ -99,7 +164,8 @@
         "json_schema",
         "vision"
       ],
-      "needs_probe": true
+      "needs_probe": true,
+      "notes": "Endpoint documented by the provider itself; not imported from a third party."
     },
     {
       "provider": "groq",
@@ -116,7 +182,8 @@
         "tools",
         "json_schema"
       ],
-      "needs_probe": true
+      "needs_probe": true,
+      "notes": "Endpoint documented by the provider itself; not imported from a third party."
     },
     {
       "provider": "kilo-gateway",
@@ -135,6 +202,22 @@
       "notes": "Endpoint recorded by 9router-auto-free@ae6c91d."
     },
     {
+      "provider": "kluster",
+      "label": "Kluster.ai",
+      "auth": "key",
+      "key_env": "KLUSTER_API_KEY",
+      "base_url": "https://api.kluster.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by openproxy@0cc2282. Unverified by this gateway."
+    },
+    {
       "provider": "llm7",
       "label": "LLM7",
       "auth": "none",
@@ -145,7 +228,9 @@
         "chat",
         "streaming"
       ],
-      "needs_probe": true
+      "needs_probe": true,
+      "base_url": "https://api.llm7.io/v1",
+      "notes": "Endpoint recorded by free-coding-models@b9269a5, openproxy@0cc2282."
     },
     {
       "provider": "lmstudio",
@@ -160,7 +245,8 @@
         "chat",
         "streaming"
       ],
-      "needs_probe": true
+      "needs_probe": true,
+      "notes": "Loopback default port for LM Studio; no egress, nothing to verify."
     },
     {
       "provider": "mistral",
@@ -262,7 +348,23 @@
         "tts"
       ],
       "needs_probe": true,
-      "paid_only": true
+      "paid_only": true,
+      "notes": "Endpoint documented by the provider itself; not imported from a third party."
+    },
+    {
+      "provider": "opencode-zen",
+      "label": "OpenCode Zen",
+      "auth": "none",
+      "base_url": "https://opencode.ai/zen/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by free-coding-models@b9269a5, openproxy@0cc2282. Unverified by this gateway. Gateway rather than a provider; may require its own credential."
     },
     {
       "provider": "openrouter",
@@ -278,7 +380,8 @@
         "streaming",
         "tools"
       ],
-      "needs_probe": true
+      "needs_probe": true,
+      "notes": "Endpoint documented by the provider itself; not imported from a third party."
     },
     {
       "provider": "ovhcloud-ai",
@@ -292,7 +395,8 @@
         "streaming"
       ],
       "needs_probe": true,
-      "notes": "Keyless access is limited and changes; probe before use."
+      "notes": "Keyless access is limited and changes; probe before use. Endpoint recorded by free-coding-models@b9269a5, openproxy@0cc2282, free-ai-models@9a0a8fb.",
+      "base_url": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
     },
     {
       "provider": "pollinations",
@@ -307,7 +411,8 @@
         "image"
       ],
       "needs_probe": true,
-      "notes": "Keyless tier named in the spec. ToS and retention must be read before it is allowed to route customer prompts."
+      "notes": "Keyless tier named in the spec. ToS and retention must be read before it is allowed to route customer prompts. Endpoint recorded by free-coding-models@b9269a5, openproxy@0cc2282.",
+      "base_url": "https://gen.pollinations.ai/v1"
     },
     {
       "provider": "poolside",
@@ -324,6 +429,54 @@
       ],
       "needs_probe": true,
       "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway."
+    },
+    {
+      "provider": "sambanova",
+      "label": "SambaNova",
+      "auth": "key",
+      "key_env": "SAMBANOVA_API_KEY",
+      "base_url": "https://api.sambanova.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by free-ai-router@4e8652c, free-model-router@2949c38, free-coding-models@b9269a5. Unverified by this gateway."
+    },
+    {
+      "provider": "scaleway",
+      "label": "Scaleway Generative APIs",
+      "auth": "key",
+      "key_env": "SCALEWAY_API_KEY",
+      "base_url": "https://api.scaleway.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by free-ai-router@4e8652c, free-coding-models@b9269a5. Unverified by this gateway."
+    },
+    {
+      "provider": "siliconflow",
+      "label": "SiliconFlow",
+      "auth": "key",
+      "key_env": "SILICONFLOW_API_KEY",
+      "base_url": "https://api.siliconflow.com/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Endpoint recorded by free-ai-router@4e8652c, openproxy@0cc2282. Unverified by this gateway."
     }
   ]
 }

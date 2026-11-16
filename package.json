@@ -30,7 +30,9 @@
     "publish:dry": "node scripts/publish.mjs --dry-run",
     "publish:real": "node scripts/publish.mjs",
     "adr:gate": "node scripts/adr-gate.mjs",
-    "import:9router": "node scripts/import-9router.mjs"
+    "import:9router": "node scripts/import-9router.mjs",
+    "import:endpoints": "node scripts/import-endpoints.mjs",
+    "import:all": "node scripts/import-9router.mjs && node scripts/import-endpoints.mjs"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"

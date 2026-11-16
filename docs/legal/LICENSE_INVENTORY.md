@@ -40,9 +40,19 @@ Each file lives in `vendor/kits/<name>.js` with its `LICENSE` and its generated 
 
 Separate from the owner grant above: one external MIT project contributed **facts**, not code.
 
+The full ledger is [`packages/catalog/sources.json`](../..//packages/catalog/sources.json), which records each source's URL, pinned commit, licence, what was taken and what was not.
+
 | Source | Pinned commit | What was taken | Licence |
 |---|---|---|---|
-| [`herliansyah/9router-auto-free`](https://github.com/herliansyah/9router-auto-free) | `ae6c91d` | a table of provider labels and base URLs, and that project's own exclusion list, imported into `packages/catalog/seed.json` | MIT |
+| [`herliansyah/9router-auto-free`](https://github.com/herliansyah/9router-auto-free) | `ae6c91d` | provider labels, base URLs, and that project's own exclusion list | MIT |
+| [`vava-nessa/free-coding-models`](https://github.com/vava-nessa/free-coding-models) | `b9269a5` | base URLs only | MIT (with added disclaimers) |
+| [`quangdang46/openproxy`](https://github.com/quangdang46/openproxy) | `0cc2282` | base URLs only | MIT |
+| [`tokkkie/free-model-router`](https://github.com/tokkkie/free-model-router) | `2949c38` | base URLs only | MIT |
+| [`ClawLabsAI/free-ai-models`](https://github.com/ClawLabsAI/free-ai-models) | `9a0a8fb` | base URLs only | MIT |
+| [`ihuzaifashoukat/free-ai-router`](https://github.com/ihuzaifashoukat/free-ai-router) | `4e8652c` | base URLs only | **none declared** |
+| [`malda231125/free-llm-gateway`](https://github.com/malda231125/free-llm-gateway) | `5d86d4a` | base URLs only | **none declared** |
+
+For the two repositories with no licence file, only **facts** were taken — a base URL is a fact, not creative expression — and no code or prose from them appears anywhere in this repository. `test/catalog.test.js` enforces that distinction.
 
 **What was not taken:** no code. The discovery adapters, credential scanners and scheduler in that project are not used here, and nothing from it is vendored into `vendor/`.
 

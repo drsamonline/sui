@@ -138,3 +138,55 @@ test('the import is reproducible and does not duplicate on a second run', async 
   const after = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8')).entries.length;
   assert.equal(after, before, 'a second import must add nothing');
 });
+
+/* -------------------------------------------- the source ledger (B2.2) */
+
+test('every source records its licence and a pinned commit', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const ledger = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'sources.json'), 'utf8'));
+
+  assert.ok(ledger.sources.length >= 7, `expected the seven sources, found ${ledger.sources.length}`);
+  for (const source of ledger.sources) {
+    assert.match(source.url, /^https:\/\/github\.com\//, `${source.id} needs a github url`);
+    assert.match(source.commit, /^[0-9a-f]{7}$/, `${source.id} needs a pinned commit, not a branch`);
+    assert.ok(source.licence, `${source.id} must say what its licence is`);
+    assert.ok(source.taken, `${source.id} must say what was taken`);
+    assert.ok(source.notTaken, `${source.id} must say what was not taken`);
+    // a source with no declared licence may contribute facts only
+    if (/none declared/i.test(source.licence)) {
+      assert.match(source.taken, /base URL|fact/i, `${source.id} has no licence, so only facts may be taken`);
+      assert.match(source.notTaken, /no code/i);
+    }
+  }
+});
+
+test('every catalogue entry with an endpoint says where it came from', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
+
+  const unattributed = seed.entries.filter(
+    (e) => e.base_url && !/recorded by|Imported from|verified|spec|local|loopback/i.test(e.notes ?? ''),
+  );
+  assert.deepEqual(
+    unattributed.map((e) => e.provider),
+    [],
+    'an endpoint with no recorded provenance cannot be audited later',
+  );
+});
+
+test('the three keyless providers the spec names now have endpoints', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
+
+  for (const provider of ['pollinations', 'ovhcloud-ai', 'llm7']) {
+    const entry = seed.entries.find((e) => e.provider === provider);
+    assert.ok(entry, `${provider} is missing from the catalogue`);
+    assert.ok(entry.base_url, `${provider} still has no endpoint`);
+    assert.match(entry.base_url, /^https:\/\//, `${provider} endpoint must be https`);
+    assert.equal(entry.needs_probe, true, `${provider} must still be probed before it routes`);
+    assert.equal(entry.tos, 'review', `${provider} ToS has not been read by anyone here`);
+  }
+});
