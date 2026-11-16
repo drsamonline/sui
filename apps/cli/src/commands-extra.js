@@ -5,13 +5,14 @@
  * Kept out of cli.js so the command table stays readable.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { ConfigError, defaultConfigPath, normalizeConfig, sanitizeConfig, suiHome } from '@sui/core';
+import { applyVerified } from '@sui/catalog';
 import { dedupeEntries, loadSeed, summarise } from '@sui/catalog';
 import { loadKit, kitStatus } from '@sui/kits';
 import { createVault } from '@sui/vault';
@@ -90,10 +91,43 @@ export function cmdCatalog(flags, args) {
 function loadCatalogue() {
   const seedPath = join(ROOT, 'packages', 'catalog', 'seed.json');
   const generatedPath = join(ROOT, 'packages', 'catalog', 'generated.json');
+  const verifiedPath = join(ROOT, 'packages', 'catalog', 'verified.json');
   const entries = [];
   if (existsSync(seedPath)) entries.push(...loadSeed(seedPath));
   if (existsSync(generatedPath)) entries.push(...loadSeed(generatedPath));
-  return dedupeEntries(entries);
+  const observed = existsSync(verifiedPath) ? JSON.parse(readFileSync(verifiedPath, 'utf8')).entries ?? [] : [];
+  return dedupeEntries(applyVerified(entries, observed));
+}
+
+/** Write what a probe observed, atomically, without touching the seed. */
+function writeVerified(results) {
+  const path = join(ROOT, 'packages', 'catalog', 'verified.json');
+  const current = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { version: 1, entries: [] };
+  const byProvider = new Map((current.entries ?? []).map((row) => [row.provider, row]));
+
+  for (const result of results) {
+    if (!result.ok) {
+      // a failure does not erase a previous verification: the endpoint may be
+      // down, not wrong. `--revoke` is how a route is withdrawn.
+      continue;
+    }
+    byProvider.set(result.provider, {
+      provider: result.provider,
+      base_url: result.base_url ?? byProvider.get(result.provider)?.base_url ?? null,
+      probe_model: result.probe_model ?? null,
+      models: result.models ?? [],
+      verified_at: result.checkedAt,
+      fixtureVersion: result.fixtureVersion,
+      capabilities: result.capabilities ?? ['chat'],
+      tos: byProvider.get(result.provider)?.tos ?? 'review',
+    });
+  }
+
+  const next = { ...current, entries: [...byProvider.values()].sort((a, b) => a.provider.localeCompare(b.provider)) };
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
+  renameSync(tmp, path);
+  return next.entries.length;
 }
 
 /* -------------------------------------------------------------------- vault */
@@ -963,9 +997,34 @@ export async function cmdProbe(flags, args) {
 
   const ok = results.filter((r) => r.ok).length;
   console.log('');
-  console.log(`${ok} of ${results.length} probed entries are verified.`);
+  console.log(`${ok} of ${results.length} probed entries answered.`);
+
+  if (flags.revoke) {
+    const provider = args[0] ?? flags.provider;
+    const path = join(ROOT, 'packages', 'catalog', 'verified.json');
+    const current = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { version: 1, entries: [] };
+    const before = (current.entries ?? []).length;
+    current.entries = (current.entries ?? []).filter((row) => row.provider !== provider);
+    writeFileSync(path, `${JSON.stringify(current, null, 2)}\n`);
+    console.log(`Revoked ${before - current.entries.length} verification(s) for ${provider}.`);
+    return;
+  }
+
+  if (flags.write) {
+    if (!ok) {
+      console.log('Nothing to write: no entry answered, so no route was promoted.');
+      return;
+    }
+    const total = writeVerified(results.map((r) => ({ ...r, base_url: probeable.find((e) => e.provider === r.provider)?.base_url })));
+    console.log(`Wrote ${ok} verification(s) to packages/catalog/verified.json (${total} on record).`);
+    console.log('Those entries are now routable. `sui catalog` shows them as verified.');
+    return;
+  }
+
   if (!ok) {
     console.log('Nothing is routable yet. That is the honest state, not a bug: a route becomes verified by answering.');
+  } else {
+    console.log('Run `sui probe --write` to promote what answered into the catalogue.');
   }
 }
 

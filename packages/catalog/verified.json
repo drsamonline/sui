@@ -1,0 +1,5 @@
+{
+  "_comment": "What this gateway has actually observed, written by `sui probe --write`. Separate from seed.json on purpose: seed holds facts imported from sources, this holds results measured here. An entry appears here only after a probe answered; deleting a row un-verifies the provider, which is the intended way to revoke a route.",
+  "version": 1,
+  "entries": []
+}

@@ -152,6 +152,36 @@ export function scoreEntry(entry, facts = {}) {
 }
 
 /** Load a seed catalogue from disk. Accepts {entries:[...]} or a bare array. */
+/**
+ * Merge observed facts over imported ones.
+ *
+ * `seed.json` holds what a source recorded; `verified.json` holds what this
+ * gateway measured. Keeping them apart means a probe can never rewrite
+ * provenance, and revoking a route is deleting one row rather than editing a
+ * curated file.
+ *
+ * @param {any[]} entries
+ * @param {any[]} observed
+ */
+export function applyVerified(entries, observed = []) {
+  const byProvider = new Map(observed.map((row) => [row.provider, row]));
+  return entries.map((entry) => {
+    const seen = byProvider.get(entry.provider);
+    if (!seen) return entry;
+    return {
+      ...entry,
+      base_url: seen.base_url ?? entry.base_url,
+      probe_model: seen.probe_model ?? entry.probe_model ?? null,
+      models: seen.models ?? entry.models ?? [],
+      verified_at: seen.verified_at ?? entry.verified_at ?? null,
+      // a verified entry is routable: the probe is what makes it so
+      needs_probe: seen.verified_at ? false : entry.needs_probe,
+      tos: seen.tos ?? entry.tos,
+      capabilities: seen.capabilities ? [...new Set([...entry.capabilities, ...seen.capabilities])] : entry.capabilities,
+    };
+  });
+}
+
 export function loadSeed(path) {
   const parsed = JSON.parse(readFileSync(path, 'utf8'));
   const entries = Array.isArray(parsed) ? parsed : parsed.entries ?? [];

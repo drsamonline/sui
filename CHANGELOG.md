@@ -45,13 +45,15 @@ The version where the gateway became usable by agents, stopped being one process
 
 ### Verified at this version
 
-485 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
+491 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
 
 ### Sandbox (B5.6)
 
 - `sui sandbox <file>` runs a snippet in a separate process with Node's permission model, a network namespace, a stripped environment and hard limits; `sui sandbox --self-test` runs a 14-case attack suite. Not on the request path.
 
 ### Catalogue
+
+- `sui probe --write` promotes what answered into `packages/catalog/verified.json`; `--revoke` withdraws a route. Before this, a probe reported and recorded nothing, so no entry could ever become routable.
 
 - `npm run import:all` imports provider endpoints (facts only, credited) from seven reference projects: 29 catalogue entries now carry a base URL, including the three keyless providers the spec names. Nothing is routable until `sui probe` verifies it. `packages/catalog/sources.json` is the ledger.
 

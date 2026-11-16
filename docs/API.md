@@ -142,6 +142,16 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## Verifying an endpoint
+
+```bash
+npx sui probe                 # report only — nothing changes
+npx sui probe --write         # promote what answered into packages/catalog/verified.json
+npx sui probe <provider> --revoke   # withdraw a route
+```
+
+`seed.json` holds what a source recorded; `verified.json` holds what this gateway measured. Keeping them apart means a probe can never rewrite provenance, and revoking a route is deleting one row rather than editing a curated file. A verified entry becomes routable — that is the only way one ever does. A failed probe does **not** erase a previous verification: the endpoint may be down, not wrong.
+
 ## Catalogue contents
 
 `packages/catalog/seed.json` is the catalogue: 29 entries, each naming the source of its endpoint. `packages/catalog/generated.json` is **empty by design** — the app-endpoints dataset is a directory of public APIs (QR codes, avatars, random words), not a source of model endpoints, and three attempts to filter it produced exactly that filler.
