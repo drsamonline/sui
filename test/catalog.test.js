@@ -77,3 +77,64 @@ test('the shipped seed loads, and every entry is honest about being unprobed', (
   assert.equal(summary.routable, 0, 'a fresh install has no verified route yet — that is the point');
   assert.equal(summary.awaiting_probe, seed.length);
 });
+
+/* ------------------------------------------ the 9router import (B2.5 seed) */
+
+test('every catalogue entry is well formed and could be probed', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { normalizeEntry, poolKey } = await import('@sui/catalog');
+  const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
+
+  const keys = new Set();
+  for (const raw of seed.entries) {
+    const entry = normalizeEntry(raw);
+    assert.ok(entry.provider.length > 0);
+    assert.ok(['none', 'key'].includes(entry.auth));
+    assert.ok(['allowed', 'review', 'avoid'].includes(entry.tos), `${entry.provider} has tos ${entry.tos}`);
+    if (entry.base_url) {
+      assert.match(entry.base_url, /^https?:\/\//, `${entry.provider} has a malformed base_url`);
+      // plain http is only acceptable for something on this machine
+      if (entry.base_url.startsWith('http://')) {
+        assert.match(entry.base_url, /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])/, `${entry.provider} points at plain http off-loopback`);
+      }
+    }
+    // a keyed provider must say which variable holds the key
+    if (entry.auth === 'key') assert.ok(entry.key_env, `${entry.provider} needs a key but names no key_env`);
+    const key = poolKey(entry);
+    assert.equal(keys.has(key), false, `two entries share the pool key ${key}`);
+    keys.add(key);
+  }
+});
+
+test('an imported endpoint is never marked routable on someone else\'s word', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
+
+  const imported = seed.entries.filter((e) => /9router-auto-free@/.test(e.notes ?? ''));
+  assert.ok(imported.length >= 8, `expected the import to have landed, found ${imported.length}`);
+
+  for (const entry of imported) {
+    assert.equal(entry.needs_probe, true, `${entry.provider} must still be probed`);
+    assert.equal(entry.tos, 'review', `${entry.provider} cannot be 'allowed' on the strength of a URL`);
+    assert.equal(entry.verified_at ?? null, null, `${entry.provider} was not verified by this gateway`);
+  }
+});
+
+test('the import is reproducible and does not duplicate on a second run', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { existsSync } = await import('node:fs');
+  const source = join(process.cwd(), '..', '9router');
+  if (!existsSync(join(source, 'providers.js'))) {
+    // the reference clone is not part of this repository; the seed it produced is
+    assert.ok(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8').includes('9router-auto-free@'));
+    return;
+  }
+  const before = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8')).entries.length;
+  const { execFileSync } = await import('node:child_process');
+  execFileSync(process.execPath, ['scripts/import-9router.mjs', '--source', source], { cwd: process.cwd(), encoding: 'utf8' });
+  const after = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8')).entries.length;
+  assert.equal(after, before, 'a second import must add nothing');
+});

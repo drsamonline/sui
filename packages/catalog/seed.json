@@ -3,24 +3,11 @@
   "version": 1,
   "entries": [
     {
-      "provider": "pollinations",
-      "label": "Pollinations",
-      "auth": "none",
-      "model_family": "openai-compatible",
-      "tos": "review",
-      "privacy_retention": "unknown",
-      "capabilities": [
-        "chat",
-        "streaming",
-        "image"
-      ],
-      "needs_probe": true,
-      "notes": "Keyless tier named in the spec. ToS and retention must be read before it is allowed to route customer prompts."
-    },
-    {
-      "provider": "ovhcloud-ai",
-      "label": "OVHcloud AI Endpoints",
-      "auth": "none",
+      "provider": "airforce",
+      "label": "API.airforce",
+      "auth": "key",
+      "key_env": "AIRFORCE_API_KEY",
+      "base_url": "https://api.airforce/v1",
       "model_family": "openai-compatible",
       "tos": "review",
       "privacy_retention": "unknown",
@@ -29,64 +16,88 @@
         "streaming"
       ],
       "needs_probe": true,
-      "notes": "Keyless access is limited and changes; probe before use."
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway."
     },
     {
-      "provider": "llm7",
-      "label": "LLM7",
-      "auth": "none",
-      "model_family": "openai-compatible",
-      "tos": "review",
-      "privacy_retention": "unknown",
-      "capabilities": [
-        "chat",
-        "streaming"
-      ],
-      "needs_probe": true
-    },
-    {
-      "provider": "kilo-gateway",
-      "label": "Kilo Gateway",
-      "auth": "none",
-      "model_family": "openai-compatible",
-      "tos": "review",
-      "privacy_retention": "unknown",
-      "capabilities": [
-        "chat",
-        "streaming",
-        "tools"
-      ],
-      "needs_probe": true
-    },
-    {
-      "provider": "ollama",
-      "label": "Ollama (this machine)",
-      "base_url": "http://127.0.0.1:11434/v1",
-      "auth": "none",
-      "local": true,
-      "model_family": "openai-compatible",
+      "provider": "anthropic",
+      "label": "Anthropic",
+      "base_url": "https://api.anthropic.com/v1",
+      "auth": "key",
+      "key_env": "ANTHROPIC_API_KEY",
+      "model_family": "claude",
       "tos": "allowed",
-      "privacy_retention": "none",
+      "privacy_retention": "short",
       "capabilities": [
         "chat",
         "streaming",
-        "embeddings"
+        "tools",
+        "vision"
       ],
       "needs_probe": true,
-      "notes": "Loopback literal only. Discovery never scans hostnames, LAN addresses or redirects."
+      "paid_only": true
     },
     {
-      "provider": "lmstudio",
-      "label": "LM Studio (this machine)",
-      "base_url": "http://127.0.0.1:1234/v1",
+      "provider": "bai",
+      "label": "B.ai",
       "auth": "none",
-      "local": true,
+      "base_url": "https://api.b.ai/v1",
       "model_family": "openai-compatible",
-      "tos": "allowed",
-      "privacy_retention": "none",
+      "tos": "review",
+      "privacy_retention": "unknown",
       "capabilities": [
         "chat",
         "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. Upstream uses a \"bai\" credential for this provider, which is not a plain API key. The upstream project excludes this provider from its own routing."
+    },
+    {
+      "provider": "bazaarlink",
+      "label": "Bazaarlink",
+      "auth": "key",
+      "key_env": "BAZAARLINK_API_KEY",
+      "base_url": "https://bazaarlink.ai/api/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. The upstream project excludes this provider from its own routing."
+    },
+    {
+      "provider": "cerebras",
+      "label": "Cerebras",
+      "auth": "key",
+      "key_env": "CEREBRAS_API_KEY",
+      "base_url": "https://api.cerebras.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. The upstream project excludes this provider from its own routing."
+    },
+    {
+      "provider": "gemini",
+      "label": "Google Gemini",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta",
+      "auth": "key",
+      "key_env": "GEMINI_API_KEY",
+      "model_family": "gemini",
+      "tos": "allowed",
+      "privacy_retention": "long",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "tools",
+        "json_schema",
+        "vision"
       ],
       "needs_probe": true
     },
@@ -108,38 +119,128 @@
       "needs_probe": true
     },
     {
-      "provider": "gemini",
-      "label": "Google Gemini",
-      "base_url": "https://generativelanguage.googleapis.com/v1beta",
-      "auth": "key",
-      "key_env": "GEMINI_API_KEY",
-      "model_family": "gemini",
-      "tos": "allowed",
-      "privacy_retention": "long",
-      "capabilities": [
-        "chat",
-        "streaming",
-        "tools",
-        "json_schema",
-        "vision"
-      ],
-      "needs_probe": true
-    },
-    {
-      "provider": "openrouter",
-      "label": "OpenRouter (:free models)",
-      "base_url": "https://openrouter.ai/api/v1",
-      "auth": "key",
-      "key_env": "OPENROUTER_API_KEY",
-      "model_family": "mixed",
-      "tos": "allowed",
-      "privacy_retention": "short",
+      "provider": "kilo-gateway",
+      "label": "Kilo Gateway",
+      "auth": "none",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
       "capabilities": [
         "chat",
         "streaming",
         "tools"
       ],
+      "needs_probe": true,
+      "base_url": "https://api.kilo.ai/api/gateway",
+      "notes": "Endpoint recorded by 9router-auto-free@ae6c91d."
+    },
+    {
+      "provider": "llm7",
+      "label": "LLM7",
+      "auth": "none",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
       "needs_probe": true
+    },
+    {
+      "provider": "lmstudio",
+      "label": "LM Studio (this machine)",
+      "base_url": "http://127.0.0.1:1234/v1",
+      "auth": "none",
+      "local": true,
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "none",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true
+    },
+    {
+      "provider": "mistral",
+      "label": "Mistral",
+      "auth": "key",
+      "key_env": "MISTRAL_API_KEY",
+      "base_url": "https://api.mistral.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. The upstream project excludes this provider from its own routing."
+    },
+    {
+      "provider": "nvidia",
+      "label": "NVIDIA NIM",
+      "auth": "key",
+      "key_env": "NVIDIA_API_KEY",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. The upstream project excludes this provider from its own routing."
+    },
+    {
+      "provider": "ollama",
+      "label": "Ollama (this machine)",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "auth": "none",
+      "local": true,
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "none",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "embeddings"
+      ],
+      "needs_probe": true,
+      "notes": "Loopback literal only. Discovery never scans hostnames, LAN addresses or redirects."
+    },
+    {
+      "provider": "ollama-cloud",
+      "label": "Ollama Cloud",
+      "auth": "key",
+      "key_env": "OLLAMA_API_KEY",
+      "base_url": "https://api.ollama.com/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway."
+    },
+    {
+      "provider": "openagentic",
+      "label": "OpenAgentic",
+      "auth": "none",
+      "base_url": "https://openagentic.id/api/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. Upstream uses a \"scan\" credential for this provider, which is not a plain API key. The upstream project excludes this provider from its own routing."
     },
     {
       "provider": "openai",
@@ -164,22 +265,65 @@
       "paid_only": true
     },
     {
-      "provider": "anthropic",
-      "label": "Anthropic",
-      "base_url": "https://api.anthropic.com/v1",
+      "provider": "openrouter",
+      "label": "OpenRouter (:free models)",
+      "base_url": "https://openrouter.ai/api/v1",
       "auth": "key",
-      "key_env": "ANTHROPIC_API_KEY",
-      "model_family": "claude",
+      "key_env": "OPENROUTER_API_KEY",
+      "model_family": "mixed",
       "tos": "allowed",
       "privacy_retention": "short",
       "capabilities": [
         "chat",
         "streaming",
-        "tools",
-        "vision"
+        "tools"
+      ],
+      "needs_probe": true
+    },
+    {
+      "provider": "ovhcloud-ai",
+      "label": "OVHcloud AI Endpoints",
+      "auth": "none",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
       ],
       "needs_probe": true,
-      "paid_only": true
+      "notes": "Keyless access is limited and changes; probe before use."
+    },
+    {
+      "provider": "pollinations",
+      "label": "Pollinations",
+      "auth": "none",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming",
+        "image"
+      ],
+      "needs_probe": true,
+      "notes": "Keyless tier named in the spec. ToS and retention must be read before it is allowed to route customer prompts."
+    },
+    {
+      "provider": "poolside",
+      "label": "Poolside",
+      "auth": "key",
+      "key_env": "POOLSIDE_API_KEY",
+      "base_url": "https://inference.poolside.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "needs_probe": true,
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway."
     }
   ]
 }

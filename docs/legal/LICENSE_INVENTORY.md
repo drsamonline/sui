@@ -36,6 +36,20 @@ Each file lives in `vendor/kits/<name>.js` with its `LICENSE` and its generated 
 
 **How they load:** `packages/kits` evaluates each kit in an isolated `node:vm` context, because they are browser IIFEs that attach to a global. No global pollution, no ESM/CJS mismatch, and one broken kit cannot take the gateway down. See ADR-0007.
 
+## Third-party code and facts (MIT, credited)
+
+Separate from the owner grant above: one external MIT project contributed **facts**, not code.
+
+| Source | Pinned commit | What was taken | Licence |
+|---|---|---|---|
+| [`herliansyah/9router-auto-free`](https://github.com/herliansyah/9router-auto-free) | `ae6c91d` | a table of provider labels and base URLs, and that project's own exclusion list, imported into `packages/catalog/seed.json` | MIT |
+
+**What was not taken:** no code. The discovery adapters, credential scanners and scheduler in that project are not used here, and nothing from it is vendored into `vendor/`.
+
+**What was not assumed:** every imported entry is `needs_probe: true` and `tos: review`. An endpoint that someone else recorded is not an endpoint this gateway has verified, and a URL is not a terms-of-service read. `test/catalog.test.js` fails if an imported entry is ever marked routable on the strength of the import alone.
+
+Re-run the import with `npm run import:9router -- --source ../9router`. It is idempotent: a second run adds nothing.
+
 ## Not vendored, and why
 
 | Repo | Reason | Path forward |

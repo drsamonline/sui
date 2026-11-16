@@ -29,7 +29,8 @@
     "adr": "node scripts/adr-check.mjs",
     "publish:dry": "node scripts/publish.mjs --dry-run",
     "publish:real": "node scripts/publish.mjs",
-    "adr:gate": "node scripts/adr-gate.mjs"
+    "adr:gate": "node scripts/adr-gate.mjs",
+    "import:9router": "node scripts/import-9router.mjs"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"

@@ -45,11 +45,15 @@ The version where the gateway became usable by agents, stopped being one process
 
 ### Verified at this version
 
-472 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
+475 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
 
 ### Sandbox (B5.6)
 
 - `sui sandbox <file>` runs a snippet in a separate process with Node's permission model, a network namespace, a stripped environment and hard limits; `sui sandbox --self-test` runs a 14-case attack suite. Not on the request path.
+
+### Catalogue
+
+- `npm run import:9router` imports provider endpoints (facts only, MIT, credited) from a reference project: 9 new providers, the probeable set up from 7 to 17. Nothing is routable until `sui probe` verifies it.
 
 ### Known gaps
 

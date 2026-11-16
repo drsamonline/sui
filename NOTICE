@@ -26,6 +26,11 @@ The works covered:
 
 Each vendored file keeps its upstream LICENSE beside it in vendor/kits/.
 
+The provider catalogue in packages/catalog/seed.json includes endpoint facts
+imported from herliansyah/9router-auto-free (ae6c91d), MIT, copyright 2026
+Herliansyah. Facts only — labels and base URLs — no code. Every imported entry
+remains unverified by this gateway (needs_probe: true, tos: review).
+
 The provider catalogue in packages/catalog/generated.json is derived from
 drsamonline/app-endpoints (3af3769), a directory of public APIs. Each entry
 there remains the property of the API's own operator; Sui ships names, links
