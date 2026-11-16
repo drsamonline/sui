@@ -286,3 +286,64 @@ test('a provider that fails reads as down, with the reason attached', async () =
   assert.equal(row.history.filter((h) => h.ok === false).length, 2);
   await fake.close();
 });
+
+/* ---------------------------------- the model is discovered, not assumed */
+
+test('the readiness probe calls a model the endpoint actually listed', async () => {
+  const { probeTarget } = await import('@sui/prober');
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    seen.push({ url: String(url), body: init?.body ? JSON.parse(init.body) : null });
+    if (String(url).endsWith('/models')) {
+      return new Response(
+        JSON.stringify({ data: [{ id: 'text-embedding-3-small' }, { id: 'openai-fast' }, { id: 'whisper-1' }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'ready' } }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const entry = { provider: 'imported', base_url: 'https://example.test/v1', model_family: 'openai-compatible', auth: 'none', capabilities: ['chat'] };
+  const result = await probeTarget(entry, { fetchImpl, timeoutMs: 1000 });
+
+  const chat = seen.find((c) => c.url.endsWith('/chat/completions'));
+  assert.equal(chat.body.model, 'openai-fast', 'an embedding or speech model is not a chat model');
+  assert.equal(result.levels.liveness.models, 1, 'the embedding and speech models were filtered out');
+});
+
+test('a family name is never sent as a model', async () => {
+  const { probeTarget } = await import('@sui/prober');
+  const bodies = [];
+  const fetchImpl = async (url, init) => {
+    if (String(url).endsWith('/models')) {
+      return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'ready' } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  await probeTarget({ provider: 'x', base_url: 'https://example.test/v1', model_family: 'openai-compatible', auth: 'none' }, { fetchImpl, timeoutMs: 1000 });
+  assert.notEqual(bodies[0].model, 'openai-compatible', 'a category is not a model id');
+  assert.equal(bodies[0].model, 'default');
+});
+
+test('an explicit probe_model wins over discovery', async () => {
+  const { probeTarget } = await import('@sui/prober');
+  const bodies = [];
+  const fetchImpl = async (url, init) => {
+    if (String(url).endsWith('/models')) {
+      return new Response(JSON.stringify({ data: [{ id: 'listed-model' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'ready' } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  await probeTarget(
+    { provider: 'x', base_url: 'https://example.test/v1', model_family: 'openai-compatible', probe_model: 'chosen-model', auth: 'none' },
+    { fetchImpl, timeoutMs: 1000 },
+  );
+  assert.equal(bodies[0].model, 'chosen-model');
+});

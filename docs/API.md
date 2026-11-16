@@ -142,6 +142,15 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## Catalogue sync (B2.2)
+
+```bash
+npm run catalog:sync            # audit the ledger against the seed
+npm run catalog:sync:online     # also compare each pinned commit with GitHub's HEAD
+```
+
+It reports; it never rewrites `seed.json`. An upstream URL that moves should be a deliberate update with a human reading the diff, not a background job changing what the gateway talks to.
+
 ## Catalogue
 
 `npm run import:9router -- --source ../9router` imports provider endpoints from an MIT reference project into `packages/catalog/seed.json`. Imported entries are always `needs_probe: true` and `tos: review`; `npx sui probe` is what makes one routable.

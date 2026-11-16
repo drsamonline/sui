@@ -32,7 +32,9 @@
     "adr:gate": "node scripts/adr-gate.mjs",
     "import:9router": "node scripts/import-9router.mjs",
     "import:endpoints": "node scripts/import-endpoints.mjs",
-    "import:all": "node scripts/import-9router.mjs && node scripts/import-endpoints.mjs"
+    "import:all": "node scripts/import-9router.mjs && node scripts/import-endpoints.mjs",
+    "catalog:sync": "node scripts/sync-catalog.mjs",
+    "catalog:sync:online": "node scripts/sync-catalog.mjs --online"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"

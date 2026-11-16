@@ -190,3 +190,29 @@ test('the three keyless providers the spec names now have endpoints', async () =
     assert.equal(entry.tos, 'review', `${provider} ToS has not been read by anyone here`);
   }
 });
+
+/* --------------------------------------- the sync worker (B2.2) */
+
+test('the sync worker finds the ledger and the seed in agreement', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const out = execFileSync(process.execPath, ['scripts/sync-catalog.mjs', '--json'], { cwd: process.cwd(), encoding: 'utf8' });
+  const report = JSON.parse(out);
+
+  assert.deepEqual(report.problems, [], `the ledger and the seed disagree: ${report.problems.join('; ')}`);
+  assert.ok(report.sources.length >= 7);
+  for (const source of report.sources) {
+    assert.equal(source.status, 'pinned', `${source.id} is not pinned`);
+    assert.ok(source.entries > 0 || source.id === 'free-llm-gateway', `${source.id} contributes no entries`);
+  }
+});
+
+test('the sync worker never rewrites the seed from the network', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const before = readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8');
+  const { execFileSync } = await import('node:child_process');
+  // offline run: proves the default path touches nothing
+  execFileSync(process.execPath, ['scripts/sync-catalog.mjs'], { cwd: process.cwd(), encoding: 'utf8' });
+  const after = readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8');
+  assert.equal(after, before, 'a sync is a report, not a mutation');
+});

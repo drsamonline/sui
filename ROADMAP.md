@@ -136,6 +136,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B11.9 ADRs — done**: ADR-0008 (drift), 0009 (MCP both directions), 0010 (recipes), 0011 (attribution and tenants), 0012 (the four routing policies) join the original seven. `CONTRIBUTING.md` records the invariant discipline, the four harnesses, the three kinds of test failure, and the rules for adapters, engines and kits.
 
+**B2.2 catalogue sync — done**: `npm run catalog:sync` audits the seven-source ledger against the seed, reports orphans and (with `--online`) which pins have moved. It is a report, never a mutation — a test asserts the seed is byte-identical after a run. Also fixed in the prober: an imported entry carries a model *family*, not a model name, so readiness now calls a model the endpoint actually listed rather than sending "openai-compatible" as a model id.
+
 **B2.5 endpoint seeding — done (verification pending egress)**: seven reference projects mined for **facts only**, taking the catalogue from 7 entries with an endpoint to 29. The three keyless providers the spec names — `pollinations`, `ovhcloud-ai`, `llm7` — now have one. Two sources declare no licence, so only base URLs were taken from them; `test/catalog.test.js` enforces that line.
 
 **B2.5 endpoint seeding (first pass) — done**: `npm run import:9router` reads an MIT reference project and imports **facts** — provider labels and base URLs — into the catalogue, plus that project's own exclusion list as a note. No code was taken. Every imported entry is `needs_probe: true` and `tos: review`, because an endpoint someone else recorded is not one this gateway verified. The probeable set went from 7 to 17 entries; `sui probe` on a networked machine is what promotes them.

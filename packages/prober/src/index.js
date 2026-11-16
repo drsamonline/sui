@@ -91,9 +91,28 @@ export async function probeTarget(entry, opts = {}) {
   const reasons = [];
 
   // ---- liveness -----------------------------------------------------------
+  // The model list is also how we learn what to *call*. Imported entries carry a
+  // model family, not a model name, and probing with the family ("openai-compatible")
+  // would fail against a perfectly healthy endpoint.
+  /** @type {string[]} */
+  let discoveredModels = [];
   levels.liveness = await timed(async () => {
     const res = await fetchImpl(`${base}/models`, { method: 'GET', headers, signal: AbortSignal.timeout(timeoutMs) });
-    return { ok: res.ok, status: res.status, note: res.ok ? 'answered /models' : `HTTP ${res.status}` };
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      const rows = Array.isArray(json?.data) ? json.data : Array.isArray(json?.models) ? json.models : [];
+      discoveredModels = rows
+        .map((row) => (typeof row === 'string' ? row : row?.id ?? row?.name))
+        .filter((id) => typeof id === 'string' && id.length > 0)
+        // a chat probe wants a chat model, not an embedding or a speech model
+        .filter((id) => !/embed|whisper|tts|moderation|rerank|guard|image|video|audio/i.test(id));
+    }
+    return {
+      ok: res.ok,
+      status: res.status,
+      models: discoveredModels.length,
+      note: res.ok ? `answered /models (${discoveredModels.length} model(s))` : `HTTP ${res.status}`,
+    };
   });
 
   // ---- readiness ----------------------------------------------------------
@@ -120,7 +139,7 @@ export async function probeTarget(entry, opts = {}) {
     const res = await fetchImpl(`${base}/chat/completions`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model: entry.probe_model ?? entry.model_family ?? 'default', ...FIXTURES.readiness }),
+      body: JSON.stringify({ model: probeModel(entry, discoveredModels), ...FIXTURES.readiness }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
@@ -277,6 +296,22 @@ async function probeTools({ fetchImpl, base, headers, entry, timeoutMs }) {
     const ok = Boolean(message && (Array.isArray(message.tool_calls) || typeof message.content === 'string'));
     return { ok, status: res.status, note: ok ? 'tool schema accepted' : 'response had neither tool_calls nor content' };
   });
+}
+
+/**
+ * Which model to call for the readiness check.
+ *
+ * In order: an explicit `probe_model` from the catalogue, then the first model
+ * the endpoint itself listed, then a known default for a family we recognise.
+ * A family name like "openai-compatible" is never sent as a model — that is a
+ * category, and every real endpoint rejects it.
+ */
+function probeModel(entry, discovered = []) {
+  if (entry.probe_model) return entry.probe_model;
+  if (discovered.length) return discovered[0];
+  const family = entry.model_family;
+  if (family && !/compatible|mixed|unknown/i.test(family)) return family;
+  return 'default';
 }
 
 function modelFor(entry) {
