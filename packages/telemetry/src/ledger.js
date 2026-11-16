@@ -11,7 +11,7 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 /** @typedef {{
@@ -29,6 +29,19 @@ export class Ledger {
     this.file = opts.file ?? null;
     this.maxRecords = opts.maxRecords ?? 5000;
     this.salt = opts.salt ?? 'sui-local-salt';
+    /**
+     * Per-day totals, kept outside the record window.
+     *
+     * The window is capped at maxRecords for memory, which is right — but a
+     * budget computed from the window silently stops counting once a day passes
+     * 5,000 turns, and a budget that stops counting is worse than no budget. This
+     * map is O(1) to update and does not depend on the window at all.
+     *
+     * @type {Map<string, {costUsd: number, turns: number, failed: number, cached: number, byProvider: Map<string, number>}>}
+     */
+    this.daily = new Map();
+    this.maxFileBytes = Number(opts.maxFileBytes ?? 64 * 1024 * 1024);
+    this.fileBytes = 0;
     /** @type {LedgerRecord[]} */
     this.records = [];
     if (this.file) {
@@ -40,13 +53,19 @@ export class Ledger {
   #load() {
     try {
       const raw = readFileSync(this.file, 'utf8');
+      this.fileBytes = Buffer.byteLength(raw);
       for (const line of raw.split('\n')) {
         if (!line.trim()) continue;
+        let row;
         try {
-          this.records.push(JSON.parse(line));
+          row = JSON.parse(line);
         } catch {
-          /* a torn last line from a hard kill is not worth failing over */
+          continue; // a torn last line from a hard kill is not worth failing over
         }
+        // every row counts towards its day, including rows that fall outside the
+        // window: the totals must not depend on how much history is held
+        this.#bumpDaily(row);
+        this.records.push(row);
       }
       if (this.records.length > this.maxRecords) {
         this.records = this.records.slice(-this.maxRecords);
@@ -54,6 +73,60 @@ export class Ledger {
       }
     } catch {
       this.records = [];
+    }
+  }
+
+  /** @param {any} row */
+  #dayKey(row) {
+    const d = new Date(row?.ts ?? Date.now());
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /** @param {any} row */
+  #bumpDaily(row) {
+    const key = this.#dayKey(row);
+    let day = this.daily.get(key);
+    if (!day) {
+      day = { costUsd: 0, turns: 0, failed: 0, cached: 0, byProvider: new Map() };
+      this.daily.set(key, day);
+      // keep at most three days: yesterday is useful, last week is not
+      if (this.daily.size > 3) {
+        const oldest = [...this.daily.keys()].sort()[0];
+        this.daily.delete(oldest);
+      }
+    }
+    day.costUsd += Number(row.costUsd ?? 0);
+    if (row.ok) day.turns += 1;
+    else day.failed += 1;
+    if (row.cached) day.cached += 1;
+    const provider = row.provider ?? 'unknown';
+    day.byProvider.set(provider, (day.byProvider.get(provider) ?? 0) + Number(row.costUsd ?? 0));
+  }
+
+  /** The bucket for a given day, or an empty one. */
+  #day(now = new Date()) {
+    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return this.daily.get(key) ?? { costUsd: 0, turns: 0, failed: 0, cached: 0, byProvider: new Map() };
+  }
+
+  /**
+   * Rotate the file when it grows past the cap.
+   *
+   * Without this a gateway left running appends forever: at 20 rps a three-day
+   * soak writes millions of lines, and nothing prunes a file, only an array.
+   */
+  #rotateIfNeeded(nextBytes) {
+    if (!this.file) return;
+    this.fileBytes += nextBytes;
+    if (this.fileBytes <= this.maxFileBytes) return;
+    try {
+      renameSync(this.file, `${this.file}.1`);
+      // leave an empty file behind: a reader that stats the live path should not
+      // find it missing just because a rotation happened between two writes
+      writeFileSync(this.file, '');
+      this.fileBytes = 0;
+    } catch {
+      this.fileBytes = 0; // if the rename fails, keep appending rather than stop recording
     }
   }
 
@@ -102,10 +175,13 @@ export class Ledger {
       promptCacheWarm: entry.promptCacheWarm ?? false,
     };
     this.records.push(rec);
+    this.#bumpDaily(rec);
     if (this.records.length > this.maxRecords) this.records.shift();
     if (this.file) {
       try {
-        appendFileSync(this.file, JSON.stringify(rec) + '\n');
+        const line = `${JSON.stringify(rec)}\n`;
+        appendFileSync(this.file, line);
+        this.#rotateIfNeeded(Buffer.byteLength(line));
       } catch {
         /* ledger is observability, never the request path's failure */
       }
@@ -124,14 +200,18 @@ export class Ledger {
 
   /** Spend since local midnight, in USD. */
   todaySpendUsd(now = new Date()) {
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    return round6(
-      this.records.filter((r) => r.ts >= start.getTime()).reduce((a, r) => a + r.costUsd, 0),
-    );
+    // from the daily bucket, not from the record window: a budget that stops
+    // counting after 5,000 turns is not a budget
+    return round6(this.#day(now).costUsd);
   }
 
   providerSpendToday(provider, now = new Date()) {
+    // same rule as todaySpendUsd: from the day bucket, not the window
+    return round6(this.#day(now).byProvider.get(provider) ?? 0);
+  }
+
+  /** @deprecated kept for callers that still read the window; use providerSpendToday */
+  #providerSpendFromWindow(provider, now = new Date()) {
     const start = new Date(now);
     start.setHours(0, 0, 0, 0);
     return round6(

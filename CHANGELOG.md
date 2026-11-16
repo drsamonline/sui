@@ -45,7 +45,7 @@ The version where the gateway became usable by agents, stopped being one process
 
 ### Verified at this version
 
-496 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
+500 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
 
 ### Sandbox (B5.6)
 

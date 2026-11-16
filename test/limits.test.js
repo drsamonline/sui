@@ -211,3 +211,62 @@ test('a key can carry tighter guardrails than the gateway', async () => {
   assert.equal(bodies[0].max_tokens, 16, 'the key guardrail must win over the request');
   await new Promise((r) => { server.closeAllConnections?.(); server.close(() => r()); });
 });
+
+/* ------------------------------ the budget must not stop counting (review) */
+
+test('spend is counted from the daily total, not from the record window', async () => {
+  const { Ledger } = await import('@sui/telemetry');
+  const ledger = new Ledger({ file: null, maxRecords: 100 });
+  const now = Date.now();
+
+  // 250 turns at a cent each: the window holds 100, the day holds all of them
+  for (let i = 0; i < 250; i++) ledger.record({ provider: 'p', modelId: 'm', ok: true, costUsd: 0.01, ts: now });
+
+  assert.equal(ledger.records.length, 100, 'the memory window is still bounded');
+  assert.equal(ledger.todaySpendUsd(), 2.5, 'and the budget still sees every turn');
+});
+
+test('per-provider spend survives the window too', async () => {
+  const { Ledger } = await import('@sui/telemetry');
+  const ledger = new Ledger({ file: null, maxRecords: 50 });
+  const now = Date.now();
+  for (let i = 0; i < 120; i++) {
+    ledger.record({ provider: i % 2 ? 'a' : 'b', modelId: 'm', ok: true, costUsd: 0.01, ts: now });
+  }
+  assert.equal(ledger.providerSpendToday('a'), 0.6);
+  assert.equal(ledger.providerSpendToday('b'), 0.6);
+});
+
+test('a restart rebuilds the day from the file, not from the window', async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { Ledger } = await import('@sui/telemetry');
+
+  const file = join(mkdtempSync(join(tmpdir(), 'sui-ledger-')), 'ledger.jsonl');
+  const now = Date.now();
+  const first = new Ledger({ file, maxRecords: 50 });
+  for (let i = 0; i < 200; i++) first.record({ provider: 'p', modelId: 'm', ok: true, costUsd: 0.005, ts: now });
+
+  const reopened = new Ledger({ file, maxRecords: 50 });
+  assert.equal(reopened.records.length, 50, 'the window is bounded after a restart');
+  assert.equal(reopened.todaySpendUsd(), 1, 'but the day is rebuilt from the whole file');
+});
+
+test('the ledger file is rotated rather than growing forever', async () => {
+  const { mkdtempSync, existsSync, statSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { Ledger } = await import('@sui/telemetry');
+
+  const dir = mkdtempSync(join(tmpdir(), 'sui-rotate-'));
+  const file = join(dir, 'ledger.jsonl');
+  const ledger = new Ledger({ file, maxFileBytes: 2048 });
+  const now = Date.now();
+
+  for (let i = 0; i < 200; i++) ledger.record({ provider: 'p', modelId: 'm', ok: true, costUsd: 0.001, ts: now, note: 'x'.repeat(80) });
+
+  assert.ok(existsSync(`${file}.1`), 'the old file was kept as .1');
+  assert.ok(statSync(file).size < 4096, `the live file stayed small (${statSync(file).size} bytes)`);
+  assert.equal(ledger.todaySpendUsd(), 0.2, 'and rotation did not lose the day total');
+});
