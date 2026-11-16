@@ -150,7 +150,7 @@ npx sui probe --write         # promote what answered into packages/catalog/veri
 npx sui probe <provider> --revoke   # withdraw a route
 ```
 
-`seed.json` holds what a source recorded; `verified.json` holds what this gateway measured. Keeping them apart means a probe can never rewrite provenance, and revoking a route is deleting one row rather than editing a curated file. A verified entry becomes routable — that is the only way one ever does. A failed probe does **not** erase a previous verification: the endpoint may be down, not wrong.
+`seed.json` holds what a source recorded; `$SUI_HOME/catalog-verified.json` holds what **this machine** measured. The overlay lives in the user's home rather than the package on purpose: writing observations into an installed `node_modules` would be wrong, and a verification made on one machine is not evidence for another. Keeping them apart means a probe can never rewrite provenance, and revoking a route is deleting one row rather than editing a curated file. A verified entry becomes routable — that is the only way one ever does. A failed probe does **not** erase a previous verification: the endpoint may be down, not wrong.
 
 ## Catalogue contents
 

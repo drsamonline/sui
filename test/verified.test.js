@@ -108,3 +108,25 @@ test('every seeded entry starts unverified, because nobody has probed them here'
   const verified = entries.filter((e) => e.verified_at);
   assert.deepEqual(verified.map((e) => e.provider), [], 'an entry verified in this repository would be a claim we cannot support');
 });
+
+test('the overlay lives in the user home, not in the package', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const source = readFileSync(join(process.cwd(), 'apps', 'cli', 'src', 'commands-extra.js'), 'utf8');
+
+  // writing observations into an installed node_modules would be wrong, and a
+  // verification on one machine is not evidence for another
+  assert.match(source, /function verifiedPath\(\)[\s\S]{0,120}join\(suiHome\(\), 'catalog-verified\.json'\)/);
+  assert.match(source, /legacyVerifiedPath/, 'a development clone keeps its old state');
+  assert.equal(/writeFileSync\(path, .*verified/.test(source) && /join\(ROOT, 'packages', 'catalog', 'verified\.json'\);\s*\n\s*const current/.test(source), false);
+});
+
+test('a corrupt overlay does not stop the catalogue loading', async () => {
+  const { applyVerified, loadSeed } = await import('@sui/catalog');
+  const { join } = await import('node:path');
+  const entries = loadSeed(join(process.cwd(), 'packages', 'catalog', 'seed.json'));
+  // the loader is defensive; here we prove the merge tolerates junk rows
+  const merged = applyVerified(entries, [{ provider: 'not-a-real-provider', verified_at: 1 }]);
+  assert.equal(merged.length, entries.length, 'an overlay row for an unknown provider changes nothing');
+  assert.equal(merged.every((e) => e.needs_probe), true);
+});

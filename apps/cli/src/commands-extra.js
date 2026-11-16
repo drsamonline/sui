@@ -88,20 +88,49 @@ export function cmdCatalog(flags, args) {
   if (summary.rows.length > rows.length) console.log(`\n… ${summary.rows.length - rows.length} more. Search with: sui catalog <query>`);
 }
 
+/**
+ * Where observations live.
+ *
+ * Seed entries ship with the package — they are imported facts. What *this*
+ * machine observed belongs in the user's home, not in the package: writing into
+ * an installed `node_modules` would be wrong, and a verification made on one
+ * machine is not evidence for another.
+ */
+function verifiedPath() {
+  return join(suiHome(), 'catalog-verified.json');
+}
+
+/** The old in-repo location, still read so a development clone keeps its state. */
+function legacyVerifiedPath() {
+  return join(ROOT, 'packages', 'catalog', 'verified.json');
+}
+
+function readVerified() {
+  for (const path of [verifiedPath(), legacyVerifiedPath()]) {
+    if (!existsSync(path)) continue;
+    try {
+      const parsed = JSON.parse(readFileSync(path, 'utf8'));
+      if (Array.isArray(parsed.entries) && parsed.entries.length) return parsed.entries;
+    } catch {
+      /* a corrupt overlay must not stop the catalogue loading */
+    }
+  }
+  return [];
+}
+
 function loadCatalogue() {
   const seedPath = join(ROOT, 'packages', 'catalog', 'seed.json');
   const generatedPath = join(ROOT, 'packages', 'catalog', 'generated.json');
-  const verifiedPath = join(ROOT, 'packages', 'catalog', 'verified.json');
   const entries = [];
   if (existsSync(seedPath)) entries.push(...loadSeed(seedPath));
   if (existsSync(generatedPath)) entries.push(...loadSeed(generatedPath));
-  const observed = existsSync(verifiedPath) ? JSON.parse(readFileSync(verifiedPath, 'utf8')).entries ?? [] : [];
-  return dedupeEntries(applyVerified(entries, observed));
+  return dedupeEntries(applyVerified(entries, readVerified()));
 }
 
 /** Write what a probe observed, atomically, without touching the seed. */
 function writeVerified(results) {
-  const path = join(ROOT, 'packages', 'catalog', 'verified.json');
+  const path = verifiedPath();
+  mkdirSync(dirname(path), { recursive: true });
   const current = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { version: 1, entries: [] };
   const byProvider = new Map((current.entries ?? []).map((row) => [row.provider, row]));
 
@@ -1001,7 +1030,7 @@ export async function cmdProbe(flags, args) {
 
   if (flags.revoke) {
     const provider = args[0] ?? flags.provider;
-    const path = join(ROOT, 'packages', 'catalog', 'verified.json');
+    const path = verifiedPath();
     const current = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { version: 1, entries: [] };
     const before = (current.entries ?? []).length;
     current.entries = (current.entries ?? []).filter((row) => row.provider !== provider);
@@ -1016,7 +1045,7 @@ export async function cmdProbe(flags, args) {
       return;
     }
     const total = writeVerified(results.map((r) => ({ ...r, base_url: probeable.find((e) => e.provider === r.provider)?.base_url })));
-    console.log(`Wrote ${ok} verification(s) to packages/catalog/verified.json (${total} on record).`);
+    console.log(`Wrote ${ok} verification(s) to ${verifiedPath()} (${total} on record).`);
     console.log('Those entries are now routable. `sui catalog` shows them as verified.');
     return;
   }
