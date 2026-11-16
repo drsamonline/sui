@@ -42,15 +42,35 @@ export function createSuiServer(deps) {
   const planes = config.planes ?? { role: 'both', modelPlaneUrl: null, serviceTokenEnv: 'SUI_PLANE_TOKEN' };
   const planeToken = config.env?.[planes.serviceTokenEnv] ?? process.env[planes.serviceTokenEnv] ?? '';
   const guard = createPlaneGuard({ serviceToken: planeToken, role: planes.role });
-  const modelPlane = planes.role === 'agent' && planes.modelPlaneUrl
-    ? createModelPlaneClient({ modelPlaneUrl: planes.modelPlaneUrl, serviceToken: planeToken })
-    : null;
-  const planesInfo = describePlane({
+  let planesInfo = describePlane({
     role: planes.role,
     modelPlaneUrl: planes.modelPlaneUrl,
     hasServiceToken: Boolean(planeToken),
     hasProviderCredentials: planes.role !== 'agent',
   });
+
+  // An agent plane that cannot reach its model plane should still start, so that
+  // /api/status can say what is wrong. A process that dies on boot with a stack
+  // trace tells the operator nothing they can act on.
+  let modelPlane = null;
+  let modelPlaneError = null;
+  if (planes.role === 'agent') {
+    if (!planes.modelPlaneUrl) {
+      modelPlaneError = 'This is the agent plane and no modelPlaneUrl is configured. Set planes.modelPlaneUrl or pass --model-plane <url>.';
+    } else if (!planeToken) {
+      modelPlaneError = `The agent plane needs a service token to reach the model plane. Set ${planes.serviceTokenEnv} to the same value on both planes (generate one with: openssl rand -hex 32).`;
+    } else {
+      try {
+        modelPlane = createModelPlaneClient({ modelPlaneUrl: planes.modelPlaneUrl, serviceToken: planeToken });
+      } catch (err) {
+        modelPlaneError = /** @type {any} */ (err)?.message ?? String(err);
+      }
+    }
+    if (modelPlaneError) (deps.logger ?? console).warn?.(`agent plane: ${modelPlaneError}`);
+    // the reason travels with the plane description, so /api/status can show it
+    planesInfo = { ...planesInfo, error: modelPlaneError };
+  }
+  // declared here so the plane-error block above can annotate it
   const logger = deps.logger ?? { info() {}, warn() {}, debug() {} };
   const limiter = deps.limiter ?? new RateLimiter();
   let configRef = config;
@@ -505,7 +525,7 @@ export function createSuiServer(deps) {
         }
       }
       if (!modelPlane) {
-        throw new SuiError('This is the agent plane and it has no modelPlaneUrl to forward to.', {
+        throw new SuiError(modelPlaneError ?? 'This agent plane cannot reach a model plane.', {
           code: 'model_plane_not_configured',
           status: 503,
         });

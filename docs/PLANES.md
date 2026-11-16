@@ -9,12 +9,17 @@ One process doing everything is the wrong shape for the two jobs a gateway does.
 
 ```bash
 # the model plane: keys, egress, nothing else
-SUI_PLANE_TOKEN=$(openssl rand -hex 32) sui start --role model --port 8787
+export SUI_PLANE_TOKEN=$(openssl rand -hex 32)
+sui start --role model --port 8787
 
-# the agent plane: agents talk to this one
-SUI_PLANE_TOKEN=… sui start --role agent --port 8790 \
+# the agent plane: agents talk to this one, in a second terminal
+SUI_PLANE_TOKEN=<the same value> sui start --role agent --port 8790 \
   --model-plane http://127.0.0.1:8787
 ```
+
+`--role` and `--model-plane` override the config for that run only; nothing is written back to `sui.config.json`.
+
+**If the agent plane cannot forward**, it still starts — `/api/status` reports `planes.error` with the reason, and a chat request answers `503` with the same sentence. A plane that dies on boot with a stack trace tells you nothing you can act on.
 
 ## Why
 

@@ -141,7 +141,26 @@ async function cmdInit(flags) {
 
 async function cmdUp(flags) {
   // `sui start` is the one place background jobs run.
-  const gateway = await createGateway({ configPath: flags.config, startWorkers: flags['no-workers'] !== true });
+  //
+  // --role and --model-plane override the config for one run, because the
+  // two-plane split (B5.7) is a deployment choice, not a property of the file:
+  // the same config should be startable as either half.
+  const role = flags.role ? String(flags.role) : undefined;
+  if (role && !['both', 'model', 'agent'].includes(role)) {
+    throw new ConfigError(`Unknown plane role "${role}". Use one of: both, model, agent.`, { path: 'planes.role' });
+  }
+
+  const configOverride = {};
+  if (role) configOverride.planes = { ...(configOverride.planes ?? {}), role };
+  if (flags['model-plane']) {
+    configOverride.planes = { ...(configOverride.planes ?? {}), modelPlaneUrl: String(flags['model-plane']) };
+  }
+
+  const gateway = await createGateway({
+    configPath: flags.config,
+    startWorkers: flags['no-workers'] !== true,
+    ...(Object.keys(configOverride).length ? { configOverride } : {}),
+  });
   const { config, server } = gateway;
   const host = config.server.host;
   const port = flags.port ? Number(flags.port) : config.server.port;
@@ -580,7 +599,7 @@ Docs:                     docs/ARCHITECTURE.md, docs/ROUTING.md, docs/MIGRATION.
 /* ------------------------------------------------------------------- helpers */
 
 /** Flags that take a value, so `--config ./x.json` works as well as `--config=./x.json`. */
-const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout', 'by', 'transport', 'wall', 'heap', 'file']);
+const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout', 'by', 'transport', 'wall', 'heap', 'file', 'role', 'model-plane']);
 
 function parse(argv) {
   const args = [];

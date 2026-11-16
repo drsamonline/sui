@@ -114,3 +114,60 @@ test('cost --export --gzip writes a compressed file that gunzips back', async ()
   const text = gunzipSync(readFileSync(`${target}.gz`)).toString('utf8');
   assert.match(text, /^timestamp_iso,provider,model/);
 });
+
+/* ---------------------------------- flags that take a value must parse as one */
+
+test('every flag the help text shows with a value is in VALUE_FLAGS', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const source = readFileSync(join(process.cwd(), 'apps', 'cli', 'src', 'cli.js'), 'utf8');
+
+  const declared = /const VALUE_FLAGS = new Set\(\[([^\]]+)\]\)/.exec(source)?.[1] ?? '';
+  const valueFlags = new Set(declared.split(',').map((f) => f.trim().replace(/^'|'$/g, '')).filter(Boolean));
+
+  // Take only the lines that *are* help output. Slicing to the next `];` swept in
+  // prose from the code below it, which then looked like documented flags.
+  const helpText = (source.match(/^\s*npx sui .*$/gm) ?? []).join('\n');
+  assert.ok(helpText.length > 200, 'the help text could not be found');
+  const documented = new Set();
+  // same line only: `--no-workers` at the end of a line is boolean, and the flag
+  // on the next line belongs to a different example
+  for (const match of helpText.matchAll(/--([a-z-]+)[ \t]+(<[a-z]+>|[A-Za-z0-9][A-Za-z0-9|<>._-]*)/g)) {
+    const flag = match[1];
+    const value = match[2];
+    // `--demo  --force` style: a flag followed by another flag is boolean
+    if (value.startsWith('--')) continue;
+    // a real value is a placeholder or a lowercase token; `--check WCAG AA on…`
+    // is a boolean flag followed by prose, and WCAG is not a value
+    if (!value.startsWith('<') && !/^[a-z0-9][a-z0-9|._-]*$/.test(value)) continue;
+    documented.add(flag);
+  }
+
+  assert.ok(documented.size >= 3, `expected several value-taking flags in the help text, found ${documented.size}`);
+  const missing = [...documented].filter((flag) => !valueFlags.has(flag));
+  assert.deepEqual(
+    missing,
+    [],
+    `these flags are documented with a value but parse as booleans: ${missing.join(', ')} — add them to VALUE_FLAGS`,
+  );
+});
+
+test('a documented value flag actually receives its value', async () => {
+  const { execFileSync } = await import('node:child_process');
+  // `--role` parsed as `true` three separate times before this existed, and each
+  // time the failure was a confusing runtime error rather than a parse error
+  // the command should reject the role by name, which proves it received the
+  // value rather than parsing it as `true`
+  let out = '';
+  try {
+    out = execFileSync(process.execPath, ['apps/cli/bin/sui.js', 'start', '--role', 'nonsense', '--port', '0'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...process.env, SUI_HOME: '/tmp/sui-flag-test' },
+      stdio: 'pipe',
+    }).toString();
+  } catch (err) {
+    out = `${err?.stdout ?? ''}${err?.stderr ?? ''}`;
+  }
+  assert.match(out, /Unknown plane role "nonsense"/);
+});

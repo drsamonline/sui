@@ -53,13 +53,24 @@ export function loadEnvFile(path = '.env', env = process.env) {
  * Build a gateway: config, ledger, breaker, cache, router and an HTTP server,
  * all wired together but not yet listening.
  *
- * @param {{configPath?: string, env?: NodeJS.ProcessEnv, configObject?: any, ledgerFile?: string|null, logger?: any, startWorkers?: boolean, catalogDir?: string, now?: () => number}} [opts]
+ * @param {{configPath?: string, env?: NodeJS.ProcessEnv, configObject?: any, configOverride?: any, ledgerFile?: string|null, logger?: any, startWorkers?: boolean, catalogDir?: string, historyFile?: string|null, now?: () => number}} [opts]
  */
 export async function createGateway(opts = {}) {
   const env = opts.env ?? loadEnvFile(process.env.SUI_ENV_FILE ?? '.env', { ...process.env });
-  const config = opts.configObject
-    ? normalizeConfig(opts.configObject, { env })
-    : loadConfig(opts.configPath, env);
+  // A run-time override — a plane role, a port — changes this run only. It is
+  // applied after loading and never written back to the file.
+  const loaded = opts.configObject ? normalizeConfig(opts.configObject, { env }) : loadConfig(opts.configPath, env);
+  const config = opts.configOverride
+    ? normalizeConfig(
+        {
+          ...(opts.configObject ?? JSON.parse(JSON.stringify({ ...loaded, path: undefined, env: undefined }))),
+          ...opts.configOverride,
+          planes: { ...(loaded.planes ?? {}), ...(opts.configOverride.planes ?? {}) },
+          server: { ...(loaded.server ?? {}), ...(opts.configOverride.server ?? {}) },
+        },
+        { env },
+      )
+    : loaded;
 
   const home = suiHome(env);
 
