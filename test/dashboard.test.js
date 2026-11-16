@@ -156,3 +156,20 @@ test('no positive tabindex anywhere: the tab order is the document order', () =>
 test('motion is reduced when the reader asks for it', () => {
   assert.match(html, /@media \(prefers-reduced-motion: reduce\)/);
 });
+
+test('the dashboard smoke test covers the three states a page breaks in', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const script = readFileSync(join(process.cwd(), 'scripts', 'smoke-dashboard.mjs'), 'utf8');
+
+  // a screenshot cannot tell you the page is broken: an error leaves a half-drawn
+  // layout that photographs fine. The smoke test listens for the errors instead.
+  assert.match(script, /page\.on\('console'/);
+  assert.match(script, /page\.on\('pageerror'/);
+  assert.match(script, /page\.on\('requestfailed'/);
+  assert.match(script, /--empty/);
+  assert.match(script, /--degraded/);
+  // the fresh-install state has a provider and no key, not an empty config:
+  // a gateway with no providers is refused by validation, correctly
+  assert.match(script, /apiKeyEnv: 'GROQ_API_KEY_NOT_SET'/);
+});

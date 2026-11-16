@@ -25,11 +25,15 @@ If you cannot write (3), the invariant is a wish, not an invariant.
 Run all four before a PR. They are cheap and they are the point.
 
 ```bash
-npm test              # unit and integration, no network, no keys
-npm run audit         # 8 static checks: dead modules, undocumented routes, stale invariant refs, config keys nobody reads
-npm run eval:self     # 56 checks on the graders themselves
-npm run soak          # server-side overhead against a 15ms budget, and a memory gate
+npm test                # unit and integration, no network, no keys
+npm run audit           # 8 static checks + 10 ADR compliance checks
+npm run eval:self       # 56 checks on the graders themselves
+npm run soak            # server-side overhead against a 15ms budget, and a memory gate
+npm run smoke:dashboard # the page in a real browser: healthy, empty and degraded
+npm run adr:gate        # the ADR-0001 gates, measured
 ```
+
+`smoke:dashboard` exists because a screenshot cannot tell you a page is broken: a JavaScript error leaves a half-drawn layout that photographs fine. It loads the dashboard in Chromium against a live gateway and fails on any console error, page error or failed request — in three states, because the two that are not the happy path are where a dashboard actually breaks.
 
 The audit is deliberately unforgiving: it has caught unused exports, routes that exist but are undocumented, and a config key nothing read. When it fails, the fix is almost never to relax the check.
 

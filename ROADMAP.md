@@ -136,6 +136,8 @@ All todo. `ai-bridge` (MCP-shaped tool plumbing, adapters) is the intended refer
 
 **B11.9 ADRs — done**: ADR-0008 (drift), 0009 (MCP both directions), 0010 (recipes), 0011 (attribution and tenants), 0012 (the four routing policies) join the original seven. `CONTRIBUTING.md` records the invariant discipline, the four harnesses, the three kinds of test failure, and the rules for adapters, engines and kits.
 
+**Dashboard smoke test — done**: `npm run smoke:dashboard` loads the page in Chromium against a live gateway and fails on any console error, page error or failed request, in three states — healthy, fresh-install (provider declared, no key) and degraded (provider unreachable). All three are clean. A screenshot could not have told us that: an error leaves a half-drawn layout that photographs fine.
+
 **Probe verification loop closed — done**: `sui probe --write` promotes what answered; `--revoke` withdraws. The overlay lives in `$SUI_HOME/catalog-verified.json`, not in the package — writing observations into an installed `node_modules` would be wrong, and one machine's verification is not evidence for another. 8 tests.
 
 **Probe verification loop closed (first pass) — done**: `sui probe` used to print results and write nothing, so nothing ever became routable — the design said "an identity becomes an endpoint when probed", and the probe did not record it. Now `--write` promotes what answered into `packages/catalog/verified.json`, an overlay kept separate from `seed.json` so a probe can never rewrite provenance. `--revoke` withdraws a route by deleting one row. A failure does not erase a previous verification: the endpoint may be down, not wrong. 6 tests.

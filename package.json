@@ -34,7 +34,8 @@
     "import:endpoints": "node scripts/import-endpoints.mjs",
     "import:all": "node scripts/import-9router.mjs && node scripts/import-endpoints.mjs",
     "catalog:sync": "node scripts/sync-catalog.mjs",
-    "catalog:sync:online": "node scripts/sync-catalog.mjs --online"
+    "catalog:sync:online": "node scripts/sync-catalog.mjs --online",
+    "smoke:dashboard": "node scripts/smoke-dashboard.mjs"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"
