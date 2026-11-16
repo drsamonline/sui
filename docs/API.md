@@ -142,6 +142,10 @@ cost_usd,latency_ms,ttft_ms,cached,verified,streamed,prompt_hash,prompt_chars
 
 Served with `content-disposition: attachment`.
 
+## Catalogue contents
+
+`packages/catalog/seed.json` is the catalogue: 29 entries, each naming the source of its endpoint. `packages/catalog/generated.json` is **empty by design** — the app-endpoints dataset is a directory of public APIs (QR codes, avatars, random words), not a source of model endpoints, and three attempts to filter it produced exactly that filler.
+
 ## Catalogue sync (B2.2)
 
 ```bash

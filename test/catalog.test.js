@@ -216,3 +216,32 @@ test('the sync worker never rewrites the seed from the network', async () => {
   const after = readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8');
   assert.equal(after, before, 'a sync is a report, not a mutation');
 });
+
+/* -------------------------------- the generated catalogue is not padding */
+
+test('the generated catalogue keeps nothing it cannot justify', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const generated = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'generated.json'), 'utf8'));
+
+  // The app-endpoints dataset is a directory of miscellaneous public APIs. Three
+  // keyword heuristics produced a sudoku API, a model catalogue and 24 QR-code
+  // services. The only defensible rule is an allowlist, which is currently empty.
+  assert.deepEqual(
+    generated.entries.map((e) => e.provider),
+    [],
+    'an entry here needs evidence it serves a model, not a keyword match',
+  );
+  assert.match(generated._comment, /EMPTY by design/);
+});
+
+test('the catalogue count is the seeded count, not the seeded count plus filler', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { loadSeed, dedupeEntries } = await import('@sui/catalog');
+  const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
+  const catalogue = dedupeEntries(loadSeed(join(process.cwd(), 'packages', 'catalog', 'seed.json')));
+
+  assert.equal(catalogue.length, seed.entries.length, 'nothing may be added to the catalogue that is not in the seed');
+  assert.ok(catalogue.every((e) => e.provider && e.pool_key), 'every entry carries an identity');
+});
