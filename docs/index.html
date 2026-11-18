@@ -110,19 +110,24 @@
   </div>
 
   <div class="strip">
-    <div class="stat"><div class="k">tests</div><div class="v num">503</div><div class="f">no network, no keys</div></div>
+    <div class="stat"><div class="k">tests</div><div class="v num">506</div><div class="f">no network, no keys</div></div>
     <div class="stat"><div class="k">p95 overhead</div><div class="v num">1.13<span style="font-size:var(--fs-16)"> ms</span></div><div class="f">budget 15 ms</div></div>
     <div class="stat"><div class="k">invariants</div><div class="v num">19</div><div class="f">each with a test</div></div>
-    <div class="stat"><div class="k">verified routes</div><div class="v num">0</div><div class="f">26 await a probe</div></div>
+    <div class="stat"><div class="k">catalogue</div><div class="v num">29</div><div class="f">endpoints, all awaiting a probe</div></div>
   </div>
 
   <section>
     <h2>Install</h2>
-    <p class="lede">Node 20 or newer. No runtime dependencies, no build step. Not yet on npm — clone it and run the source.</p>
+    <p class="lede">Node 20 or newer. No runtime dependencies, no build step. Not yet on npm, so <code>npx</code> has nothing to download — clone it and run the wrapper that ships with the code.</p>
 <pre><code>git clone https://github.com/drsamonline/sui
 cd sui &amp;&amp; npm install
-node apps/cli/bin/sui.js init</code></pre>
-    <p class="note">Then point anything that speaks OpenAI at <code>http://127.0.0.1:8787/v1</code>. The first run ends with a real round-trip, not a green tick. Copy-paste quickstarts for <a href="https://github.com/drsamonline/sui/tree/main/docs/quickstarts">cURL, Node, Python and PHP</a>.</p>
+
+# macOS / Linux
+./sui
+
+# Windows (PowerShell or CMD)
+.\sui.cmd</code></pre>
+    <p class="note">That is the whole setup: the wrapper runs the source directly, no global install. Want a <code>sui</code> command anywhere? <code>npm link</code> once. Then point anything that speaks OpenAI at <code>http://127.0.0.1:8787/v1</code> — the first run ends with a real round-trip, not a green tick. <a href="https://github.com/drsamonline/sui/blob/main/docs/WINDOWS.md">Windows guide</a> · <a href="https://github.com/drsamonline/sui/tree/main/docs/quickstarts">cURL, Node, Python, PHP</a>.</p>
   </section>
 
   <section>
@@ -176,6 +181,9 @@ node apps/cli/bin/sui.js init</code></pre>
           <li><code>sui local</code> finds a model server on this machine</li>
           <li>Drift detection (EWMA + CUSUM) and trend history on disk</li>
           <li>Tenant console: what each key spent, and what it may reach</li>
+          <li>Bounded runs: spend, steps, time and loop limits per agent run</li>
+          <li>Sandbox: <code>sui sandbox</code>, a separate process, 14-case attack suite</li>
+          <li>Two-plane split: the agent-facing half holds no provider key</li>
         </ul>
       </div>
       <div class="card">
@@ -219,6 +227,9 @@ node apps/cli/bin/sui.js init</code></pre>
         <tr><td>Recipes + local discovery</td><td><span class="pill done">done</span></td><td>5 recipes, loopback scan, 18 tests</td></tr>
         <tr><td>Drift + trend history</td><td><span class="pill done">done</span></td><td>EWMA/CUSUM, /api/history, 21 tests</td></tr>
         <tr><td>Sandboxed code execution</td><td><span class="pill done">done</span></td><td>separate process, netns, 14-case suite</td></tr>
+        <tr><td>Windows support</td><td><span class="pill done">done</span></td><td>wrappers, installer, guide</td></tr>
+        <tr><td>Legal set</td><td><span class="pill done">done</span></td><td>LICENSE, NOTICE, DISCLAIMER, PRIVACY, TERMS, SECURITY, index</td></tr>
+        <tr><td>Budget correctness</td><td><span class="pill done">done</span></td><td>per-day buckets, not the record window</td></tr>
         <tr><td>Verification + explain-my-route</td><td><span class="pill done">done</span></td><td>7 signals, /api/explain</td></tr>
         <tr><td>Savings + explain panels</td><td><span class="pill done">done</span></td><td>dashboard, /api/savings</td></tr>
         <tr><td>Canary + SLO rollback</td><td><span class="pill done">done</span></td><td>outages excluded, 12 tests</td></tr>

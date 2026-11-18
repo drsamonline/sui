@@ -111,3 +111,41 @@ test('the Windows guide answers the question the user actually asked', async () 
 function root(_path) {
   return process.cwd();
 }
+
+/* --------------------------- the README and landing page must not go stale */
+
+test('the README states the real invariant count and test count', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { INVARIANTS } = await import('@sui/core');
+  const readme = readFileSync(join(process.cwd(), 'README.md'), 'utf8');
+
+  const words = { 15: 'Fifteen', 16: 'Sixteen', 17: 'Seventeen', 18: 'Eighteen', 19: 'Nineteen', 20: 'Twenty' };
+  assert.ok(readme.includes(`${words[INVARIANTS.length]} invariants`), `README does not say "${words[INVARIANTS.length]} invariants"`);
+  assert.equal(/Fifteen invariants/.test(readme), INVARIANTS.length === 15, 'a stale invariant count is a claim about the wrong code');
+});
+
+test('the README does not list shipped features as "not built yet"', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const readme = readFileSync(join(process.cwd(), 'README.md'), 'utf8');
+
+  // this paragraph was true in phase 3 and became a lie; the features below all
+  // shipped, so it must not name them as missing
+  const shipped = ['canary prober', 'catalogue sync', 'compression engines', 'MCP/A2A', 'red-team self-test', 'tenant console', 'Weather Map', 'Savings Ledger', 'explain-my-route'];
+  const staleLine = readme.split('\n').find((line) => /Not built yet/.test(line));
+  if (staleLine) {
+    for (const feature of shipped) {
+      assert.equal(staleLine.includes(feature), false, `README still lists "${feature}" as not built`);
+    }
+  }
+});
+
+test('the landing page and the README agree on the catalogue size', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
+  const html = readFileSync(join(process.cwd(), 'docs', 'index.html'), 'utf8');
+
+  assert.ok(html.includes(`<div class="v num">${seed.entries.length}</div>`), `the landing page does not say ${seed.entries.length} catalogue entries`);
+});

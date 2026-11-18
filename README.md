@@ -16,7 +16,7 @@ One command: find the keys on this machine, find your coding tools, write a conf
 
 ## The rules this repository holds itself to
 
-Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each with the module that enforces it and the test that proves it. `npm test` fails if an invariant loses either. The ones you can feel from outside:
+Nineteen invariants, kept as data in `packages/core/src/invariants.js` — each with the module that enforces it and the test that proves it. `npm test` fails if an invariant loses either. The ones you can feel from outside:
 
 | | |
 |---|---|
@@ -29,7 +29,7 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 | **I14** | When every route is resting, a request is still attempted against the unfiltered pool rather than refused. |
 | **I15** | Host-header allowlist, SHA-256 API keys compared in constant time, no default password. |
 
-`npx sui invariants` prints all fifteen with their status and, where something is not yet enforced, the gap in plain words.
+`npx sui invariants` prints all nineteen with their status and, where something is not yet enforced, the gap in plain words.
 
 ## What works today
 
@@ -71,16 +71,16 @@ Fifteen invariants, kept as data in `packages/core/src/invariants.js` — each w
 - **Dashboard** — token-based design system, budget bar, savings panel, compression view, routing-pool topology, **free-tier weather** (thriving / resting / down with a latency trend), breaker states, probes, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token, with "Why this route?" on demand.
 - **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.
 - **Background workers** — prober and cache sweep run off the request path, with `/api/workers` and a Probes table on the dashboard.
-- **Catalogue + canary prober** — 26 entries, every one an unverified identity until a probe says otherwise; `sui probe` checks liveness, readiness and suitability (streaming, JSON, tools) with versioned synthetic fixtures, disables a route after three failures and re-enables it on recovery.
+- **Catalogue + canary prober** — 29 entries, every one an unverified identity until a probe says otherwise (`sui probe --write` promotes what answers); `sui probe` checks liveness, readiness and suitability (streaming, JSON, tools) with versioned synthetic fixtures, disables a route after three failures and re-enables it on recovery.
 - **Onboarding** with tool detection and one-click config; **migration** from 9router / OmniRoute / HubGate with a preview diff and a post-import smoke test.
 - **Eval harness** — 50-prompt golden set, nine deterministic graders, a self-test that proves the graders grade, and a regression gate against `evals/baseline.json`.
 - **Soak harness** — measures the gateway's own overhead (server-side, not client sockets) and gates p95 against the 15ms budget.
 
-Not built yet, and listed honestly in [`ROADMAP.md`](ROADMAP.md): the canary prober, catalogue sync, compression engines, MCP/A2A, red-team self-test, tenant console, Weather Map, Savings Ledger, explain-my-route.
+**Everything above is built and tested.** What is *not* built is listed in [`ROADMAP.md`](ROADMAP.md), and it is short: nothing in the specification is outstanding. Two things are deliberately absent — a first-chunk clone (two providers billed for one answer is a real cost for a fake latency win) and a Go/Rust data plane (ADR-0001's gate says p95 2.29 ms at 200 rps, 7× under budget). What remains needs a networked machine, a provider key, or a decision: verifying the 29 catalogue endpoints, recording an eval baseline, the 72-hour soak, and publishing to npm.
 
 ## Quickstart
 
-**Windows, from nothing:** [`docs/WINDOWS.md`](docs/WINDOWS.md) — no `npx`, no publish, one setup script.
+**Windows, from nothing:** [`docs/WINDOWS.md`](docs/WINDOWS.md) — `npx sui` cannot work before a publish, so the repo ships wrappers that need no npm account: `npm install`, then `.\.sui.cmd doctor`.
 
 ```bash
 npx sui                    # first run: keys, tools, a real round-trip, then serve
@@ -103,6 +103,13 @@ npx sui explain [combo]    # why a route would go where it goes
 npx sui redteam [combo]    # attack your own route with 11 obfuscations
 npx sui tokens --check     # WCAG AA on the dashboard tokens, computed by tokens-kit
 npx sui kits               # the vendored kits and whether they load
+npx sui probe --write      # promote what answered into the catalogue
+npx sui local              # find Ollama / LM Studio on this machine   --write
+npx sui recipe list        # named config patches: list, show, apply  --dry-run
+npx sui tenants            # what each API key spent, and what it may reach
+npx sui mcp                # serve the gateway over MCP   --transport stdio|http
+npx sui sandbox --self-test   # prove the sandbox boundary, 14 cases
+npx sui --version          # which build is this
 ```
 
 Then anything that speaks OpenAI:
@@ -130,13 +137,16 @@ packages/
   kits/         loader for the vendored kits (isolated VM context)
   vault/        AES-256-GCM sealed paid credentials
   prober/       liveness, readiness and suitability checks
-  compression/  six engines, four presets, the quota budget manager
+  compression/  seven engines, four presets, the quota budget manager
   promptcache/  stable-prefix detection and per-provider cache hints
   verify/       reference-free confidence scoring, fail-closed
   redteam/      injection toolkit and self-test
   canary/       rollout with SLO-tied rollback
+  mcp/          Model Context Protocol server and client
+  sandbox/      contained process for model-written code
 evals/          50-prompt golden set, graders, runner, baseline
-scripts/        soak harness
+recipes/        five named config patches
+scripts/        soak, audit, ADR compliance, dashboard smoke, publish
 config/         annotated config + JSON schema
 docs/           architecture, routing, API, migration, reuse map, ADRs, legal
 vendor/kits/    seven vendored kits, each with its upstream LICENSE and API.md
@@ -147,11 +157,14 @@ npm workspaces, Node 20+, **zero runtime dependencies**. No build step.
 ## Commands that prove things
 
 ```bash
-npm test         # 214 tests: routing, invariants, security, dashboard, catalog, sdk, vault, kits, prober, evals
-npm run eval:self  # prove the graders grade (50 must-pass, 6 must-fail)
-npm run eval     # 50 prompts against a real combo, regression-gated
-npm run soak     # 1,200 requests, p95 overhead against the 15ms budget
-npm run audit    # invariants→tests, routes→API.md, dead exports, secrets
+npm test                 # 506 tests: routing, invariants, security, MCP, sandbox, planes, evals
+npm run audit            # 8 static checks + 10 ADR compliance checks
+npm run adr:gate         # the ADR-0001 gates, measured (p95, ledger size, build step)
+npm run eval:self        # prove the graders grade (50 must-pass, 6 must-fail)
+npm run eval             # 50 prompts against a real combo, regression-gated
+npm run soak             # server-side overhead against the 15ms budget
+npm run smoke:dashboard  # the page in a real browser: healthy, empty, degraded
+npm run catalog:sync     # audit the catalogue's source ledger, --online to check pins
 ```
 
 ## Licensing
@@ -174,8 +187,16 @@ Third-party routers (`9router`, `OmniRoute`, `HubGate`) are not vendored; `sui m
 - [`docs/tutorials/`](docs/tutorials/) — seven walkthroughs: first five minutes, connect a coding tool, understand routing, red-team your own routes, self-host for a team, build a free agent, troubleshooting.
 - [`docs/MIGRATION.md`](docs/MIGRATION.md) — moving from another router.
 - [`docs/reuse-map.md`](docs/reuse-map.md) — the fleet, mapped onto phases.
-- [`docs/adr/`](docs/adr/) — seven decisions, with their consequences.
+- [`docs/WINDOWS.md`](docs/WINDOWS.md) — setup for Windows without npm.
+- [`docs/MCP.md`](docs/MCP.md) — the Model Context Protocol surface, both directions.
+- [`docs/PLANES.md`](docs/PLANES.md) — the model-plane / agent-plane split.
+- [`docs/SANDBOX.md`](docs/SANDBOX.md) — what the sandbox is, and what it is not.
+- [`docs/RECIPES.md`](docs/RECIPES.md) — named config patches.
+- [`docs/adr/`](docs/adr/) — twelve decisions, with their consequences.
 - [`SECURITY.md`](SECURITY.md) — what this gateway is and is not, in security terms.
 - [`PRIVACY.md`](PRIVACY.md) — what leaves the machine, what stays, and how to erase it.
 - [`TERMS.md`](TERMS.md) — responsibilities, AI output, no warranty.
-- [`AUDIT.md`](AUDIT.md) — the audit of this repository, with findings and fixes.
+- [`AUDIT.md`](AUDIT.md) and [`AUDIT-2026-11-15.md`](AUDIT-2026-11-15.md) — two audits, with findings, fixes and accepted risks.
+- [`docs/legal/LEGAL-INDEX.md`](docs/legal/LEGAL-INDEX.md) — every legal document, what it answers, and the code to check each claim against.
+- [`DISCLAIMER.md`](DISCLAIMER.md) — what an answer from this gateway must not be relied on for.
+- [`CHANGELOG.md`](CHANGELOG.md) — what shipped, per version.
