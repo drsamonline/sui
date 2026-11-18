@@ -192,7 +192,7 @@ test('the CLI never tells you to run a command that cannot work', async () => {
 
   // a first run in an empty home, invoked through the wrapper
   const home = mkdtempSync(join(tmpdir(), 'sui-hint-'));
-  const out = execFileSync(process.execPath, ['apps/cli/bin/sui.js'], {
+  const out = execFileSync(process.execPath, ['apps/cli/bin/sui.js', '--demo'], {
     cwd: process.cwd(),
     encoding: 'utf8',
     env: { ...process.env, SUI_HOME: home },
@@ -235,7 +235,7 @@ test('probe --json emits pure JSON too, even when nothing answers', async () => 
   const { execFileSync } = await import('node:child_process');
   // one provider, not all 29: with no DNS each lookup costs seconds, and this
   // test is about the shape of the output rather than the state of the network
-  const out = execFileSync(process.execPath, ['apps/cli/bin/sui.js', 'probe', 'groq', '--json', '--timeout', '200'], {
+  const out = execFileSync(process.execPath, ['apps/cli/bin/sui.js', 'probe', 'ollama', '--json', '--timeout', '200'], {
     cwd: process.cwd(),
     encoding: 'utf8',
     timeout: 90_000,
