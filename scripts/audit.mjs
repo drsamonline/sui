@@ -80,7 +80,10 @@ const record = (check, problems, okDetail) => {
   const aliases = new Set(['help', 'version', 'serve', 'up', 'usage', '--help', '-h', '--version', '-v']);
   for (const cmd of new Set(commands)) {
     if (aliases.has(cmd)) continue;
-    if (!help.includes(`sui ${cmd}`)) problems.push(`"${cmd}" has no help line`);
+    // the command prefix is interpolated (RUN_AS): a checkout prints ./sui, an
+    // install prints npx @drsamonline/cli, and neither is the literal "sui"
+    const documented = new RegExp(`(?:\\$\\{RUN_AS\\}|npx sui|sui|\\\\?sui\\.cmd|\\./sui)\\s+${cmd}\\b`);
+    if (!documented.test(help)) problems.push(`"${cmd}" has no help line`);
   }
   record('cli → help', problems, `${new Set(commands).size} commands documented`);
 }

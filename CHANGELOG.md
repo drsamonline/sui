@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.5 — 2026-11-18
+
+### Fixed
+
+- The audit's help-coverage check looked for the literal `sui <command>`, which stopped matching once the prefix became `${RUN_AS}`. It accepts every form the CLI can print now, so the check still proves what it was written to prove instead of being loosened.
+
 ## 0.12.4 — 2026-11-18
 
 ### Fixed
