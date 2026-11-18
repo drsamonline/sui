@@ -45,11 +45,51 @@ jobs:
       - name: Catalogue builds from app-endpoints
         run: node scripts/build-catalog.mjs
 
-      - name: Prober reports honestly with no endpoints resolved
-        run: node apps/cli/bin/sui.js probe --json | head -40
+      # 29 catalogue endpoints exist now, and CI has no egress: a probe here is
+      # proving that a failed probe is reported, not that a provider works. A
+      # short timeout keeps the job at seconds instead of minutes.
+      - name: Prober reports honestly when nothing answers
+        run: |
+          set -euo pipefail
+          out=$(node apps/cli/bin/sui.js probe --json --timeout 300)
+          echo "$out" | head -20
+          echo "$out" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);if(!j.results.length)process.exit(1);const bad=j.results.filter(r=>!r.ok&&!r.reasons.length);if(bad.length){console.error('a failed probe must say why:',bad.map(b=>b.provider));process.exit(1)}console.log('every failed probe named a reason')})"
 
       - name: Project audit — invariants, docs, dead code, secrets
         run: node scripts/audit.mjs
+
+      - name: ADR compliance — the code still honours every decision
+        run: node scripts/adr-check.mjs
+
+      - name: ADR-0001 gates — p95 at 200 rps, ledger size, no build step
+        run: node scripts/adr-gate.mjs
+
+  dashboard:
+    # The only job that looks at what a user actually sees. A screenshot cannot
+    # tell you the page is broken; this fails on a console error.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - name: Install a browser for the smoke test
+        run: npx --yes puppeteer@23 browsers install chrome
+      - name: Dashboard renders in three states, with no console errors
+        env:
+          PUPPETEER_PATH: ${{ github.workspace }}/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-audit --no-fund puppeteer-core@23
+          CHROME_PATH=$(node -e "const p=require('puppeteer');console.log(p.executablePath())" 2>/dev/null || true)
+          if [ -z "$CHROME_PATH" ]; then
+            CHROME_PATH=$(find "$HOME/.cache/puppeteer" -name chrome -type f | head -1)
+          fi
+          echo "chrome: $CHROME_PATH"
+          CHROME_PATH="$CHROME_PATH" node scripts/smoke-dashboard.mjs
+          CHROME_PATH="$CHROME_PATH" node scripts/smoke-dashboard.mjs --empty
+          CHROME_PATH="$CHROME_PATH" node scripts/smoke-dashboard.mjs --degraded
 
   soak:
     runs-on: ubuntu-latest

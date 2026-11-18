@@ -804,19 +804,32 @@ export async function cmdTenants(flags) {
   const gateway = await createGateway({ configPath: flags.config, ledgerFile: undefined });
   const { config, ledger } = gateway;
 
-  if (!(config.apiKeys ?? []).length) {
-    console.log('');
-    console.log('No API keys are configured, so every caller is the same anonymous tenant.');
-    console.log('Add an apiKeys entry to sui.config.json to separate them.');
-    return;
-  }
-
   const { tenantSnapshot, tenantSummary } = await import('@sui/core');
   const snapshot = tenantSnapshot({ config, ledger });
   const summary = tenantSummary(snapshot);
+  const configured = (config.apiKeys ?? []).length > 0;
 
+  // --json means stdout is the document. A helpful sentence there breaks a pipe,
+  // and an empty result is still a result: it says zero tenants are configured.
   if (flags.json) {
-    console.log(JSON.stringify({ summary, tenants: snapshot }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          summary,
+          tenants: snapshot,
+          ...(configured ? {} : { note: 'No API keys are configured, so every caller is the same anonymous tenant.' }),
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  if (!configured) {
+    console.log('');
+    console.log('No API keys are configured, so every caller is the same anonymous tenant.');
+    console.log('Add an apiKeys entry to sui.config.json to separate them.');
     return;
   }
 
@@ -1000,12 +1013,15 @@ export async function cmdProbe(flags, args) {
   const probeable = selected.filter((e) => e.base_url);
   const identities = selected.filter((e) => !e.base_url);
 
-  console.log('');
-  console.log(`Probing ${probeable.length} of ${selected.length} entries (fixtures v${PROBE_FIXTURE_VERSION})`);
+  // In --json mode stdout is the document: a preamble on stdout makes the output
+  // unparseable, which is how a CI step discovers it before a user does.
+  const say = flags.json ? (...a) => console.error(...a) : (...a) => console.log(...a);
+  say('');
+  say(`Probing ${probeable.length} of ${selected.length} entries (fixtures v${PROBE_FIXTURE_VERSION})`);
   if (identities.length) {
-    console.log(`${identities.length} have no base_url yet — an identity is not an endpoint, so they are not probed.`);
+    say(`${identities.length} have no base_url yet — an identity is not an endpoint, so they are not probed.`);
   }
-  console.log('');
+  say('');
 
   const prober = new Prober({ entries: probeable, timeoutMs: Number(flags.timeout ?? 8000) });
   const results = await prober.runOnce();

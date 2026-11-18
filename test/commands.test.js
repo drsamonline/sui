@@ -203,3 +203,47 @@ test('the CLI never tells you to run a command that cannot work', async () => {
   assert.equal(/npx sui/.test(out), false, 'the first-run hint told the user to run npx sui, which fails before a publish');
   assert.match(out, /Start it with: (\.\/sui|\.\\sui\.cmd|sui) start/);
 });
+
+test('--json means stdout is the document, on every command that has it', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  const home = mkdtempSync(join(tmpdir(), 'sui-json-'));
+  const commands = [
+    ['tenants', '--json'],
+    ['catalog', '--json'],
+    ['cost', '--json'],
+    ['savings', '--json'],
+  ];
+
+  for (const args of commands) {
+    const out = execFileSync(process.execPath, ['apps/cli/bin/sui.js', ...args], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...process.env, SUI_HOME: home },
+      timeout: 90_000,
+    });
+    // a preamble on stdout makes the output unparseable, which is how a CI step
+    // finds out before a user does
+    assert.doesNotThrow(() => JSON.parse(out), `sui ${args.join(' ')} did not emit pure JSON: ${out.slice(0, 80)}`);
+  }
+});
+
+test('probe --json emits pure JSON too, even when nothing answers', async () => {
+  const { execFileSync } = await import('node:child_process');
+  // one provider, not all 29: with no DNS each lookup costs seconds, and this
+  // test is about the shape of the output rather than the state of the network
+  const out = execFileSync(process.execPath, ['apps/cli/bin/sui.js', 'probe', 'groq', '--json', '--timeout', '200'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    timeout: 90_000,
+  });
+  const parsed = JSON.parse(out);
+  assert.ok(Array.isArray(parsed.results));
+  // every failure must say why, or the JSON is useless to a script
+  for (const r of parsed.results.filter((x) => !x.ok)) {
+    assert.ok(r.reasons.length > 0, `${r.provider} failed without a reason`);
+  }
+});

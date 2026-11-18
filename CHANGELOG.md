@@ -25,6 +25,13 @@ The version that stopped trusting its own documentation.
 - **A catalogue source ledger** (`packages/catalog/sources.json`): seven sources, each with URL, pinned commit, licence, and what was taken and what was not.
 - **An architecture diagram** in `docs/ARCHITECTURE.md`, with a test that keeps it matching the code.
 
+### CI
+
+- The workflow now runs **ADR compliance** and the **ADR-0001 gates**, which existed but were not gated on.
+- A **dashboard job** renders the page in a real browser in three states and fails on any console error.
+- The probe step gets a short timeout: 29 endpoints with an 8-second default and no egress is four minutes of nothing.
+- `sui probe --json` and `sui tenants --json` printed a human preamble to stdout, so their output did not parse. Both emit a clean document now, and `tenants --json` returns an empty result with a note rather than nothing at all.
+
 ### Measurement
 
 - The eval pass rate now carries a **95% confidence interval** and a per-category breakdown. One prompt in fifty is two percentage points, so a bare "86%" invited the reader to treat a sample as a measurement.

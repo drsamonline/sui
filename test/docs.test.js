@@ -224,3 +224,37 @@ test('the architecture diagram only claims what the code does', async () => {
   assert.match(doc, /router -\.->\|"I4: is this paid\?"\| gate/);
   assert.match(core, /export function isPaidProvider/);
 });
+
+/* ---------------------------- CI must run the gates that exist */
+
+test('CI runs every harness the repository ships', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const ci = readFileSync(join(process.cwd(), '.github', 'workflows', 'ci.yml'), 'utf8');
+
+  // a gate that only runs when someone remembers is not a gate
+  for (const script of ['scripts/audit.mjs', 'scripts/adr-check.mjs', 'scripts/adr-gate.mjs', 'evals/run.mjs', 'scripts/soak.mjs', 'scripts/smoke-dashboard.mjs']) {
+    assert.ok(ci.includes(script), `CI does not run ${script}`);
+  }
+});
+
+test('the CI probe step cannot burn a timeout per endpoint', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const ci = readFileSync(join(process.cwd(), '.github', 'workflows', 'ci.yml'), 'utf8');
+
+  // 29 endpoints with an 8s default and no egress is four minutes of nothing
+  assert.match(ci, /probe --json --timeout \d+/);
+});
+
+test('every script the workflow runs exists', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const ci = readFileSync(join(process.cwd(), '.github', 'workflows', 'ci.yml'), 'utf8');
+
+  const referenced = [...ci.matchAll(/node (scripts\/[\w.-]+\.mjs|evals\/[\w.-]+\.mjs|apps\/cli\/bin\/sui\.js)/g)].map((m) => m[1]);
+  assert.ok(referenced.length >= 5, 'the workflow should reference several scripts');
+  for (const path of new Set(referenced)) {
+    assert.ok(existsSync(join(process.cwd(), path)), `CI references ${path}, which does not exist`);
+  }
+});
