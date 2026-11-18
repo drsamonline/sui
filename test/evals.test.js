@@ -1,7 +1,38 @@
 import test from 'node:test';
+/**
+ * A config with a mock provider, so the eval tests exercise the harness rather
+ * than the network.
+ *
+ * Running the real eval here meant 50 prompts × an 8-second provider timeout,
+ * twice: invisible in a sandbox with no egress (every call fails instantly) and
+ * fifteen minutes on a CI runner that has egress and then waits.
+ */
+function mockConfig() {
+  // ESM: `require` is not defined here, and a helper that throws inside the
+  // test's try/catch turns a real failure into an empty string
+  const dir = mkdtempSync(join(tmpdir(), 'sui-eval-'));
+  const path = join(dir, 'sui.config.json');
+  writeFileSync(
+    path,
+    JSON.stringify({
+      server: { host: '127.0.0.1', port: 0 },
+      providers: { mock: { type: 'mock', mock: { delayMs: 1 } } },
+      models: { 'mock-1': { provider: 'mock', model: 'mock-1', costPer1kIn: 0, costPer1kOut: 0, quality: 3 } },
+      combos: { 'chat-default': { label: 'Everyday chat', strategy: 'fallback', targets: ['mock-1'] } },
+      budgets: { dailyUsd: 5 },
+      guardrails: { logPrompts: false },
+      paidTiers: { enabled: false },
+      apiKeys: [],
+    }),
+  );
+  return path;
+}
+
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { grade, GRADER_TYPES } from '../evals/graders.js';
 import { readFileSync } from 'node:fs';
@@ -61,7 +92,11 @@ test('a 50-prompt pass rate is reported with a confidence interval', async () =>
   const { execFileSync } = await import('node:child_process');
   let out = '';
   try {
-    out = execFileSync(process.execPath, ['evals/run.mjs'], { cwd: process.cwd(), encoding: 'utf8', timeout: 120_000 });
+    out = execFileSync(process.execPath, ['evals/run.mjs', '--config', mockConfig()], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      timeout: 120_000,
+    });
   } catch (err) {
     out = `${err?.stdout ?? ''}${err?.stderr ?? ''}`;
   }
@@ -76,7 +111,11 @@ test('per-category rates are shown, so the aggregate cannot hide a category', as
   const { execFileSync } = await import('node:child_process');
   let out = '';
   try {
-    out = execFileSync(process.execPath, ['evals/run.mjs'], { cwd: process.cwd(), encoding: 'utf8', timeout: 120_000 });
+    out = execFileSync(process.execPath, ['evals/run.mjs', '--config', mockConfig()], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      timeout: 120_000,
+    });
   } catch (err) {
     out = `${err?.stdout ?? ''}${err?.stderr ?? ''}`;
   }
