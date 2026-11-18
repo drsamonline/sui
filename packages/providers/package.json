@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/providers",
-  "version": "0.12.3",
+  "version": "0.12.4",
   "description": "Provider adapters: openai, anthropic, gemini, mock.",
   "type": "module",
   "license": "MIT",
@@ -26,6 +26,6 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@drsamonline/core": "^0.12.3"
+    "@drsamonline/core": "^0.12.4"
   }
 }

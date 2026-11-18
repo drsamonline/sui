@@ -126,8 +126,9 @@ test('every flag the help text shows with a value is in VALUE_FLAGS', async () =
   const valueFlags = new Set(declared.split(',').map((f) => f.trim().replace(/^'|'$/g, '')).filter(Boolean));
 
   // Take only the lines that *are* help output. Slicing to the next `];` swept in
-  // prose from the code below it, which then looked like documented flags.
-  const helpText = (source.match(/^\s*npx sui .*$/gm) ?? []).join('\n');
+  // prose from the code below it, which then looked like documented flags. The
+  // command prefix is interpolated now, so match either form.
+  const helpText = (source.match(/^\s*(?:npx sui|\$\{RUN_AS\}) .*$/gm) ?? []).join('\n');
   assert.ok(helpText.length > 200, 'the help text could not be found');
   const documented = new Set();
   // same line only: `--no-workers` at the end of a line is boolean, and the flag

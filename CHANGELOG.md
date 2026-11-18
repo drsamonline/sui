@@ -2,6 +2,15 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.4 — 2026-11-18
+
+### Fixed
+
+- **A registry install reported `0.0.0-unknown` as its version.** The CLI read the version from the repository root, and there is no repository root inside `node_modules`. It reads its own manifest now, falling back to the root only in a checkout.
+- **The help told you to run `npx sui`.** That is a bin name, not a package. From an install it now says `npx @drsamonline/cli`, and from a checkout `./sui` or `.\sui.cmd`. Every hint, error message and usage line follows the same rule — the rename had left 24 of them pointing at a command that cannot work.
+
+Both were invisible in the repository and obvious the moment the published package was installed into an empty directory. A test now builds that layout and runs it.
+
 ## 0.12.3 — 2026-11-18
 
 ### Fixed

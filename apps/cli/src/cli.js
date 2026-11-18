@@ -36,17 +36,31 @@ const HERE_DIR = dirname(fileURLToPath(import.meta.url));
  */
 const RUN_AS = (() => {
   const invoked = String(process.argv[1] ?? '');
-  // a global install (npm link, or a published package) has a bare `sui` on PATH
-  if (/node_modules/.test(invoked) || !/apps[\\/]cli[\\/]bin/.test(invoked)) return 'sui';
+  // A published install has the package on disk under node_modules, so the
+  // reliable command is the package name — not `sui`, which is a bin name and not
+  // something `npx` can resolve. Printing `npx sui` sent people to a command that
+  // cannot work, and it did so again the moment the package was renamed.
+  if (/node_modules/.test(invoked)) {
+    const pkg = JSON.parse(readFileSync(join(HERE_DIR, '..', 'package.json'), 'utf8'));
+    return `npx ${pkg.name}`;
+  }
+  if (!/apps[\\/]cli[\\/]bin/.test(invoked)) return 'sui';
   return process.platform === 'win32' ? '.\\sui.cmd' : './sui';
 })();
 
 const VERSION = (() => {
-  try {
-    return JSON.parse(readFileSync(join(HERE_DIR, '..', '..', '..', 'package.json'), 'utf8')).version;
-  } catch {
-    return '0.0.0-unknown';
+  // The CLI's own manifest, not the repository root: from a registry install there
+  // is no repository root, and walking up to one printed 0.0.0-unknown on a
+  // package that was published correctly.
+  for (const candidate of [join(HERE_DIR, '..', 'package.json'), join(HERE_DIR, '..', '..', '..', 'package.json')]) {
+    try {
+      const version = JSON.parse(readFileSync(candidate, 'utf8')).version;
+      if (version) return version;
+    } catch {
+      /* try the next one */
+    }
   }
+  return '0.0.0-unknown';
 })();
 
 export async function run(argv = process.argv.slice(2)) {
@@ -193,7 +207,7 @@ async function cmdUp(flags) {
     const e = /** @type {any} */ (err);
     if (e.code === 'EADDRINUSE') {
       throw new ConfigError(
-        `Port ${port} is already in use. Either stop what is on it, or start sui elsewhere: npx sui start --port ${port + 1}`,
+        `Port ${port} is already in use. Either stop what is on it, or start sui elsewhere: ${RUN_AS} start --port ${port + 1}`,
         { detail: e.message, path: 'server.port' },
       );
     }
@@ -400,7 +414,7 @@ async function cmdTools(flags, args) {
   if (want) {
     const configPath = defaultConfigPath();
     const config = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : null;
-    if (!config) throw new ConfigError('No config yet. Run `npx sui init` first.');
+    if (!config) throw new ConfigError(`No config yet. Run \`${RUN_AS} init\` first.`);
     const combo = flags.combo ?? Object.keys(config.combos ?? {})[0];
     const port = config.server?.port ?? 8787;
     const result = writeToolConfig(want, {
@@ -437,11 +451,11 @@ async function cmdTools(flags, args) {
 async function cmdMigrate(flags, args) {
   const file = args[0] ?? flags.from;
   if (!file) {
-    throw new ConfigError('Say which config to import: npx sui migrate ./9router.json');
+    throw new ConfigError(`Say which config to import: ${RUN_AS} migrate ./9router.json`);
   }
   const imported = readMigrationSource(resolve(file));
   const configPath = flags.config ?? defaultConfigPath();
-  if (!configPath) throw new ConfigError('No sui config yet. Run `npx sui init` first.');
+  if (!configPath) throw new ConfigError(`No sui config yet. Run \`${RUN_AS} init\` first.`);
   const currentRaw = JSON.parse(readFileSync(configPath, 'utf8'));
   const gateway = await createGateway({ configPath, ledgerFile: null });
   const diff = diffImport(gateway.config, imported);
@@ -523,14 +537,14 @@ async function cmdKeys(flags, args) {
   const sub = args[0] ?? (flags.hash ? 'hash' : null);
   if (sub !== 'hash') {
     console.log('');
-    console.log('Usage: npx sui keys hash [--config <file>]');
+    console.log(`Usage: ${RUN_AS} keys hash [--config <file>]`);
     console.log('');
     console.log('Rewrites every plaintext key in apiKeys as a SHA-256 hash. The keys');
     console.log('themselves still work — they are simply no longer stored in the file.');
     return;
   }
   const path = flags.config ?? defaultConfigPath();
-  if (!path) throw new ConfigError('No config found. Run `npx sui init` first.');
+  if (!path) throw new ConfigError(`No config found. Run \`${RUN_AS} init\` first.`);
   const raw = JSON.parse(readFileSync(path, 'utf8'));
   const keys = Array.isArray(raw.apiKeys) ? raw.apiKeys : [];
   let changed = 0;
@@ -572,7 +586,7 @@ function cmdInvariants(flags) {
 
 function createGatewayConfig(path) {
   const resolved = path ?? defaultConfigPath();
-  if (!resolved) throw new ConfigError('No config found. Run `npx sui init` first.');
+  if (!resolved) throw new ConfigError(`No config found. Run \`${RUN_AS} init\` first.`);
   return normalizeConfig(JSON.parse(readFileSync(resolved, 'utf8')), { path: resolved, env: loadEnvFile('.env', { ...process.env }) });
 }
 
@@ -580,34 +594,34 @@ function help() {
   console.log(`
 sui ${VERSION} — one endpoint for every LLM
 
-  npx sui                 first run: find keys, find tools, prove the route, start
-  npx sui init            the same, explicitly      --demo  --force  --port 8787
-  npx sui start           run the gateway            --port 8787  --config <file>  --no-workers
+  ${RUN_AS}                first run: find keys, find tools, prove the route, start
+  ${RUN_AS} init           the same, explicitly      --demo  --force  --port 8787
+  ${RUN_AS} start          run the gateway            --port 8787  --config <file>  --no-workers
                           (aliases: up, serve)
-  npx sui invariants      every hard constraint, and which are enforced
-  npx sui keys hash       replace plaintext API keys with SHA-256 hashes
-  npx sui doctor          one real turn per combo, and say what broke
-  npx sui models          the combos and what they can reach   --json
-  npx sui cost            spend, latency and A/B arms           --json  --all   (alias: usage)
+  ${RUN_AS} invariants     every hard constraint, and which are enforced
+  ${RUN_AS} keys hash       replace plaintext API keys with SHA-256 hashes
+  ${RUN_AS} doctor          one real turn per combo, and say what broke
+  ${RUN_AS} models          the combos and what they can reach   --json
+  ${RUN_AS} cost            spend, latency and A/B arms           --json  --all   (alias: usage)
                           --by user|tool for charge-back attribution
-  npx sui tools           point a coding tool here              --set <tool-id>
-  npx sui migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
-  npx sui catalog [q]    the provider catalogue, and what is still unverified
-  npx sui probe [name]   liveness, readiness and suitability checks (B2.3)
-  npx sui compress <file|-> [--preset lite|standard|aggressive|ultra] [--text "…"]
-  npx sui budget         which preset the remaining quota would choose
-  npx sui savings        what cache hits and compression did not spend   --all
-  npx sui explain [combo] why a route would go where it goes (B7.4)
-  npx sui tenants        what each API key has spent, and what it may reach
-  npx sui mcp            serve the gateway over MCP   --transport stdio|http  --port 8788
-  npx sui recipe list    named config patches: list, show, apply  --dry-run  --force
-  npx sui local          find a model server on this machine   --write  --timeout 300
-  npx sui sandbox        run code in a contained process       --self-test  --wall  --heap
-  npx sui redteam [combo] attack your own route with 10 obfuscations (B6.2)
-  npx sui vault <cmd>    init | set <provider> | list | remove <provider> | status
-  npx sui config <cmd>   show | get <path> | set <path> <value> | unset <path>
-  npx sui tokens --check WCAG AA on the dashboard tokens, computed by tokens-kit
-  npx sui kits           the vendored kits and whether they load
+  ${RUN_AS} tools           point a coding tool here              --set <tool-id>
+  ${RUN_AS} migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
+  ${RUN_AS} catalog [q]    the provider catalogue, and what is still unverified
+  ${RUN_AS} probe [name]   liveness, readiness and suitability checks (B2.3)
+  ${RUN_AS} compress <file|-> [--preset lite|standard|aggressive|ultra] [--text "…"]
+  ${RUN_AS} budget         which preset the remaining quota would choose
+  ${RUN_AS} savings        what cache hits and compression did not spend   --all
+  ${RUN_AS} explain [combo] why a route would go where it goes (B7.4)
+  ${RUN_AS} tenants        what each API key has spent, and what it may reach
+  ${RUN_AS} mcp            serve the gateway over MCP   --transport stdio|http  --port 8788
+  ${RUN_AS} recipe list    named config patches: list, show, apply  --dry-run  --force
+  ${RUN_AS} local          find a model server on this machine   --write  --timeout 300
+  ${RUN_AS} sandbox        run code in a contained process       --self-test  --wall  --heap
+  ${RUN_AS} redteam [combo] attack your own route with 10 obfuscations (B6.2)
+  ${RUN_AS} vault <cmd>    init | set <provider> | list | remove <provider> | status
+  ${RUN_AS} config <cmd>   show | get <path> | set <path> <value> | unset <path>
+  ${RUN_AS} tokens --check WCAG AA on the dashboard tokens, computed by tokens-kit
+  ${RUN_AS} kits           the vendored kits and whether they load
 
 Endpoint, once running:   http://127.0.0.1:8787/v1
 Dashboard:                http://127.0.0.1:8787/
