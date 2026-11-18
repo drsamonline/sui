@@ -1,6 +1,19 @@
 # Publishing
 
-**The short path:** add one repository secret, push a tag, done. `.github/workflows/publish.yml` runs the gates, checks the tag against `package.json`, and publishes all 18 packages from a GitHub runner.
+## Before anything: the scope must be yours
+
+`@sui/cli` can only be published by the npm account or organization named `sui`. A scope is not a namespace you pick. It is the owner. If the token screen says *"no organization selected"* and offers you nothing, that is what it means: your username is not `sui` and you have no organization.
+
+Two ways out:
+
+| Route | Cost | Keeps `@sui/*`? |
+|---|---|---|
+| **Create a free organization named `sui`** (npmjs.com → your avatar → Add Organization → free tier for public packages) | 1 minute | yes |
+| Rename every package to `sui-*` (unscoped) | one commit here | no |
+
+`npm run publish:dry` tells you which situation you are in: every package shows `free` when the name is unpublished, and the publish fails at step one with a 403 when the scope belongs to someone else.
+
+## The short path: add one repository secret, push a tag, done. `.github/workflows/publish.yml` runs the gates, checks the tag against `package.json`, and publishes all 18 packages from a GitHub runner.
 
 ```bash
 # 1. once: an npm automation token (npmjs.com → Access Tokens → Granular, read+write)
