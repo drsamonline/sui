@@ -161,6 +161,7 @@
   .status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-13); white-space: nowrap; }
   .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
   .status[data-state="open"] .dot { background: transparent; border: 2px solid var(--accent); }
+  .status[data-state="half-open"] .dot,
   .status[data-state="half_open"] .dot { background: var(--accent); opacity: 0.5; }
   .status[data-state="unknown"] .dot { background: var(--line-strong); }
 
@@ -304,6 +305,25 @@
       </div>
     </section>
 
+    <section class="card" id="compress-card" aria-labelledby="compress-h">
+      <header>
+        <h2 id="compress-h">Compression</h2>
+        <span class="hint">what a preset would do — nothing is sent</span>
+      </header>
+      <div class="body">
+        <label class="who" for="compress-text" style="display:block;font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:var(--space-2)">Paste a prompt</label>
+        <textarea id="compress-text" rows="4" style="width:100%;font:inherit;font-size:var(--fs-13);padding:var(--space-2);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)" placeholder="A long prompt with code, URLs or JSON in it…"></textarea>
+        <div class="row" style="display:flex;gap:var(--space-2);align-items:center;margin-top:var(--space-2);flex-wrap:wrap">
+          <label class="hint" for="compress-preset">preset</label>
+          <select id="compress-preset" style="font:inherit;font-size:var(--fs-13);padding:4px 8px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)">
+            <option>lite</option><option selected>standard</option><option>aggressive</option><option>ultra</option>
+          </select>
+          <button class="ghost small" id="compress-run" type="button">Try it</button>
+        </div>
+        <div id="compress-result" style="margin-top:var(--space-3)"></div>
+      </div>
+    </section>
+
     <!-- ------------------------------------------------ ops column -->
     <div class="split">
 
@@ -323,7 +343,7 @@
       </section>
 
       <section class="card" id="eval-card" aria-labelledby="eval-h">
-        <header><h2 id="eval-h">Last eval</h2><span class="hint" id="eval-when">—</span></header>
+        <header><h2 id="eval-h">Answer quality</h2><span class="hint" id="eval-when">—</span></header>
         <div class="body" id="eval-body">
           <div class="skeleton line" style="width: 60%"></div>
         </div>
@@ -387,24 +407,6 @@
       </div>
     </section>
 
-    <section class="card" id="compress-card" aria-labelledby="compress-h">
-      <header>
-        <h2 id="compress-h">Compression</h2>
-        <span class="hint">what a preset would do — nothing is sent</span>
-      </header>
-      <div class="body">
-        <label class="who" for="compress-text" style="display:block;font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:var(--space-2)">Paste a prompt</label>
-        <textarea id="compress-text" rows="4" style="width:100%;font:inherit;font-size:var(--fs-13);padding:var(--space-2);border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)" placeholder="A long prompt with code, URLs or JSON in it…"></textarea>
-        <div class="row" style="display:flex;gap:var(--space-2);align-items:center;margin-top:var(--space-2);flex-wrap:wrap">
-          <label class="hint" for="compress-preset">preset</label>
-          <select id="compress-preset" style="font:inherit;font-size:var(--fs-13);padding:4px 8px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)">
-            <option>lite</option><option selected>standard</option><option>aggressive</option><option>ultra</option>
-          </select>
-          <button class="ghost small" id="compress-run" type="button">Try it</button>
-        </div>
-        <div id="compress-result" style="margin-top:var(--space-3)"></div>
-      </div>
-    </section>
 
     <section class="card" id="weather-card" aria-labelledby="weather-h" hidden>
       <header>
@@ -566,8 +568,17 @@ function renderKpis(totals, cache) {
 }
 
 function healthCell(m) {
-  const label = m.health === 'closed' ? 'ready' : m.health === 'open' ? `resting (${Math.ceil(m.retryInMs / 1000)}s)` : 'testing';
-  return `<span class="status" data-state="${m.health}"><span class="dot" aria-hidden="true"></span>${label}</span>`;
+  // The breaker says 'half-open' with a hyphen; the stylesheet was written for
+  // 'half_open' with an underscore, so that state had no dot and a label that
+  // read as a bug. One normaliser, one map, both spellings understood.
+  const state = String(m.health ?? 'unknown').replace(/_/g, '-');
+  const labels = {
+    closed: 'ready',
+    open: `resting ${Math.max(0, Math.ceil((m.retryInMs ?? 0) / 1000))}s`,
+    'half-open': 'trying again',
+    unknown: 'unknown',
+  };
+  return `<span class="status" data-state="${state}"><span class="dot" aria-hidden="true"></span>${labels[state] ?? escapeHtml(state)}</span>`;
 }
 
 function renderPool(pool) {
@@ -614,7 +625,11 @@ async function loadEval() {
     }
     const r = json.report;
     const pct = Math.round((r.passRate ?? 0) * 100);
-    when.textContent = r.mode === 'self-test' ? 'harness self-test' : `combo ${r.combo ?? '—'}`;
+    // A self-test proves the graders grade. It says nothing about answer quality,
+    // so the heading must not imply it did.
+    const title = document.querySelector('#eval-h');
+    if (title) title.textContent = r.mode === 'self-test' ? 'Harness self-test' : 'Answer quality';
+    when.textContent = r.mode === 'self-test' ? 'graders checked, no model called' : `combo ${r.combo ?? '—'}`;
     body.innerHTML = `
       <div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3)">
         <span class="num" style="font-size: var(--fs-28); font-weight: 600">${pct}%</span>
@@ -778,7 +793,7 @@ function renderProbes(probes) {
   document.querySelector('#probes-body').innerHTML = probes.map((p) => `
     <tr>
       <td><strong>${escapeHtml(p.provider)}</strong></td>
-      <td><span class="status" data-state="${p.status === 'healthy' ? 'closed' : p.status === 'disabled' ? 'open' : 'half_open'}"><span class="dot" aria-hidden="true"></span>${p.status}</span></td>
+      <td><span class="status" data-state="${p.status === 'healthy' ? 'closed' : p.status === 'disabled' ? 'open' : 'half-open'}"><span class="dot" aria-hidden="true"></span>${p.status}</span></td>
       <td class="num">${p.failures}</td>
       <td class="num">${p.lastProbeAt ? new Date(p.lastProbeAt).toLocaleTimeString('en-IN', { hour12: false }) : '—'}</td>
       <td class="num">${p.latencyMs == null ? '—' : `${p.latencyMs} ms`}</td>
@@ -787,15 +802,21 @@ function renderProbes(probes) {
 }
 
 function renderTraces(prompts) {
+  // Eight rows of hex is noise nobody acts on; three plus a count is a signal.
+  const shown = prompts.slice(0, 3);
+  const rest = prompts.length - shown.length;
   $('#traces-body').innerHTML = prompts.length
-    ? prompts.map((p) => `
+    ? shown.map((p) => `
       <tr>
         <td class="mono">${p.promptHash}</td>
         <td class="num">${p.turns}</td>
         <td class="num">${num(p.chars)}</td>
         <td class="num">${money(p.costUsd)}</td>
         <td class="hint">${p.models.join(', ')}</td>
-      </tr>`).join('')
+      </tr>`).join('') +
+      (rest > 0
+        ? `<tr><td colspan="5" class="hint" style="padding-top: var(--space-2)">${rest} more prompt${rest === 1 ? '' : 's'} this session — hashes only, never text.</td></tr>`
+        : '')
     : `<tr><td colspan="5" class="hint" style="padding: var(--space-4)">Nothing routed yet. Send a request above.</td></tr>`;
 }
 

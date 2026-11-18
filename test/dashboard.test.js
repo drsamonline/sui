@@ -104,8 +104,10 @@ test('the weather map is present, labelled in words, and never colour-only', () 
 
 test('the last-eval card is present and labelled honestly', () => {
   assert.match(html, /id="eval-card"/);
-  assert.match(html, /Last eval/);
-  assert.match(html, /harness self-test/);
+  // the heading is a promise about what was measured, so it starts neutral and
+  // switches to "Harness self-test" when that is what ran
+  assert.match(html, /<h2 id="eval-h">Answer quality<\/h2>/);
+  assert.match(html, /harness self-test/i);
   assert.match(html, /No eval has been run on this machine/);
 });
 
@@ -172,4 +174,39 @@ test('the dashboard smoke test covers the three states a page breaks in', async 
   // the fresh-install state has a provider and no key, not an empty config:
   // a gateway with no providers is refused by validation, correctly
   assert.match(script, /apiKeyEnv: 'GROQ_API_KEY_NOT_SET'/);
+});
+
+/* --------------------------- the dashboard must not mislead (design review) */
+
+test('every breaker state has a human label, in both spellings', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const html = readFileSync(join(process.cwd(), 'apps', 'dashboard', 'web', 'dashboard.html'), 'utf8');
+
+  // the breaker emits 'half-open'; the stylesheet was written for 'half_open',
+  // so that state rendered with no dot and a label that read as a bug
+  assert.match(html, /'half-open':/, 'the half-open state needs a label');
+  assert.match(html, /data-state="half-open"\] \.dot/);
+  assert.match(html, /data-state="half_open"\] \.dot/, 'the old spelling must keep working');
+  assert.equal(/health === 'closed' \? 'ready' : m\.health === 'open' \?/.test(html), false, 'the label must come from a map, not a nested ternary');
+});
+
+test('the eval card does not imply answer quality when it ran a self-test', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const html = readFileSync(join(process.cwd(), 'apps', 'dashboard', 'web', 'dashboard.html'), 'utf8');
+
+  // a self-test proves the graders grade; a heading of "Last eval / 100%" says
+  // something else entirely
+  assert.equal(/<h2 id="eval-h">Last eval<\/h2>/.test(html), false, 'the heading must not claim an eval before one has run');
+  assert.match(html, /r\.mode === 'self-test' \? 'Harness self-test' : 'Answer quality'/);
+});
+
+test('prompt hashes are capped and the remainder is counted', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const html = readFileSync(join(process.cwd(), 'apps', 'dashboard', 'web', 'dashboard.html'), 'utf8');
+
+  assert.match(html, /prompts\.slice\(0, 3\)/, 'eight rows of hex is noise; three plus a count is a signal');
+  assert.match(html, /more prompt\$\{rest === 1 \? '' : 's'\} this session/);
 });
