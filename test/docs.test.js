@@ -488,7 +488,7 @@ test('the publisher waits for the registry before calling a release staged', asy
 
   // reading the registry once, immediately after publishing, reported a
   // successful release as staged: npm had not finished processing it
-  assert.match(publish, /attempt < 8/, 'the version check must retry');
+  assert.match(publish, /attempt < 15/, 'the version check must retry long enough for 18 packages');
   assert.match(publish, /0\.0\.0-stage/, 'only the placeholder means staged');
 });
 

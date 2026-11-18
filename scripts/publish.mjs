@@ -168,13 +168,15 @@ console.log('');
 // confidence.
 const staged = [];
 const verifyOne = (name, version) => {
-  for (let attempt = 0; attempt < 8; attempt++) {
+  // 18 packages, each processed in turn: a minute is not enough for the tail of
+  // the list, and a lagging index was reported as a staged release twice.
+  for (let attempt = 0; attempt < 15; attempt++) {
     try {
       const out = execFileSync('npm', ['view', name, 'versions', '--json'], { encoding: 'utf8', stdio: 'pipe' });
       const versions = JSON.parse(out);
       if (versions.includes(version)) return null;
       // the placeholder is npm's staged marker; a lagging index is not
-      if (attempt === 7) {
+      if (attempt === 14) {
         return versions.includes('0.0.0-stage') && versions.length === 1
           ? `${name}: staged as 0.0.0-stage, needs approval`
           : `${name}: registry has ${versions[versions.length - 1]}, we sent ${version}`;
@@ -182,9 +184,9 @@ const verifyOne = (name, version) => {
     } catch {
       /* not visible yet */
     }
-    execFileSync('sleep', [String(2 + attempt * 2)]);
+    execFileSync('sleep', [String(3 + attempt * 2)]);
   }
-  return `${name}: not visible after 60s`;
+  return `${name}: not visible after 150s`;
 };
 
 for (const dir of ORDER) {
