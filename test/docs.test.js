@@ -399,3 +399,50 @@ test('publishing is automated, gated, and never needs a token on a laptop', asyn
   // tree, so the gate's own output has to be restored before the check runs
   assert.match(wf, /git checkout -- evals\/last-report\.json/, 'the gates must not dirty the tree the publisher checks');
 });
+
+test('every internal import is a declared dependency', async () => {
+  const { readdirSync, readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  // The monorepo links workspaces, so an undeclared dependency resolves here and
+  // fails the moment someone installs the package from npm: `npm i @drsamonline/cli`
+  // installed one package and then could not find @drsamonline/gateway.
+  const dirs = [
+    ...readdirSync(join(process.cwd(), 'packages')).map((d) => join('packages', d)),
+    ...readdirSync(join(process.cwd(), 'apps')).map((d) => join('apps', d)),
+  ].filter((d) => existsSync(join(process.cwd(), d, 'package.json')));
+
+  const importsOf = (dir) => {
+    const used = new Set();
+    const walk = (at) => {
+      for (const entry of readdirSync(at, { withFileTypes: true })) {
+        const full = join(at, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== 'node_modules') walk(full);
+        } else if (/\.(js|mjs)$/.test(entry.name)) {
+          for (const m of readFileSync(full, 'utf8').matchAll(/from '(@drsamonline\/[a-z-]+)'/g)) used.add(m[1]);
+        }
+      }
+    };
+    if (existsSync(join(process.cwd(), dir, 'src'))) walk(join(process.cwd(), dir, 'src'));
+    return used;
+  };
+
+  for (const dir of dirs) {
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), dir, 'package.json'), 'utf8'));
+    const declared = new Set(Object.keys(pkg.dependencies ?? {}));
+    const missing = [...importsOf(dir)].filter((name) => name !== pkg.name && !declared.has(name));
+    assert.deepEqual(missing, [], `${pkg.name} imports ${missing.join(', ')} without declaring it`);
+  }
+});
+
+test('the publisher ships every package the CLI depends on', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const publish = readFileSync(join(process.cwd(), 'scripts', 'publish.mjs'), 'utf8');
+
+  // apps/gateway is a dependency of the CLI and was missing from the publish
+  // order, so the CLI could be installed and could not run
+  assert.match(publish, /'apps\/gateway'/, 'the gateway must be published before the CLI');
+  assert.match(publish, /checkDependenciesPublished/, 'an unpublished dependency must stop the run');
+});

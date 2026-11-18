@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/cli",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "description": "The `sui` command line.",
   "type": "module",
   "license": "MIT",
@@ -25,5 +25,17 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@drsamonline/catalog": "^0.12.3",
+    "@drsamonline/compression": "^0.12.3",
+    "@drsamonline/core": "^0.12.3",
+    "@drsamonline/gateway": "^0.12.3",
+    "@drsamonline/kits": "^0.12.3",
+    "@drsamonline/mcp": "^0.12.3",
+    "@drsamonline/prober": "^0.12.3",
+    "@drsamonline/redteam": "^0.12.3",
+    "@drsamonline/router": "^0.12.3",
+    "@drsamonline/vault": "^0.12.3"
   }
 }

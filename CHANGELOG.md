@@ -2,6 +2,17 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.3 — 2026-11-18
+
+### Fixed
+
+- **The published CLI could not run.** `npm i @drsamonline/cli` installed one package and then failed with `Cannot find package '@drsamonline/gateway'`. Two causes, both invisible inside the monorepo because workspaces link by path:
+  - **`apps/gateway` was never published.** It is a dependency of the CLI and was missing from the publisher's order list.
+  - **33 internal imports were undeclared.** The workspace link resolved them here; a registry install cannot.
+- The publisher now refuses to run when a package depends on something the same run does not publish, and a test fails when a workspace imports a package it does not declare.
+
+Found by installing the published package into an empty directory, which is the only way to see it.
+
 ## 0.12.2 — 2026-11-18
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/sdk",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "description": "JavaScript/TypeScript client for the gateway.",
   "type": "module",
   "license": "MIT",

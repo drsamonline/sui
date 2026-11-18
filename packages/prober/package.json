@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/prober",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "description": "Canary prober: liveness, readiness and suitability checks that decide what may be routed to.",
   "type": "module",
   "license": "MIT",
@@ -21,5 +21,8 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@drsamonline/catalog": "^0.12.3"
   }
 }

@@ -40,8 +40,24 @@ const ORDER = [
   'packages/sdk',
   'packages/mcp',
   'packages/sandbox',
+  // apps/gateway is a dependency of the CLI, so it has to be published before it.
+  // It was missing from this list, and `npm i @drsamonline/cli` installed one
+  // package and then failed to find @drsamonline/gateway.
+  'apps/gateway',
   'apps/cli',
 ];
+
+/**
+ * A dependency that is not published is a package that cannot be installed.
+ *
+ * The monorepo links workspaces, so an undeclared or unpublished dependency
+ * resolves here and fails for everyone else — which is exactly what happened.
+ */
+function checkDependenciesPublished(dir, pkg, publishedNames) {
+  const deps = Object.keys(pkg.dependencies ?? {});
+  const missing = deps.filter((name) => !publishedNames.has(name));
+  if (missing.length) problems.push(`${pkg.name} depends on ${missing.join(', ')}, which this run does not publish`);
+}
 
 const problems = [];
 const rootPkg = read('package.json');
@@ -80,10 +96,18 @@ for (const dir of ORDER) {
 
 // 3. the name is free, or this version is
 const availability = [];
+const publishedNames = new Set(
+  ORDER.map((dir) => {
+    const path = join(dir, 'package.json');
+    return existsSync(join(ROOT, path)) ? read(path).name : null;
+  }).filter(Boolean),
+);
+
 for (const dir of ORDER) {
   const path = join(dir, 'package.json');
   if (!existsSync(join(ROOT, path))) continue;
   const pkg = read(path);
+  checkDependenciesPublished(dir, pkg, publishedNames);
   let published = null;
   try {
     published = execFileSync('npm', ['view', `${pkg.name}@${pkg.version}`, 'version'], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim();
