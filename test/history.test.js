@@ -111,7 +111,13 @@ test('/api/history serves the series, and says so when it is off', async () => {
 
 test('with workers on, /api/history reports what is on disk', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sui-hist-api-'));
-  const gw = await makeGateway(testConfig(), { startWorkers: true, historyFile: join(dir, 'history.jsonl') });
+  // Workers on, prober off: the prober's kickoff does real network probes, and a
+  // unit test that reaches the internet is slow on a runner with egress and
+  // instant here — which is how this hung CI for fifteen minutes and never
+  // showed up locally.
+  const config = testConfig();
+  config.workers = { enabled: true, kickoffMs: 0, prober: { enabled: false }, cacheSweepMs: 0, driftIntervalMs: 0, alertIntervalMs: 0 };
+  const gw = await makeGateway(config, { startWorkers: true, historyFile: join(dir, 'history.jsonl') });
   gw.workers.history.record({ modelId: 'mock-a', ok: true, latencyMs: 40 });
 
   await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));

@@ -315,3 +315,22 @@ test('every CI job has a timeout, so a hang fails instead of waiting', async () 
     assert.match(block, /timeout-minutes:/, `job "${job}" has no timeout`);
   }
 });
+
+test('no test starts a prober that reaches the network', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const dir = join(process.cwd(), 'test');
+
+  // A unit test that probes the internet is fast here (no egress: every call is
+  // refused instantly) and slow on a runner (egress: every call connects and
+  // waits out the timeout). That asymmetry held CI for fifteen minutes.
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.test.js') && f !== 'docs.test.js')) {
+    const body = readFileSync(join(dir, file), 'utf8');
+    if (!body.includes('startWorkers: true')) continue;
+    assert.match(
+      body,
+      /prober: \{ enabled: false \}/,
+      `${file} starts workers with the prober on — that test will reach the network`,
+    );
+  }
+});
