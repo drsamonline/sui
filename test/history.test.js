@@ -5,6 +5,34 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HistoryStore, SAMPLE_FIELDS } from '@sui/telemetry';
 import { makeGateway, testConfig } from './helpers.js';
+import http from 'node:http';
+/**
+ * GET a loopback URL with node:http rather than fetch.
+ *
+ * `fetch` keeps connections in a pool, and in CI that pool outlived the server:
+ * `server.close()` then waited for a socket nobody was going to close, and the
+ * test file timed out at sixty seconds while the same tests finished in two
+ * locally. `agent: false` and `connection: close` remove the question.
+ */
+function getJson(port, path) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({ host: '127.0.0.1', port, path, agent: false, headers: { connection: 'close' } }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => (body += c));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(5000, () => req.destroy(new Error(`GET ${path} timed out`)));
+  });
+}
+
 
 const tmpFile = () => join(mkdtempSync(join(tmpdir(), 'sui-hist-')), 'history.jsonl');
 const T0 = 1_800_000_000_000;
@@ -103,26 +131,35 @@ test('/api/history serves the series, and says so when it is off', async () => {
   await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
   const { port } = gw.server.address();
 
-  const off = await (await fetch(`http://127.0.0.1:${port}/api/history`)).json();
+  const off = await getJson(port, '/api/history');
   assert.equal(off.enabled, false, 'workers are off, so there is no history — and it says that');
 
   await gw.close();
-});
+}, { timeout: 25_000 });
 
-test('with workers on, /api/history reports what is on disk', async () => {
+test('with workers on, /api/history reports what is on disk', async (t) => {
+  // Steps are logged with their timing: when this hangs in CI, the log says which
+  // line stopped rather than only that the file took sixty seconds.
+  const step = (label, t0) => t.diagnostic(`${label}: ${Date.now() - t0}ms`);
   const dir = mkdtempSync(join(tmpdir(), 'sui-hist-api-'));
   // Workers on, prober off: the prober's kickoff does real network probes, and a
   // unit test that reaches the internet is slow on a runner with egress and
   // instant here — which is how this hung CI for fifteen minutes and never
   // showed up locally.
+  let t0 = Date.now();
   const config = testConfig();
   config.workers = { enabled: true, kickoffMs: 0, prober: { enabled: false }, cacheSweepMs: 0, driftIntervalMs: 0, alertIntervalMs: 0 };
   const gw = await makeGateway(config, { startWorkers: true, historyFile: join(dir, 'history.jsonl') });
+  step('gateway built', t0);
+
   gw.workers.history.record({ modelId: 'mock-a', ok: true, latencyMs: 40 });
+  step('sample recorded', t0);
 
   await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  step('listening', t0);
   const { port } = gw.server.address();
-  const json = await (await fetch(`http://127.0.0.1:${port}/api/history?model=mock-a&hours=24&buckets=6`)).json();
+  const json = await getJson(port, '/api/history?model=mock-a&hours=24&buckets=6');
+  step('history fetched', t0);
 
   assert.equal(json.enabled, true);
   assert.equal(json.series.length, 1);
@@ -130,5 +167,7 @@ test('with workers on, /api/history reports what is on disk', async () => {
   assert.equal(json.series[0].points.length, 6);
   assert.ok(existsSync(join(dir, 'history.jsonl')), 'the sample was written to disk');
 
+  t0 = Date.now();
   await gw.close();
-});
+  step('closed', t0);
+}, { timeout: 25_000 });
