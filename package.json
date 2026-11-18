@@ -15,7 +15,7 @@
   "scripts": {
     "start": "node apps/cli/bin/sui.js start",
     "dev": "node --watch apps/cli/bin/sui.js start",
-    "test": "node --test test/",
+    "test": "node scripts/test.mjs",
     "eval": "node evals/run.mjs",
     "eval:self": "node evals/run.mjs --self-test",
     "soak": "node scripts/soak.mjs --minutes 1",

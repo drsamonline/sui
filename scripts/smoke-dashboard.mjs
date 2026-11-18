@@ -133,7 +133,10 @@ console.log(`  weather card present     ${probe.hasWeather}`);
 console.log(`  topology rendered        ${probe.hasTopology}`);
 console.log('');
 
-const fatal = problems.filter((p) => !/favicon|net::ERR_ABORTED/i.test(p));
+// A console 404 carries no URL, so the response listener is what names it. Keep
+// the filter narrow: an aborted request is a page navigating away, nothing else
+// gets a free pass.
+const fatal = problems.filter((p) => !/net::ERR_ABORTED/i.test(p));
 if (fatal.length) {
   console.log(`  ${fatal.length} problem(s):`);
   for (const problem of [...new Set(fatal)].slice(0, 20)) console.log(`   - ${problem}`);

@@ -278,3 +278,18 @@ test('the workflow uses no expression GitHub rejects', async () => {
     assert.match(m[1].trim(), /^(secrets|github|env|matrix|needs)\./, `unexpected expression: ${m[1]}`);
   }
 });
+
+test('the test script runs on every Node version, not just the one in the sandbox', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'));
+
+  // `node --test test/` works on Node 20 and fails on Node 22, which reads the
+  // argument as a file. The runner passes explicit paths, which both understand
+  // and which cmd.exe can also handle — a glob would depend on the shell.
+  assert.equal(pkg.scripts.test, 'node scripts/test.mjs');
+  const runner = readFileSync(join(process.cwd(), 'scripts', 'test.mjs'), 'utf8');
+  assert.match(runner, /readdirSync\(TEST_DIR\)/);
+  assert.match(runner, /endsWith\('\.test\.js'\)/);
+  assert.match(runner, /'--test', \.\.\.process\.argv\.slice\(2\)/, 'extra arguments must be forwarded');
+});
