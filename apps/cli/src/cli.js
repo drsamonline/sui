@@ -27,6 +27,20 @@ import { ConfigError } from '@sui/core';
 
 // One source of truth for the version: the package manifest.
 const HERE_DIR = dirname(fileURLToPath(import.meta.url));
+/**
+ * How should the user run the next command?
+ *
+ * `npx sui` only works once the package is on npm, which it is not. Printing it
+ * anyway sends people to a command that fails — and the failure looks like a
+ * broken install rather than an unpublished package.
+ */
+const RUN_AS = (() => {
+  const invoked = String(process.argv[1] ?? '');
+  // a global install (npm link, or a published package) has a bare `sui` on PATH
+  if (/node_modules/.test(invoked) || !/apps[\\/]cli[\\/]bin/.test(invoked)) return 'sui';
+  return process.platform === 'win32' ? '.\\sui.cmd' : './sui';
+})();
+
 const VERSION = (() => {
   try {
     return JSON.parse(readFileSync(join(HERE_DIR, '..', '..', '..', 'package.json'), 'utf8')).version;
@@ -133,12 +147,12 @@ async function cmdInit(flags) {
     }
     if (flags['no-serve'] || !interactive) {
       console.log('');
-      console.log('Start it with: npx sui start');
+      console.log(`Start it with: ${RUN_AS} start`);
       return;
     }
     const answer = await prompt.ask('Start the gateway now? (Y/n)', 'y');
     if (/^y/i.test(answer) || answer === '') return cmdUp({ ...flags, config: result.configPath });
-    console.log('Fine — run `npx sui start` when you want it.');
+    console.log(`Fine — run \`${RUN_AS} start\` when you want it.`);
   } finally {
     prompt?.close();
   }
@@ -277,7 +291,7 @@ async function cmdDoctor(flags) {
   console.log('');
   console.log('Invariants that can be checked without sending a request');
   for (const a of audit) console.log(`  ${a.ok ? 'ok  ' : 'WARN'}  ${a.id}  ${a.detail}`);
-  if (failing.length) console.log(`\n${failing.length} invariant warning(s) — see docs/ARCHITECTURE.md and \`npx sui invariants\`.`);
+  if (failing.length) console.log(`\n${failing.length} invariant warning(s) — see docs/ARCHITECTURE.md and \`${RUN_AS} invariants\`.`);
   if (!anyOk) {
     console.log('No combo answered. That is the thing to fix before anything else.');
     process.exitCode = 1;
@@ -375,7 +389,7 @@ async function cmdCost(flags) {
     });
   } else {
     console.log('');
-    console.log('Export: npx sui cost --export usage.csv [--gzip]   (or the dashboard\'s Export CSV)');
+    console.log(`Export: ${RUN_AS} cost --export usage.csv [--gzip]   (or the dashboard's Export CSV)`);
   }
 }
 
@@ -416,7 +430,7 @@ async function cmdTools(flags, args) {
     ),
   );
   console.log('');
-  console.log('Point one at the gateway:  npx sui tools --set continue');
+  console.log(`Point one at the gateway:  ${RUN_AS} tools --set continue`);
   console.log('Available ids: ' + tools.map((t) => t.id).join(', '));
 }
 

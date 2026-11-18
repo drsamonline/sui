@@ -1,116 +1,42 @@
 # Sui
 
-**Free tiers, verified before use. Zero blind spots. Zero silent degradation.**
+**A free-tier AI gateway that proves a route before it takes it.**
 
-Sui is a verification-first, privacy-aware AI gateway. Every free route is probed, policy-checked and scored before it can answer a prompt. Every escalation is traced and explainable in plain language. Paid credentials are not read at all unless you open the gate.
+Point Cline, Continue, Cursor, Aider or your own app at one endpoint. Sui picks a provider that is actually answering, refuses to spend money unless you open the gate, and tells you in plain language why each request went where it did.
 
 ```bash
-npx sui
+./sui            # macOS / Linux
+.\sui.cmd        # Windows
 ```
 
-One command: find the keys on this machine, find your coding tools, write a config, send a real request through the gateway, print the endpoint, and start serving. If nothing can answer, it says so — a green tick requires a real round-trip (invariant I7).
+One command: find the keys on this machine, find your coding tools, write a config, send a real request through the gateway, print the endpoint, start serving. If nothing can answer, it says so — a green tick requires a real round-trip.
 
 ![The dashboard: budget, routing pool, combos, prompt-free usage and recent turns](docs/screenshots/dashboard-light.png)
 
----
+## Why this exists
 
-## The rules this repository holds itself to
+Every free-tier router I could find answers the same way: try something, and if it fails, try the next one. That works until it doesn't — you cannot tell a provider that is down from one that was never reachable, and a "free" router that quietly falls back to a paid key is the most expensive thing in your stack.
 
-Nineteen invariants, kept as data in `packages/core/src/invariants.js` — each with the module that enforces it and the test that proves it. `npm test` fails if an invariant loses either. The ones you can feel from outside:
+Sui makes three things non-negotiable:
 
 | | |
 |---|---|
-| **I4** | Paid credentials are never read unless `paid_tiers.enabled` is true. Checked before the environment is touched. |
-| **I6** | Zero silent degradation: every failover is in the response, the ledger and the dashboard. |
-| **I7** | Onboarding cannot report success without a real model round-trip. |
-| **I11** | No prompt content in telemetry — a salted hash and a length, nothing else. |
-| **I12** | A provider marked `tos: avoid` is never auto-routed. |
-| **I13** | The circuit breaker trips on 5xx and transport failures only — never on 401, 404 or 429. |
-| **I14** | When every route is resting, a request is still attempted against the unfiltered pool rather than refused. |
-| **I15** | Host-header allowlist, SHA-256 API keys compared in constant time, no default password. |
+| **Verified, not assumed** | A route becomes routable by answering a probe. `sui probe --write` promotes what responded; nothing is routable because someone wrote a URL in a file. |
+| **Spending requires a decision** | Paid credentials are not read at all unless you set `paidTiers.enabled`. Not "warned about" — not opened, not decrypted, not in the environment. |
+| **Every claim has a test** | Nineteen invariants, each with the module that enforces it and the test that proves it. `npm test` fails if one loses either. |
 
-`npx sui invariants` prints all nineteen with their status and, where something is not yet enforced, the gap in plain words.
+## Install
 
-## What works today
-
-- **OpenAI-compatible gateway** — `POST /v1/chat/completions`, streaming and not; point Cline, Continue, Cursor, Aider, Zed or your own app at it.
-- **Four strategies** over virtual model names: `fallback`, `weighted` (per-arm attribution), `cheapest` (quality floor + cost cap), `latency` (measured p50).
-- **Circuit breaker** per target, three states, lazy recovery, invariant-correct tripping.
-- **Budgets** — daily and per provider, checked before the call, skipped with a reason rather than failed with a stack trace.
-- **Prompt compression** — seven engines, canonicalisation first behind four presets, with code, URLs and JSON preserved byte-for-byte; the preset is chosen from remaining quota. Off by default; `sui compress` shows you the result first.
-- **Tenant console** — `sui tenants` and `GET /api/tenants` show what each key spent, what is left and what it may reach; caps can be changed live.
-- **Attribution** — `x-sui-user` and `x-sui-tool` charge each turn to a person and a tool, with `sui cost --by user|tool`.
-- **Free-first ordering** — a free target ranks before a paid one regardless of declaration order, with a per-combo opt-out.
-- **Speculative cascade** — a sub-50 ms classifier sends easy questions to the cheap model and hard ones to the strong one.
-- **Quota windows** — a `429` with `Retry-After` closes that target for exactly that long, instead of guessing from failures.
-- **Two-tier cache** — exact hash, plus an optional lexical tier (`ml-kit` tf-idf at 0.98) for near-duplicate prompts; `cacheKind` says which one answered.
-- **Native prompt caching** — stable-prefix detection with the hint each provider understands (Anthropic breakpoint, OpenAI cache key), and a `volatile` list naming what breaks the cache.
-- **Per-key limits** — each key is a tenant: combo/model allow-lists, daily spend cap, token-bucket rate limit, its own guardrails.
-- **Residency** — providers declare a region; a request can require one, and an unmarked provider never satisfies it.
-- **Token refresh** — a provider with an `oauth` block refreshes once on a 401 and retries once, never in a loop.
-- **Privacy tiers** — route by retention and training posture (`any` / `standard` / `strict`), with unknown posture failing the strict tier and a strict request failing closed rather than downgrading.
-- **Dual-channel inspection** — tool definitions and tool results are inspected as well as prompts, because a tool result is the channel an attacker controls outright.
-- **Fallback learning** — a combo can reorder its own targets from measured success rate and latency, keeping the declared position below the sample floor.
-- **Budget alerts** — 75/90/100 percent of the daily and per-provider caps, fired once per threshold per day, with the numbers in the message.
-- **Canary rollout** — a share of traffic to a candidate combo, rolled back automatically on a success-rate or p95 breach, with provider outages excluded from the verdict.
-- **Red-team self-test** — eleven obfuscations of one injection instruction, a random canary per run, and a verdict that treats an echo as `HIGH`, not a pass.
-- **Cache-aware compression** — the system message is never compressed when prompt caching is on, so compression cannot break the provider's prefix cache.
-- **Verification escalation** — answers scored by seven deterministic signals; below 0.7 the router escalates once, and a weak answer is never presented as verified.
-- **Grounding check** — a URL, quote or number in the answer that is not in the context it was given costs 0.45 confidence and usually escalates.
-- **Explain my route** — every response carries the strategy and each target's outcome; `sui explain` narrates it without sending anything.
-- **Savings ledger** — cache and compression savings counted separately, valued at the model's price, with the share of cost avoided.
-- **Ledger** — one record per attempt: tokens, cost, latency, time to first token, cache, verification, prompt hash. CSV export.
-- **Sandbox** — `sui sandbox` runs model-written code in a separate process with no filesystem, no network and no environment, and proves it with a 14-case attack suite.
-- **Two-plane split** — a model plane that holds the keys and an agent plane that faces agents and holds none.
-- **Bounded runs** — spend, steps, wall clock and repeated-call limits per agent run, with per-call approval gates.
-- **Trend history** — health samples on disk, bucketed into a sparkline that survives a restart.
-- **Local discovery** — `sui local` finds a model server on this machine and wires it up, loopback-only.
-- **Recipes** — `sui recipe apply free-tier-stack` and four more named setups, applied without overwriting your work.
-- **Drift detection** — EWMA plus a two-sided CUSUM, so a slow slide is caught that no breaker can see.
-- **MCP server and client** — the gateway as a Model Context Protocol server over stdio or HTTP, and an MCP server as just another provider inside a combo.
-- **Dashboard** — token-based design system, budget bar, savings panel, compression view, routing-pool topology, **free-tier weather** (thriving / resting / down with a latency trend), breaker states, probes, prompt-free usage, recent turns, and a playground whose loading state is the first streamed token, with "Why this route?" on demand.
-- **Paid vault** — AES-256-GCM sealed credentials (`crypto-kit`), opened only when `paid_tiers.enabled` is true.
-- **Background workers** — prober and cache sweep run off the request path, with `/api/workers` and a Probes table on the dashboard.
-- **Catalogue + canary prober** — 29 entries, every one an unverified identity until a probe says otherwise (`sui probe --write` promotes what answers); `sui probe` checks liveness, readiness and suitability (streaming, JSON, tools) with versioned synthetic fixtures, disables a route after three failures and re-enables it on recovery.
-- **Onboarding** with tool detection and one-click config; **migration** from 9router / OmniRoute / HubGate with a preview diff and a post-import smoke test.
-- **Eval harness** — 50-prompt golden set, nine deterministic graders, a self-test that proves the graders grade, and a regression gate against `evals/baseline.json`.
-- **Soak harness** — measures the gateway's own overhead (server-side, not client sockets) and gates p95 against the 15ms budget.
-
-**Everything above is built and tested.** What is *not* built is listed in [`ROADMAP.md`](ROADMAP.md), and it is short: nothing in the specification is outstanding. Two things are deliberately absent — a first-chunk clone (two providers billed for one answer is a real cost for a fake latency win) and a Go/Rust data plane (ADR-0001's gate says p95 2.29 ms at 200 rps, 7× under budget). What remains needs a networked machine, a provider key, or a decision: verifying the 29 catalogue endpoints, recording an eval baseline, the 72-hour soak, and publishing to npm.
-
-## Quickstart
-
-**Windows, from nothing:** [`docs/WINDOWS.md`](docs/WINDOWS.md) — `npx sui` cannot work before a publish, so the repo ships wrappers that need no npm account: `npm install`, then `.\.sui.cmd doctor`.
+Node 20 or newer. Zero runtime dependencies, no build step, no native modules — so nothing to compile and no `node-gyp`.
 
 ```bash
-npx sui                    # first run: keys, tools, a real round-trip, then serve
-npx sui start              # run the gateway            --port 8787  --config <file>
-npx sui doctor             # one real turn per combo, plus the invariant audit
-npx sui invariants         # the fifteen rules and their status
-npx sui models             # combos and what they can reach
-npx sui cost               # spend, latency, A/B arms    --all  --json
-npx sui tools              # point a coding tool here    --set continue
-npx sui migrate <file>     # import another router's config   --apply  --only a,b
-npx sui keys hash          # replace plaintext API keys with SHA-256
-npx sui vault init         # sealed storage for paid credentials  (set · list · remove · status)
-npx sui config set budgets.dailyUsd 7    # edit config, validated before writing
-npx sui catalog <query>    # the catalogue, and what is still unverified
-npx sui probe [name]       # liveness, readiness, suitability — and what failed
-npx sui compress <file>    # see what a preset does to a prompt before enabling it
-npx sui budget             # which preset the remaining quota would choose
-npx sui savings            # what cache hits and compression did not spend
-npx sui explain [combo]    # why a route would go where it goes
-npx sui redteam [combo]    # attack your own route with 11 obfuscations
-npx sui tokens --check     # WCAG AA on the dashboard tokens, computed by tokens-kit
-npx sui kits               # the vendored kits and whether they load
-npx sui probe --write      # promote what answered into the catalogue
-npx sui local              # find Ollama / LM Studio on this machine   --write
-npx sui recipe list        # named config patches: list, show, apply  --dry-run
-npx sui tenants            # what each API key spent, and what it may reach
-npx sui mcp                # serve the gateway over MCP   --transport stdio|http
-npx sui sandbox --self-test   # prove the sandbox boundary, 14 cases
-npx sui --version          # which build is this
+git clone https://github.com/drsamonline/sui
+cd sui
+npm install
+./sui                 # or: .\sui.cmd on Windows
 ```
+
+**Not on npm yet**, so `npx sui` has nothing to download. The wrapper above runs the source directly; `npm link` gives you a global `sui` if you want one. Windows, step by step: [`docs/WINDOWS.md`](docs/WINDOWS.md).
 
 Then anything that speaks OpenAI:
 
@@ -119,84 +45,68 @@ export OPENAI_BASE_URL=http://127.0.0.1:8787/v1
 export OPENAI_API_KEY=sui-local
 ```
 
-## Repository layout
+## What you get
 
-```
-apps/
-  gateway/      HTTP surface, auth, SSE, dashboard API
-  dashboard/    one HTML file, no build, token-based CSS
-  cli/          the `sui` command
-packages/
-  core/         errors, config schema, cost model, the invariant table
-  providers/    openai · anthropic · gemini · mock
-  router/       planning, strategies, circuit breaker
-  telemetry/    ledger, cache, aggregates, CSV
-  catalog/      provider catalogue: dedupe, ToS posture, scoring
-  guardrails/   prompt size, blocked patterns, output clamp
-  sdk/          JavaScript client
-  kits/         loader for the vendored kits (isolated VM context)
-  vault/        AES-256-GCM sealed paid credentials
-  prober/       liveness, readiness and suitability checks
-  compression/  seven engines, four presets, the quota budget manager
-  promptcache/  stable-prefix detection and per-provider cache hints
-  verify/       reference-free confidence scoring, fail-closed
-  redteam/      injection toolkit and self-test
-  canary/       rollout with SLO-tied rollback
-  mcp/          Model Context Protocol server and client
-  sandbox/      contained process for model-written code
-evals/          50-prompt golden set, graders, runner, baseline
-recipes/        five named config patches
-scripts/        soak, audit, ADR compliance, dashboard smoke, publish
-config/         annotated config + JSON schema
-docs/           architecture, routing, API, migration, reuse map, ADRs, legal
-vendor/kits/    seven vendored kits, each with its upstream LICENSE and API.md
-```
+Ten things people actually come for. The full list — forty-odd features across routing, privacy, compression, agents and operations — is in [`docs/FEATURES.md`](docs/FEATURES.md).
 
-npm workspaces, Node 20+, **zero runtime dependencies**. No build step.
+- **OpenAI-compatible gateway**, streaming and not, with four strategies over virtual model names: `fallback`, `weighted`, `cheapest`, `latency`.
+- **Free-first ordering.** A free target outranks a paid one whatever order you declared them in, and a resting target loses to a healthy one.
+- **A circuit breaker that knows the difference** between a broken provider (5xx, transport) and a rejected key (401). A bad key never rests a route.
+- **Budgets that cannot be fooled** — daily and per provider, counted from a per-day total rather than a memory window, so a busy day does not silently stop counting.
+- **Prompt compression** — seven engines behind four presets, canonicalisation first, with code, URLs and JSON preserved byte-for-byte. Off by default; `sui compress` shows you the result first.
+- **Verification and grounding** — answers scored on deterministic signals; a URL, quote or number not present in the context costs confidence and usually escalates.
+- **Explain my route** — `sui explain` narrates why a request would go where it goes, without sending anything.
+- **MCP in both directions** — the gateway as a Model Context Protocol server (stdio or HTTP), and an MCP server as just another provider inside a combo.
+- **A dashboard** that answers "is anything wrong?" in one look: budget, routing topology, free-tier weather, breaker states, savings, and a playground with "Why this route?".
+- **A sandbox** for model-written code: a separate process with no filesystem, no network and no environment, proven by a 14-case attack suite.
 
-## Commands that prove things
+## How it holds itself
 
-```bash
-npm test                 # 506 tests: routing, invariants, security, MCP, sandbox, planes, evals
-npm run audit            # 8 static checks + 10 ADR compliance checks
-npm run adr:gate         # the ADR-0001 gates, measured (p95, ledger size, build step)
-npm run eval:self        # prove the graders grade (50 must-pass, 6 must-fail)
-npm run eval             # 50 prompts against a real combo, regression-gated
-npm run soak             # server-side overhead against the 15ms budget
-npm run smoke:dashboard  # the page in a real browser: healthy, empty, degraded
-npm run catalog:sync     # audit the catalogue's source ledger, --online to check pins
-```
+Nineteen invariants live as data in [`packages/core/src/invariants.js`](packages/core/src/invariants.js). Each names the module that enforces it and the test that proves it, and the build fails if either goes missing.
 
-## Licensing
+| | |
+|---|---|
+| **I4** | Paid credentials are never read unless the gate is open. |
+| **I7** | Onboarding cannot report success without a real model round-trip. |
+| **I11** | No prompt content in telemetry — a salted hash and a length. |
+| **I12** | A provider marked `tos: avoid` is never auto-routed. |
+| **I13** | The breaker trips on 5xx and transport only — never on 401, 404 or 429. |
+| **I19** | The health history holds no prompt content, and drops any row that carries it. |
 
-MIT for everything in this repository — including the vendored kits.
-
-Eight works from the owner's own fleet are vendored in `vendor/kits/` — `crypto-kit`, `ml-kit`, `search-kit`, `tokens-kit`, `compress-kit`, `export-kit`, `web-kit` and the `app-endpoints` catalogue. Those upstream repositories are published under **PolyForm Noncommercial 1.0.0**. They are distributed *here* under MIT by a written owner grant that names each work and its pinned commit: [`docs/legal/OWNER_GRANT.md`](docs/legal/OWNER_GRANT.md).
-
-The upstream repositories keep their NC terms for everyone else — cloning one directly gives you those terms, not this grant. An owner grant is available only to the copyright holder: a third-party kit under NC could not be used this way. `test/licence.test.js` keeps the chain honest, and fails the build if a vendored kit is added without being named in both the inventory and the grant.
-
-Third-party routers (`9router`, `OmniRoute`, `HubGate`) are not vendored; `sui migrate` reads their config files, which is a different act.
+Run `npm test`, `npm run audit` (8 static checks plus 10 ADR compliance checks), `npm run eval:self`, `npm run soak`, `npm run smoke:dashboard`. The numbers, as of this commit: **507 tests, audit 8/8, ADR 10/10, p95 overhead ~1 ms against a 15 ms budget.**
 
 ## Documentation
 
-- [`ROADMAP.md`](ROADMAP.md) — twelve phases, sixty batches, honest status, next five in dependency order.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — modules, request lifecycle, decisions.
-- [`docs/ROUTING.md`](docs/ROUTING.md) — strategies, breakers, budgets, cache, guardrails, per-key policy.
-- [`docs/API.md`](docs/API.md) — every endpoint and field.
-- [`docs/quickstarts/`](docs/quickstarts/) — cURL, Node, Python and PHP, run against a live gateway.
-- [`docs/tutorials/`](docs/tutorials/) — seven walkthroughs: first five minutes, connect a coding tool, understand routing, red-team your own routes, self-host for a team, build a free agent, troubleshooting.
-- [`docs/MIGRATION.md`](docs/MIGRATION.md) — moving from another router.
-- [`docs/reuse-map.md`](docs/reuse-map.md) — the fleet, mapped onto phases.
-- [`docs/WINDOWS.md`](docs/WINDOWS.md) — setup for Windows without npm.
-- [`docs/MCP.md`](docs/MCP.md) — the Model Context Protocol surface, both directions.
-- [`docs/PLANES.md`](docs/PLANES.md) — the model-plane / agent-plane split.
-- [`docs/SANDBOX.md`](docs/SANDBOX.md) — what the sandbox is, and what it is not.
-- [`docs/RECIPES.md`](docs/RECIPES.md) — named config patches.
-- [`docs/adr/`](docs/adr/) — twelve decisions, with their consequences.
-- [`SECURITY.md`](SECURITY.md) — what this gateway is and is not, in security terms.
-- [`PRIVACY.md`](PRIVACY.md) — what leaves the machine, what stays, and how to erase it.
-- [`TERMS.md`](TERMS.md) — responsibilities, AI output, no warranty.
-- [`AUDIT.md`](AUDIT.md) and [`AUDIT-2026-11-15.md`](AUDIT-2026-11-15.md) — two audits, with findings, fixes and accepted risks.
-- [`docs/legal/LEGAL-INDEX.md`](docs/legal/LEGAL-INDEX.md) — every legal document, what it answers, and the code to check each claim against.
-- [`DISCLAIMER.md`](DISCLAIMER.md) — what an answer from this gateway must not be relied on for.
-- [`CHANGELOG.md`](CHANGELOG.md) — what shipped, per version.
+| Start here | Then |
+|---|---|
+| [`docs/WINDOWS.md`](docs/WINDOWS.md) — setup on Windows, without npm | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — modules and the request lifecycle |
+| [`docs/FEATURES.md`](docs/FEATURES.md) — everything it does | [`docs/ROUTING.md`](docs/ROUTING.md) — strategies, breakers, budgets, cache |
+| [`docs/tutorials/`](docs/tutorials/) — seven walkthroughs | [`docs/API.md`](docs/API.md) — every endpoint and field |
+| [`docs/quickstarts/`](docs/quickstarts/) — cURL, Node, Python, PHP | [`docs/adr/`](docs/adr/) — twelve decisions and their consequences |
+
+MCP: [`docs/MCP.md`](docs/MCP.md) · two-plane split: [`docs/PLANES.md`](docs/PLANES.md) · sandbox: [`docs/SANDBOX.md`](docs/SANDBOX.md) · recipes: [`docs/RECIPES.md`](docs/RECIPES.md) · migrating from another router: [`docs/MIGRATION.md`](docs/MIGRATION.md).
+
+## Status
+
+Everything in the specification is built. What is left needs a networked machine, a provider key, or a decision — listed in [`ROADMAP.md`](ROADMAP.md) and stated plainly rather than hidden:
+
+- the 29 catalogue endpoints are seeded but **unverified** until you run `sui probe --write` on a machine with internet
+- no eval baseline is recorded, because that needs one working provider key
+- the 72-hour soak has not been run
+- nothing is published to npm
+
+Two things are deliberately absent: a **first-chunk clone** (two providers billed for one answer is a real cost for a fake latency win) and a **Go/Rust data plane** (ADR-0001's gate says p95 2.29 ms at 200 rps, seven times under budget).
+
+## Contributing
+
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. The short version: every claim here has a test that fails if the claim stops being true, and the five harnesses above are the gate.
+
+## Licence
+
+MIT for everything in this repository, including the vendored kits — those come from the owner's own repositories under PolyForm Noncommercial and are distributed here under a written owner grant ([`docs/legal/OWNER_GRANT.md`](docs/legal/OWNER_GRANT.md)). Upstream keeps its NC terms for everyone else.
+
+Legal index, with what each document answers and the code to check each claim against: [`docs/legal/LEGAL-INDEX.md`](docs/legal/LEGAL-INDEX.md).
+
+---
+
+Two audits live in the repository rather than in a message: [`AUDIT.md`](AUDIT.md) and [`AUDIT-2026-11-15.md`](AUDIT-2026-11-15.md). Each records what was found, what was fixed, and what is an accepted risk.

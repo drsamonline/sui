@@ -622,6 +622,13 @@ export async function cmdLocal(flags) {
 /* ------------------------------------------------------------------- recipes */
 
 /** Where recipes live: the repo's own folder, then the user's config dir. */
+/** The same rule the CLI uses: npx only works once the package is published. */
+function runAs() {
+  const invoked = String(process.argv[1] ?? '');
+  if (/node_modules/.test(invoked) || !/apps[\\/]cli[\\/]bin/.test(invoked)) return 'sui';
+  return process.platform === 'win32' ? '.\\sui.cmd' : './sui';
+}
+
 function recipeDirs() {
   const here = dirname(fileURLToPath(import.meta.url));
   const root = join(here, '..', '..', '..');
@@ -661,7 +668,7 @@ export async function cmdRecipe(flags, args) {
       console.log(`  ${''.padEnd(18)} ${recipe.description}`);
       console.log('');
     }
-    console.log('Apply one: npx sui recipe apply <name> [--dry-run] [--force]');
+    console.log(`Apply one: ${runAs()} recipe apply <name> [--dry-run] [--force]`);
     return;
   }
 

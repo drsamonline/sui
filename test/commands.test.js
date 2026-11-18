@@ -183,3 +183,23 @@ test('--version and --help answer before anything else', async () => {
   assert.match(run('-v'), /^\d+\.\d+\.\d+/);
   assert.match(run('--help'), /sui \d+\.\d+\.\d+ — /);
 });
+
+test('the CLI never tells you to run a command that cannot work', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  // a first run in an empty home, invoked through the wrapper
+  const home = mkdtempSync(join(tmpdir(), 'sui-hint-'));
+  const out = execFileSync(process.execPath, ['apps/cli/bin/sui.js'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: { ...process.env, SUI_HOME: home },
+    timeout: 60_000,
+  });
+
+  // npx sui cannot work until the package is published; the hint must not say it
+  assert.equal(/npx sui/.test(out), false, 'the first-run hint told the user to run npx sui, which fails before a publish');
+  assert.match(out, /Start it with: (\.\/sui|\.\\sui\.cmd|sui) start/);
+});
