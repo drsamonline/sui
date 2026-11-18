@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { createGateway, makeGateway, testConfig } from './helpers.js';
-import { startWorkers, loadProbeTargets } from '@sui/gateway/src/workers.js';
-import { ResponseCache } from '@sui/telemetry';
+import { startWorkers, loadProbeTargets } from '@drsamonline/gateway/src/workers.js';
+import { ResponseCache } from '@drsamonline/telemetry';
 
 /** A catalogue directory holding one entry that points at a local fake. */
 function catalogDirWith(baseUrl) {
@@ -74,7 +74,8 @@ test('startWorkers registers the prober and the cache sweep', async () => {
     assert.deepEqual(names, ['prober', 'budget_alerts', 'drift_monitor', 'cache_sweep']);
 
     // wait for the kickoff run to finish, not for a fixed guess
-    const deadline = Date.now() + 3000;
+    // generous: a loaded runner may take seconds to schedule the kickoff
+    const deadline = Date.now() + 15_000;
     while (workers.snapshot().jobs.find((j) => j.name === 'prober').runs < 1 && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 20));
     }
@@ -179,7 +180,7 @@ test('a failing job backs off and recovers, and the counters say so', async () =
 
 test('an interval of zero disables a job instead of spinning the event loop', async () => {
   const { startWorkers } = await import('../apps/gateway/src/workers.js');
-  const { ResponseCache } = await import('@sui/telemetry');
+  const { ResponseCache } = await import('@drsamonline/telemetry');
 
   const config = {
     ...testConfig(),

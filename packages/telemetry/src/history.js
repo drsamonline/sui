@@ -1,5 +1,5 @@
 /**
- * @sui/telemetry/history — B2.7, health over time.
+ * @drsamonline/telemetry/history — B2.7, health over time.
  *
  * The prober already keeps 24 observations per target in memory, which is enough
  * for a sparkline and useless the moment the process restarts. This keeps a

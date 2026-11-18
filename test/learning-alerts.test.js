@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRouter, testConfig, ask } from './helpers.js';
-import { THRESHOLDS, checkBudgets, dedupe } from '@sui/gateway/src/alerts.js';
-import { Ledger } from '@sui/telemetry';
-import { explainPlan } from '@sui/router';
+import { THRESHOLDS, checkBudgets, dedupe } from '@drsamonline/gateway/src/alerts.js';
+import { Ledger } from '@drsamonline/telemetry';
+import { explainPlan } from '@drsamonline/router';
 
 /* ------------------------------------------------------- B9.3 fallback learning */
 

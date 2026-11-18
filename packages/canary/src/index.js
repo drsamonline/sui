@@ -1,5 +1,5 @@
 /**
- * @sui/canary — canary rollout with SLO-tied rollback (B9.2).
+ * @drsamonline/canary — canary rollout with SLO-tied rollback (B9.2).
  *
  * A canary is a percentage of traffic sent to a candidate instead of the baseline,
  * watched against three numbers: success rate, p95 latency, and a minimum sample

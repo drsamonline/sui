@@ -1,5 +1,5 @@
 {
-  "name": "@sui/gateway",
+  "name": "@drsamonline/gateway",
   "version": "0.12.0",
   "description": "HTTP gateway: OpenAI-compatible surface, dashboard API.",
   "type": "module",

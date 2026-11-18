@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inspectToolChannel } from '@sui/guardrails';
+import { inspectToolChannel } from '@drsamonline/guardrails';
 import { makeRouter, testConfig } from './helpers.js';
 
 const cleanTools = [

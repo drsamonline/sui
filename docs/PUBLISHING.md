@@ -2,14 +2,23 @@
 
 ## Before anything: the scope must be yours
 
-`@sui/cli` can only be published by the npm account or organization named `sui`. A scope is not a namespace you pick. It is the owner. If the token screen says *"no organization selected"* and offers you nothing, that is what it means: your username is not `sui` and you have no organization.
+A scoped package can only be published by the npm account or organization that owns the scope. A scope is not a namespace you pick — it is the owner. If the token screen says *"no organization selected"* and offers you nothing, that is what it means: your username is not that name and you own no organization.
+
+This repository publishes under **`@drsamonline`**, which is the account's own scope — no organization needed beyond converting the username, and no name conflicts inside it.
 
 Two ways out:
 
-| Route | Cost | Keeps `@sui/*`? |
+| Route | Cost | Keeps `@drsamonline/*`? |
 |---|---|---|
-| **Create a free organization named `sui`** (npmjs.com → your avatar → Add Organization → free tier for public packages) | 1 minute | yes |
+| Create a free organization and rename the scope to it | 1 minute on npm, one command here | as `@yourorg/*` |
 | Rename every package to `sui-*` (unscoped) | one commit here | no |
+
+The scope in this repository is now **`@drsamonline`**, because `sui` is taken as an organization name. Renaming again is one command:
+
+```bash
+node scripts/rename-scope.mjs --to @yourscope      # --dry-run first
+rm -rf node_modules package-lock.json && npm install && npm test
+```
 
 `npm run publish:dry` tells you which situation you are in: every package shows `free` when the name is unpublished, and the publish fails at step one with a 403 when the scope belongs to someone else.
 
@@ -52,16 +61,16 @@ npm run publish:dry            # 18 packages, all 'free'
 npm run publish:real
 ```
 
-**Decision (2026-11-15): scoped, `@sui/*`.** A registry search for `scope:sui` returns zero packages, so the scope looks unused; keeping 18 tiny packages in one namespace beats squatting 18 unscoped names. If the org turns out to be taken, the fallback is a mechanical rename, not a redesign.
+**Decision (2026-11-15): scoped, `@drsamonline/*`.** A registry search for `scope:sui` returns zero packages, so the scope looks unused; keeping 18 tiny packages in one namespace beats squatting 18 unscoped names. If the org turns out to be taken, the fallback is a mechanical rename, not a redesign.
 
-**The `@sui` scope must be yours.** Publishing `@sui/core` requires that your account owns or belongs to the `@sui` organisation on npm. A 404 on `npm view @sui/core` only proves the *package* is unpublished — it says nothing about who owns the scope.
+**The `@drsamonline` scope must be yours.** Publishing `@drsamonline/core` requires that your account owns or belongs to the `@drsamonline` organisation on npm. A 404 on `npm view @drsamonline/core` only proves the *package* is unpublished — it says nothing about who owns the scope.
 
 If the scope is not yours, there are two routes:
 
 | Route | What changes |
 |---|---|
 | create the org | `npm org create sui` (or claim it on npmjs.com), then everything works as written |
-| go unscoped | rename in each `package.json`: `sui-core`, `sui-router`, `sui-gateway-cli`… and update the `@sui/*` dependency ranges |
+| go unscoped | rename in each `package.json`: `sui-core`, `sui-router`, `sui-gateway-cli`… and update the `@drsamonline/*` dependency ranges |
 
 `sui-cli` is **taken** (someone else publishes 1.0.3 there). `sui-gateway`, `sui-router-gateway` and `sui-free-tier-gateway` are free as of 2026-11-15.
 
@@ -69,13 +78,13 @@ If the scope is not yours, there are two routes:
 
 | Package | Why it is separate |
 |---|---|
-| `@sui/core` | config, invariants, errors, recipes — the vocabulary |
-| `@sui/router` | routing, breakers, cascade, learning |
-| `@sui/providers` | adapters, quota parsing, token refresh |
-| `@sui/telemetry` | ledger, cache, history, drift |
-| `@sui/guardrails`, `@sui/compression`, `@sui/promptcache`, `@sui/verify`, `@sui/redteam`, `@sui/canary`, `@sui/prober`, `@sui/vault`, `@sui/sdk`, `@sui/catalog`, `@sui/kits` | one concern each |
-| `@sui/mcp` | the protocol surface |
-| `@sui/sandbox` | the contained process |
-| `@sui/cli` | the `sui` binary |
+| `@drsamonline/core` | config, invariants, errors, recipes — the vocabulary |
+| `@drsamonline/router` | routing, breakers, cascade, learning |
+| `@drsamonline/providers` | adapters, quota parsing, token refresh |
+| `@drsamonline/telemetry` | ledger, cache, history, drift |
+| `@drsamonline/guardrails`, `@drsamonline/compression`, `@drsamonline/promptcache`, `@drsamonline/verify`, `@drsamonline/redteam`, `@drsamonline/canary`, `@drsamonline/prober`, `@drsamonline/vault`, `@drsamonline/sdk`, `@drsamonline/catalog`, `@drsamonline/kits` | one concern each |
+| `@drsamonline/mcp` | the protocol surface |
+| `@drsamonline/sandbox` | the contained process |
+| `@drsamonline/cli` | the `sui` binary |
 
-The vendored kits are **not** published separately: they are files inside `@sui/kits` under the owner grant, and `vendor/` is not in any tarball.
+The vendored kits are **not** published separately: they are files inside `@drsamonline/kits` under the owner grant, and `vendor/` is not in any tarball.

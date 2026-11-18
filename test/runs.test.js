@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RunTracker, RunRegistry, callSignature } from '@sui/guardrails';
+import { RunTracker, RunRegistry, callSignature } from '@drsamonline/guardrails';
 import { makeGateway, testConfig } from './helpers.js';
 
 const T0 = 1_700_000_000_000;

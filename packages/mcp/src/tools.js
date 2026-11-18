@@ -130,7 +130,7 @@ export async function callTool(name, args, gateway) {
     }
 
     case 'sui_explain': {
-      const { explainPlan } = await import('@sui/router');
+      const { explainPlan } = await import('@drsamonline/router');
       const combo = String(args?.combo ?? Object.keys(config.combos)[0] ?? '');
       const plan = router.plan(combo, {});
       const lines = explainPlan(plan);
@@ -152,7 +152,7 @@ export async function callTool(name, args, gateway) {
     }
 
     case 'sui_compress': {
-      const { compress } = await import('@sui/compression');
+      const { compress } = await import('@drsamonline/compression');
       const body = String(args?.text ?? '');
       if (!body.trim()) return { content: text('sui_compress needs some text.'), isError: true };
       const result = compress(body, { preset: args?.preset ?? 'standard' });

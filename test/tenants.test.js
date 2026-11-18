@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tenantSnapshot, tenantSummary, hashApiKey } from '@sui/core';
+import { tenantSnapshot, tenantSummary, hashApiKey } from '@drsamonline/core';
 import { makeGateway, testConfig } from './helpers.js';
 
 const ledgerOf = (rows) => ({ entries: () => rows });

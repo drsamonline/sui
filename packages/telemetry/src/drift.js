@@ -1,5 +1,5 @@
 /**
- * @sui/telemetry/drift — B3.7, detecting that a target changed behaviour.
+ * @drsamonline/telemetry/drift — B3.7, detecting that a target changed behaviour.
  *
  * Two standard detectors, because they answer different questions:
  *

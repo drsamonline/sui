@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { makeGateway, testConfig, makeRouter, ask } from './helpers.js';
-import { RateLimiter, checkKeyBudget, keySpendToday } from '@sui/gateway/src/limits.js';
-import { detectPrefix, cacheHints, PrefixMemory, preparePromptCache } from '@sui/promptcache';
-import { hashApiKey } from '@sui/core';
+import { RateLimiter, checkKeyBudget, keySpendToday } from '@drsamonline/gateway/src/limits.js';
+import { detectPrefix, cacheHints, PrefixMemory, preparePromptCache } from '@drsamonline/promptcache';
+import { hashApiKey } from '@drsamonline/core';
 
 /* ------------------------------------------------- B4.6 prompt caching */
 
@@ -215,7 +215,7 @@ test('a key can carry tighter guardrails than the gateway', async () => {
 /* ------------------------------ the budget must not stop counting (review) */
 
 test('spend is counted from the daily total, not from the record window', async () => {
-  const { Ledger } = await import('@sui/telemetry');
+  const { Ledger } = await import('@drsamonline/telemetry');
   const ledger = new Ledger({ file: null, maxRecords: 100 });
   const now = Date.now();
 
@@ -227,7 +227,7 @@ test('spend is counted from the daily total, not from the record window', async 
 });
 
 test('per-provider spend survives the window too', async () => {
-  const { Ledger } = await import('@sui/telemetry');
+  const { Ledger } = await import('@drsamonline/telemetry');
   const ledger = new Ledger({ file: null, maxRecords: 50 });
   const now = Date.now();
   for (let i = 0; i < 120; i++) {
@@ -241,7 +241,7 @@ test('a restart rebuilds the day from the file, not from the window', async () =
   const { mkdtempSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { Ledger } = await import('@sui/telemetry');
+  const { Ledger } = await import('@drsamonline/telemetry');
 
   const file = join(mkdtempSync(join(tmpdir(), 'sui-ledger-')), 'ledger.jsonl');
   const now = Date.now();
@@ -257,7 +257,7 @@ test('the ledger file is rotated rather than growing forever', async () => {
   const { mkdtempSync, existsSync, statSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { Ledger } = await import('@sui/telemetry');
+  const { Ledger } = await import('@drsamonline/telemetry');
 
   const dir = mkdtempSync(join(tmpdir(), 'sui-rotate-'));
   const file = join(dir, 'ledger.jsonl');

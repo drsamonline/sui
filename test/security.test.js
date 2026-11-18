@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request } from 'node:http';
 import { makeGateway, testConfig } from './helpers.js';
-import { hashApiKey, verifyApiKey } from '@sui/core';
-import { hostAllowed } from '@sui/gateway/src/server.js';
-import { run as cli } from '@sui/cli/src/cli.js';
+import { hashApiKey, verifyApiKey } from '@drsamonline/core';
+import { hostAllowed } from '@drsamonline/gateway/src/server.js';
+import { run as cli } from '@drsamonline/cli/src/cli.js';
 
 async function boot(config) {
   const gw = await makeGateway(config);

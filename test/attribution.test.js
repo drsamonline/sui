@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeGateway, testConfig, makeRouter, ask } from './helpers.js';
-import { Ledger } from '@sui/telemetry';
+import { Ledger } from '@drsamonline/telemetry';
 
 /* --------------------------------------------------- B7.1 attribution */
 

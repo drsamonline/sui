@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ResponseCache } from '@sui/telemetry';
+import { ResponseCache } from '@drsamonline/telemetry';
 import { makeRouter, testConfig, ask } from './helpers.js';
 
 const value = (text) => ({ text, usage: { prompt_tokens: 1, completion_tokens: 1 }, finishReason: 'stop', meta: { costUsd: 0.001 } });
@@ -76,7 +76,7 @@ test('the router records which tier answered', async () => {
 /* ------------------------------------------------- B4.7 the embedding tier */
 
 test('the hashing embedding separates near-duplicates from unrelated prompts', async () => {
-  const { embed, cosine } = await import('@sui/telemetry/src/embedding.js');
+  const { embed, cosine } = await import('@drsamonline/telemetry/src/embedding.js');
   const a = embed('what does a circuit breaker do in a gateway');
   assert.ok(cosine(a, embed('what does a circuit breaker do in a gateway?')) > 0.99);
   assert.ok(cosine(a, embed('explain what a circuit breaker does in a gateway')) > 0.8);

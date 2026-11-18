@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadKit, kitStatus, KIT_GLOBALS } from '@sui/kits';
+import { loadKit, kitStatus, KIT_GLOBALS } from '@drsamonline/kits';
 
 test('every vendored kit loads in an isolated context', () => {
   const status = kitStatus();

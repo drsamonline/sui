@@ -1,5 +1,5 @@
 /**
- * @sui/prober/local — B2.6, finding a model server on this machine.
+ * @drsamonline/prober/local — B2.6, finding a model server on this machine.
  *
  * People run Ollama, LM Studio, llama.cpp, vLLM or LocalAI and then hand-write a
  * provider block for it. This finds it instead: probe the ports those servers

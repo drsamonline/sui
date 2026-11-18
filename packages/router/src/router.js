@@ -15,16 +15,16 @@
  * go to Gemini?" is answerable afterwards.
  */
 
-import { ConfigError, ExhaustedError, ProviderError, SuiError } from '@sui/core';
-import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, providerHasCredentials, providerMeetsPrivacyTier, providerMeetsRegion, regionRefusal, resolveCombo, tierRank } from '@sui/core';
-import { ResponseCache } from '@sui/telemetry';
-import { RecallStore } from '@sui/compression';
-import { PrefixMemory, preparePromptCache } from '@sui/promptcache';
+import { ConfigError, ExhaustedError, ProviderError, SuiError } from '@drsamonline/core';
+import { estimatedCost, estimateTokens, isPaidProvider, privacyRefusal, providerHasCredentials, providerMeetsPrivacyTier, providerMeetsRegion, regionRefusal, resolveCombo, tierRank } from '@drsamonline/core';
+import { ResponseCache } from '@drsamonline/telemetry';
+import { RecallStore } from '@drsamonline/compression';
+import { PrefixMemory, preparePromptCache } from '@drsamonline/promptcache';
 import { classifyPrompt } from './classify.js';
-import { checkGrounding, scoreAnswer, shouldEscalate, verdict as verifyVerdict } from '@sui/verify';
-import { createAdapter, displayName } from '@sui/providers';
-import { checkPrompt, clampMaxTokens, inspectToolChannel } from '@sui/guardrails';
-import { applyStyle, choosePreset, chooseStyle, compress as compressText } from '@sui/compression';
+import { checkGrounding, scoreAnswer, shouldEscalate, verdict as verifyVerdict } from '@drsamonline/verify';
+import { createAdapter, displayName } from '@drsamonline/providers';
+import { checkPrompt, clampMaxTokens, inspectToolChannel } from '@drsamonline/guardrails';
+import { applyStyle, choosePreset, chooseStyle, compress as compressText } from '@drsamonline/compression';
 
 /**
  * @typedef {{

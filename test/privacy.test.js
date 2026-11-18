@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PRIVACY_TIERS, privacyRefusal, providerMeetsPrivacyTier } from '@sui/core';
+import { PRIVACY_TIERS, privacyRefusal, providerMeetsPrivacyTier } from '@drsamonline/core';
 import { makeRouter, makeGateway, testConfig, ask } from './helpers.js';
-import { hashApiKey } from '@sui/core';
+import { hashApiKey } from '@drsamonline/core';
 
 /* ---------------------------------------------------------- the tier rules */
 
@@ -114,7 +114,7 @@ test('the x-sui-privacy header sets the tier, and an unknown tier is a 400', asy
 /* ------------------------------------------------- B6.6 residency */
 
 test('a region requirement excludes providers outside it, with the reason', async () => {
-  const { providerMeetsRegion, regionRefusal, REGIONS } = await import('@sui/core');
+  const { providerMeetsRegion, regionRefusal, REGIONS } = await import('@drsamonline/core');
   assert.deepEqual(REGIONS.slice(0, 3), ['any', 'eu', 'us']);
   assert.equal(providerMeetsRegion({ region: 'eu' }, 'eu'), true);
   assert.equal(providerMeetsRegion({ region: 'us' }, 'eu'), false);

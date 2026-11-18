@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { McpClient, createMcpAdapter, resetMcpClients } from '@sui/mcp';
+import { McpClient, createMcpAdapter, resetMcpClients } from '@drsamonline/mcp';
 import { makeRouter, testConfig, ask } from './helpers.js';
 
 /**
@@ -170,7 +170,7 @@ test('a combo can route to an MCP server like any other provider', async () => {
 });
 
 test('an MCP provider is considered callable when it has a URL or a command', async () => {
-  const { providerHasCredentials, normalizeConfig } = await import('@sui/core');
+  const { providerHasCredentials, normalizeConfig } = await import('@drsamonline/core');
   const config = normalizeConfig(
     {
       providers: {

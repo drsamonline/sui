@@ -26,6 +26,9 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Tests — unit, integration, invariants, security, dashboard
+        env:
+          # a quiet runner can afford two files at a time; a busy machine cannot
+          SUI_TEST_CONCURRENCY: '2'
         run: npm test
 
       - name: Eval harness self-test (graders grade what they claim)
@@ -34,7 +37,7 @@ jobs:
       - name: Config examples are valid
         run: |
           node -e "JSON.parse(require('fs').readFileSync('config/sui.config.json','utf8'));JSON.parse(require('fs').readFileSync('config/sui.schema.json','utf8'));console.log('ok')"
-          node -e "const {normalizeConfig}=require('@sui/core');" 2>/dev/null || true
+          node -e "const {normalizeConfig}=require('@drsamonline/core');" 2>/dev/null || true
 
       - name: Invariant audit
         run: node apps/cli/bin/sui.js invariants --config config/sui.config.json

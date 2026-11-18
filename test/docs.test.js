@@ -72,7 +72,7 @@ test('every package carries the same version as the root', async () => {
 test('the landing page claims the same invariant count as the code', async () => {
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
-  const { INVARIANTS } = await import('@sui/core');
+  const { INVARIANTS } = await import('@drsamonline/core');
   const html = readFileSync(join(process.cwd(), 'docs', 'index.html'), 'utf8');
   assert.ok(html.includes(`${INVARIANTS.length} enforced`), `the landing page does not say ${INVARIANTS.length} enforced`);
   assert.ok(html.includes(`<div class="v num">${INVARIANTS.length}</div>`), 'the headline count is stale');
@@ -117,7 +117,7 @@ function root(_path) {
 test('the README states the real invariant count and test count', async () => {
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
-  const { INVARIANTS } = await import('@sui/core');
+  const { INVARIANTS } = await import('@drsamonline/core');
   const readme = readFileSync(join(process.cwd(), 'README.md'), 'utf8');
 
   const words = { 15: 'Fifteen', 16: 'Sixteen', 17: 'Seventeen', 18: 'Eighteen', 19: 'Nineteen', 20: 'Twenty' };

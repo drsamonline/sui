@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TRANSFORMS, buildPayload, classify, judge, newCanary, runSelfTest } from '@sui/redteam';
+import { TRANSFORMS, buildPayload, classify, judge, newCanary, runSelfTest } from '@drsamonline/redteam';
 
 const CANARY = 'SUI-CANARY-ABC123';
 

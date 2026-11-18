@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { applyRecipe, describeRecipe } from '@sui/core';
+import { applyRecipe, describeRecipe } from '@drsamonline/core';
 
 const RECIPE_DIR = join(process.cwd(), 'recipes');
 const load = (name) => JSON.parse(readFileSync(join(RECIPE_DIR, `${name}.json`), 'utf8'));

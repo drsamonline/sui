@@ -11,16 +11,16 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { ConfigError, defaultConfigPath, normalizeConfig, sanitizeConfig, suiHome } from '@sui/core';
-import { applyVerified } from '@sui/catalog';
-import { dedupeEntries, loadSeed, summarise } from '@sui/catalog';
-import { loadKit, kitStatus } from '@sui/kits';
-import { createVault } from '@sui/vault';
-import { Prober, PROBE_FIXTURE_VERSION } from '@sui/prober';
-import { explainPlan } from '@sui/router';
-import { createGateway } from '@sui/gateway';
-import { TRANSFORMS, runSelfTest } from '@sui/redteam';
-import { createHttpHandler, createMcpServer, runStdio, SUPPORTED_PROTOCOL_VERSIONS } from '@sui/mcp';
+import { ConfigError, defaultConfigPath, normalizeConfig, sanitizeConfig, suiHome } from '@drsamonline/core';
+import { applyVerified } from '@drsamonline/catalog';
+import { dedupeEntries, loadSeed, summarise } from '@drsamonline/catalog';
+import { loadKit, kitStatus } from '@drsamonline/kits';
+import { createVault } from '@drsamonline/vault';
+import { Prober, PROBE_FIXTURE_VERSION } from '@drsamonline/prober';
+import { explainPlan } from '@drsamonline/router';
+import { createGateway } from '@drsamonline/gateway';
+import { TRANSFORMS, runSelfTest } from '@drsamonline/redteam';
+import { createHttpHandler, createMcpServer, runStdio, SUPPORTED_PROTOCOL_VERSIONS } from '@drsamonline/mcp';
 
 /** Read from package.json so the banner and the package cannot disagree. */
 const VERSION = (() => {
@@ -31,7 +31,7 @@ const VERSION = (() => {
     return '0.0.0';
   }
 })();
-import { PRESETS, RecallStore, choosePreset, compress } from '@sui/compression';
+import { PRESETS, RecallStore, choosePreset, compress } from '@drsamonline/compression';
 import { table } from './cli.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -494,7 +494,7 @@ export async function cmdRedteam(flags, args) {
  * boundary with the attack suite.
  */
 export async function cmdSandbox(flags, args) {
-  const { runCode, runAttackSuite, sandboxCapabilities } = await import('@sui/sandbox');
+  const { runCode, runAttackSuite, sandboxCapabilities } = await import('@drsamonline/sandbox');
   const capabilities = await sandboxCapabilities();
 
   if (flags['self-test']) {
@@ -557,7 +557,7 @@ export async function cmdSandbox(flags, args) {
  * Loopback only, unauthenticated GETs, nothing written unless asked.
  */
 export async function cmdLocal(flags) {
-  const { discoverLocalRuntimes, toConfigPatch } = await import('@sui/prober');
+  const { discoverLocalRuntimes, toConfigPatch } = await import('@drsamonline/prober');
 
   console.log('');
   console.log('Looking for local model servers on loopback (127.0.0.1)…');
@@ -589,7 +589,7 @@ export async function cmdLocal(flags) {
     return;
   }
 
-  const { applyRecipe } = await import('@sui/core');
+  const { applyRecipe } = await import('@drsamonline/core');
   const gateway = await createGateway({ configPath: flags.config });
   const path = flags.config ?? gateway.config.path ?? 'sui.config.json';
   const onDisk = JSON.parse(readFileSync(path, 'utf8'));
@@ -701,7 +701,7 @@ export async function cmdRecipe(flags, args) {
     return;
   }
 
-  const { applyRecipe, describeRecipe } = await import('@sui/core');
+  const { applyRecipe, describeRecipe } = await import('@drsamonline/core');
   const gateway = await createGateway({ configPath: flags.config });
   const result = applyRecipe(gateway.config, recipe, { force: Boolean(flags.force) });
 
@@ -804,7 +804,7 @@ export async function cmdTenants(flags) {
   const gateway = await createGateway({ configPath: flags.config, ledgerFile: undefined });
   const { config, ledger } = gateway;
 
-  const { tenantSnapshot, tenantSummary } = await import('@sui/core');
+  const { tenantSnapshot, tenantSummary } = await import('@drsamonline/core');
   const snapshot = tenantSnapshot({ config, ledger });
   const summary = tenantSummary(snapshot);
   const configured = (config.apiKeys ?? []).length > 0;

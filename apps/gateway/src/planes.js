@@ -1,5 +1,5 @@
 /**
- * @sui/gateway/planes — B5.7, splitting the gateway in two.
+ * @drsamonline/gateway/planes — B5.7, splitting the gateway in two.
  *
  * One process doing everything is the wrong shape for the two jobs it does:
  *

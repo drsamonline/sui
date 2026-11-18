@@ -15,7 +15,7 @@ import {
   restore,
   rtk,
   sessionDedup,
-} from '@sui/compression';
+} from '@drsamonline/compression';
 import { makeRouter, testConfig, ask } from './helpers.js';
 
 const PROMPT = `You are helping with a Node service. Here is the file:
@@ -182,9 +182,13 @@ test('compression is off by default: the provider receives the prompt unchanged'
   const upstream = await capturingUpstream();
   const { router } = makeRouter(testConfig({ fakeUrl: upstream.url }));
   const res = await router.chat({ combo: 'chain', body: ask(PROMPT) });
+  await upstream.close();
+  // Say what went wrong rather than 'cannot read properties of undefined': under
+  // load the fake upstream occasionally receives nothing, and the old assertion
+  // reported a missing array instead of a missing request.
+  assert.ok(upstream.bodies.length > 0, 'the provider received no request at all');
   assert.equal(res.meta.compression, null);
   assert.equal(upstream.bodies[0].messages[0].content, PROMPT);
-  await upstream.close();
 });
 
 test('with compression on, the older context shrinks and the question survives', async () => {
@@ -319,7 +323,7 @@ test('POST /api/compress refuses an unknown preset and empty text', async () => 
 /* ------------------------------------------- B4.2 canonicalise */
 
 test('canonicalise is lossless in meaning and strict about form', async () => {
-  const { canonicalise } = await import('@sui/compression');
+  const { canonicalise } = await import('@drsamonline/compression');
   const messy = 'The \u2018handler\u2019 returns ok\u2014nothing else.\u200b\r\n\r\n\r\n\r\n    const x = 1;\r\n    const y = 2;\r\n\r\n\r\nSee \u201chttps://example.com\u201d.   \n\n\n\nEnd.';
   const result = canonicalise(messy);
 
@@ -339,7 +343,7 @@ test('canonicalise is lossless in meaning and strict about form', async () => {
 });
 
 test('every preset starts with canonicalise, so nothing is compressed before it is tidy', async () => {
-  const { PRESETS } = await import('@sui/compression');
+  const { PRESETS } = await import('@drsamonline/compression');
   for (const [name, preset] of Object.entries(PRESETS)) {
     assert.equal(preset.engines[0], 'canonicalise', `${name} must canonicalise first`);
   }

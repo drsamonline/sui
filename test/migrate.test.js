@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { applyImport, diffImport, readMigrationSource, smokeTest } from '@sui/cli/src/migrate.js';
-import { normalizeConfig } from '@sui/core';
+import { applyImport, diffImport, readMigrationSource, smokeTest } from '@drsamonline/cli/src/migrate.js';
+import { normalizeConfig } from '@drsamonline/core';
 import { makeRouter, testConfig } from './helpers.js';
 
 function writeTmp(name, obj) {

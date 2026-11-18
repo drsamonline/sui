@@ -1,5 +1,5 @@
 /**
- * @sui/router/classify — the 50 ms classifier (B3.5).
+ * @drsamonline/router/classify — the 50 ms classifier (B3.5).
  *
  * Before a request goes anywhere, decide whether it needs the expensive model.
  * The classifier is deterministic and has no model of its own: it reads the

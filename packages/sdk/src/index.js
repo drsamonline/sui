@@ -1,5 +1,5 @@
 /**
- * @sui/sdk — a small client for the gateway.
+ * @drsamonline/sdk — a small client for the gateway.
  *
  * No dependencies, works in Node 20+ and modern browsers. Every response keeps
  * the `sui` provenance block, because a client that cannot say who answered is

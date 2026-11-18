@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { makeRouter, testConfig, ask } from './helpers.js';
-import { parseRetryAfter } from '@sui/providers';
+import { parseRetryAfter } from '@drsamonline/providers';
 
 /* ------------------------------------------------------------ the parsing */
 

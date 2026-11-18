@@ -1,5 +1,5 @@
 /**
- * @sui/mcp — the Model Context Protocol server (B5.1, B5.2).
+ * @drsamonline/mcp — the Model Context Protocol server (B5.1, B5.2).
  *
  * An MCP server is a JSON-RPC 2.0 peer that advertises tools, resources and
  * prompts. This one advertises the gateway: chat, models, explain, cost,

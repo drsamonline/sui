@@ -1,5 +1,5 @@
 /**
- * @sui/catalog — the provider catalogue.
+ * @drsamonline/catalog — the provider catalogue.
  *
  * Rules this package encodes:
  *  - an entry is only routable once it has been probed (verification before use)

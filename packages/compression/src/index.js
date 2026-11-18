@@ -1,5 +1,5 @@
 /**
- * @sui/compression — prompt compression (B4.1, B4.3).
+ * @drsamonline/compression — prompt compression (B4.1, B4.3).
  *
  * The point is not "smaller prompts". It is that a free tier has a quota, and a
  * quota is spent in tokens. When a provider is plentiful, compress lightly; when

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { applyVerified, isRoutable, loadSeed } from '@sui/catalog';
-import { probeTarget } from '@sui/prober';
+import { applyVerified, isRoutable, loadSeed } from '@drsamonline/catalog';
+import { probeTarget } from '@drsamonline/prober';
 
 /** A healthy OpenAI-compatible upstream. */
 async function fakeUpstream({ healthy = true } = {}) {
@@ -122,7 +122,7 @@ test('the overlay lives in the user home, not in the package', async () => {
 });
 
 test('a corrupt overlay does not stop the catalogue loading', async () => {
-  const { applyVerified, loadSeed } = await import('@sui/catalog');
+  const { applyVerified, loadSeed } = await import('@drsamonline/catalog');
   const { join } = await import('node:path');
   const entries = loadSeed(join(process.cwd(), 'packages', 'catalog', 'seed.json'));
   // the loader is defensive; here we prove the merge tolerates junk rows

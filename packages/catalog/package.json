@@ -1,5 +1,5 @@
 {
-  "name": "@sui/catalog",
+  "name": "@drsamonline/catalog",
   "version": "0.12.0",
   "description": "Provider catalog: schema, dedupe, ToS policy, scoring.",
   "type": "module",

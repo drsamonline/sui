@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { run as cli } from '@sui/cli/src/cli.js';
-import { runInit } from '@sui/cli/src/onboarding.js';
+import { run as cli } from '@drsamonline/cli/src/cli.js';
+import { runInit } from '@drsamonline/cli/src/onboarding.js';
 
 async function withProject() {
   const dir = mkdtempSync(join(tmpdir(), 'sui-cmd-'));

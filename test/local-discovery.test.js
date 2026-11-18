@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { discoverLocalRuntimes, isLoopback, toConfigPatch, DEFAULT_PORTS } from '@sui/prober';
-import { applyRecipe } from '@sui/core';
+import { discoverLocalRuntimes, isLoopback, toConfigPatch, DEFAULT_PORTS } from '@drsamonline/prober';
+import { applyRecipe } from '@drsamonline/core';
 
 /** An Ollama-shaped server. */
 async function fakeOllama(models = ['qwen2.5-coder:7b', 'llama3.2:3b']) {

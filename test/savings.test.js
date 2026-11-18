@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { makeRouter, makeGateway, testConfig, ask } from './helpers.js';
-import { Ledger } from '@sui/telemetry';
-import { STYLE_DIRECTIVES, chooseStyle } from '@sui/compression';
+import { Ledger } from '@drsamonline/telemetry';
+import { STYLE_DIRECTIVES, chooseStyle } from '@drsamonline/compression';
 
 const PROMPT = `You are helping with a Node service. The handler is basically just a very simple health check that returns ok and nothing else at all really. It does not do anything else at all. The handler is used by the load balancer. See https://example.com/docs for the contract. Please summarise it and say whether it is safe to expose publicly.`;
 

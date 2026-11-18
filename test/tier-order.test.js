@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tierRank } from '@sui/core';
+import { tierRank } from '@drsamonline/core';
 import { makeRouter, testConfig, ask } from './helpers.js';
 
 function tieredConfig() {

@@ -1,5 +1,5 @@
 /**
- * @sui/router/explain — B7.4, explain-my-route in plain language.
+ * @drsamonline/router/explain — B7.4, explain-my-route in plain language.
  *
  * A route decision is only trustworthy if it can be narrated. These functions
  * turn the plan (a pure data structure) and a turn's meta into sentences a person

@@ -1,5 +1,5 @@
 /**
- * @sui/vault — the paid-credential vault (B6.7).
+ * @drsamonline/vault — the paid-credential vault (B6.7).
  *
  * The air-gap has two halves. The gate (I4) decides *whether* paid credentials
  * are read at all. This is the other half: *where* they live, sealed with
@@ -17,7 +17,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { loadKit } from '@sui/kits';
+import { loadKit } from '@drsamonline/kits';
 
 const FORMAT = 1;
 

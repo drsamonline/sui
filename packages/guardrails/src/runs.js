@@ -1,5 +1,5 @@
 /**
- * @sui/guardrails/runs — B5.5, bounded runs and approval gates.
+ * @drsamonline/guardrails/runs — B5.5, bounded runs and approval gates.
  *
  * An agent that can call a model in a loop can spend money in a loop. A gateway
  * is the right place to bound that, because it is the only component that sees

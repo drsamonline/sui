@@ -1,5 +1,5 @@
 /**
- * @sui/sandbox — B5.6, running model-authored code without trusting it.
+ * @drsamonline/sandbox — B5.6, running model-authored code without trusting it.
  *
  * The honest starting point: **`node:vm` is not a security boundary.** It stops
  * accidents, not adversaries — a determined escape has been demonstrated many

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { createCanary } from '@sui/canary';
+import { createCanary } from '@drsamonline/canary';
 import { makeRouter, makeGateway, testConfig, ask } from './helpers.js';
 
 const slo = { minSuccessRate: 0.9, maxP95Ms: 5000, minSamples: 5 };

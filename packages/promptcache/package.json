@@ -1,5 +1,5 @@
 {
-  "name": "@sui/promptcache",
+  "name": "@drsamonline/promptcache",
   "version": "0.12.0",
   "description": "Native prompt caching: stable-prefix detection, per-provider hints, warm/cold tracking.",
   "type": "module",

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { DEFAULT_THRESHOLD, scoreAnswer, shouldEscalate, verdict } from '@sui/verify';
-import { explainPlan, explainTurn } from '@sui/router';
+import { DEFAULT_THRESHOLD, scoreAnswer, shouldEscalate, verdict } from '@drsamonline/verify';
+import { explainPlan, explainTurn } from '@drsamonline/router';
 import { makeRouter, makeGateway, testConfig, ask } from './helpers.js';
 
 const PROMPT = 'What does a circuit breaker do in a gateway?';
@@ -189,7 +189,7 @@ test('/api/explain answers without sending a request', async () => {
 /* ------------------------------------------------------- B7.6 grounding */
 
 test('an answer whose claims are in the context is grounded', async () => {
-  const { checkGrounding } = await import('@sui/verify');
+  const { checkGrounding } = await import('@drsamonline/verify');
   const context = 'Groq answered in 812 ms. Docs: https://example.com/docs/health-checks. Released 2024.';
   const result = checkGrounding({
     answer: 'It answered in 812 ms, per https://example.com/docs/health-checks, released 2024.',
@@ -201,7 +201,7 @@ test('an answer whose claims are in the context is grounded', async () => {
 });
 
 test('a fabricated URL, quote and number are each caught', async () => {
-  const { checkGrounding } = await import('@sui/verify');
+  const { checkGrounding } = await import('@drsamonline/verify');
   const context = 'The service returns 200 on the health endpoint. Docs: https://example.com/docs.';
   const result = checkGrounding({
     answer: 'It says "the gateway never fails over" and returns 200 at https://evil.example/x for $1.2m.',
@@ -215,7 +215,7 @@ test('a fabricated URL, quote and number are each caught', async () => {
 });
 
 test('with no context there is nothing to ground against, and it says so', async () => {
-  const { checkGrounding } = await import('@sui/verify');
+  const { checkGrounding } = await import('@drsamonline/verify');
   const result = checkGrounding({ answer: 'Anything at all, 42%.', context: '' });
   assert.equal(result.checked, false);
   assert.equal(result.supported, true, 'an unchecked answer is not a failed one');

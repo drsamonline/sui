@@ -1,5 +1,5 @@
 /**
- * @sui/promptcache — native prompt caching (B4.6).
+ * @drsamonline/promptcache — native prompt caching (B4.6).
  *
  * Providers cache a *prefix*. Anthropic wants `cache_control` breakpoints,
  * OpenAI caches automatically above a token threshold and takes a

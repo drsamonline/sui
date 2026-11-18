@@ -15,11 +15,11 @@
 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Prober } from '@sui/prober';
-import { runSelfTest } from '@sui/redteam';
+import { Prober } from '@drsamonline/prober';
+import { runSelfTest } from '@drsamonline/redteam';
 import { THRESHOLDS, checkBudgets, dedupe } from './alerts.js';
-import { DriftMonitor, HistoryStore, driftFromLedger } from '@sui/telemetry';
-import { dedupeEntries, loadSeed } from '@sui/catalog';
+import { DriftMonitor, HistoryStore, driftFromLedger } from '@drsamonline/telemetry';
+import { dedupeEntries, loadSeed } from '@drsamonline/catalog';
 
 /**
  * @param {{

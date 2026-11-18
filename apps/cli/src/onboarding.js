@@ -9,8 +9,8 @@
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createGateway, loadEnvFile } from '@sui/gateway';
-import { providerHasCredentials, suiHome } from '@sui/core';
+import { createGateway, loadEnvFile } from '@drsamonline/gateway';
+import { providerHasCredentials, suiHome } from '@drsamonline/core';
 import { detectTools, writeToolConfig } from './tools.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));

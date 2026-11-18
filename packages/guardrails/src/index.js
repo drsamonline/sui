@@ -1,11 +1,11 @@
 /**
- * @sui/guardrails — the checks that run before a provider is called.
+ * @drsamonline/guardrails — the checks that run before a provider is called.
  *
  * Deliberately small and pure: prompt size, blocked patterns, output clamp.
  * This is a starter set, not a governance product (see SECURITY.md).
  */
 
-import { SuiError } from '@sui/core';
+import { SuiError } from '@drsamonline/core';
 
 /**
  * @param {{messages: Array<{role: string, content: string}>, guardrails: any}} input

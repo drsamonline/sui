@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { HistoryStore, SAMPLE_FIELDS } from '@sui/telemetry';
+import { HistoryStore, SAMPLE_FIELDS } from '@drsamonline/telemetry';
 import { makeGateway, testConfig } from './helpers.js';
 import http from 'node:http';
 /**

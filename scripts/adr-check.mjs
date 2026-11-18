@@ -60,7 +60,7 @@ const CHECKS = [
         for (const path of paths) {
           if (!existsSync(path)) continue;
           const pkg = JSON.parse(readFileSync(path, 'utf8'));
-          const deps = Object.keys(pkg.dependencies ?? {}).filter((d) => !d.startsWith('@sui/'));
+          const deps = Object.keys(pkg.dependencies ?? {}).filter((d) => !d.startsWith('@drsamonline/'));
           if (deps.length) offenders.push(`${pkg.name}: ${deps.join(', ')}`);
         }
       }

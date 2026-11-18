@@ -146,7 +146,7 @@ function selfTest() {
 /* ------------------------------------------------------------- real eval */
 
 async function runAgainstProvider() {
-  const { createGateway } = await import('@sui/gateway');
+  const { createGateway } = await import('@drsamonline/gateway');
   const combo = args.combo ?? 'chat-default';
   const limit = args.limit ? Number(args.limit) : golden.length;
   const gateway = await createGateway({ configPath: args.config, ledgerFile: null });

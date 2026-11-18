@@ -11,7 +11,7 @@ import { createServer } from 'node:http';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createGateway } from '@sui/gateway';
+import { createGateway } from '@drsamonline/gateway';
 
 const config = {
   server: { host: '127.0.0.1', port: 0, cache: { enabled: true, ttlMs: 60000, maxEntries: 100 } },

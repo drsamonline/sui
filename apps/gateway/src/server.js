@@ -19,12 +19,12 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RunRegistry } from '@sui/guardrails';
+import { RunRegistry } from '@drsamonline/guardrails';
 import { createModelPlaneClient, createPlaneGuard, describePlane } from './planes.js';
-import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@sui/core';
-import { SuiError } from '@sui/core';
-import { explainPlan } from '@sui/router';
-import { PRESETS, compress as compressText } from '@sui/compression';
+import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@drsamonline/core';
+import { SuiError } from '@drsamonline/core';
+import { explainPlan } from '@drsamonline/router';
+import { PRESETS, compress as compressText } from '@drsamonline/compression';
 import { RateLimiter, checkKeyBudget } from './limits.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));

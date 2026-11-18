@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dedupeEntries, isRoutable, normalizeEntry, poolKey, scoreEntry, summarise, loadSeed } from '@sui/catalog';
+import { dedupeEntries, isRoutable, normalizeEntry, poolKey, scoreEntry, summarise, loadSeed } from '@drsamonline/catalog';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -83,7 +83,7 @@ test('the shipped seed loads, and every entry is honest about being unprobed', (
 test('every catalogue entry is well formed and could be probed', async () => {
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
-  const { normalizeEntry, poolKey } = await import('@sui/catalog');
+  const { normalizeEntry, poolKey } = await import('@drsamonline/catalog');
   const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
 
   const keys = new Set();
@@ -238,7 +238,7 @@ test('the generated catalogue keeps nothing it cannot justify', async () => {
 test('the catalogue count is the seeded count, not the seeded count plus filler', async () => {
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
-  const { loadSeed, dedupeEntries } = await import('@sui/catalog');
+  const { loadSeed, dedupeEntries } = await import('@drsamonline/catalog');
   const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
   const catalogue = dedupeEntries(loadSeed(join(process.cwd(), 'packages', 'catalog', 'seed.json')));
 

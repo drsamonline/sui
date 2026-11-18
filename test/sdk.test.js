@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeGateway, testConfig } from './helpers.js';
-import { SuiClient, SuiClientError } from '@sui/sdk';
+import { SuiClient, SuiClientError } from '@drsamonline/sdk';
 
 async function boot(config) {
   const gw = await makeGateway(config);

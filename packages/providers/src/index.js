@@ -12,7 +12,7 @@
  * care which format the other end speaks.
  */
 
-import { ProviderError } from '@sui/core';
+import { ProviderError } from '@drsamonline/core';
 
 /**
  * @typedef {{
@@ -118,13 +118,13 @@ export function createAdapter(providerId, provider, env = process.env) {
   const base = { id: providerId, type: provider.type, name: displayName(providerId), hasKey: Boolean(initialKey) };
 
   // An MCP server is a provider like any other (B5.4). Imported lazily because
-  // @sui/mcp depends on the router, which depends on this package.
+  // @drsamonline/mcp depends on the router, which depends on this package.
   if (provider.type === 'mcp') {
     return {
       ...base,
       type: 'mcp',
       chat: async (req, opts = {}) => {
-        const { createMcpAdapter } = await import('@sui/mcp');
+        const { createMcpAdapter } = await import('@drsamonline/mcp');
         return createMcpAdapter(providerId, provider, env).chat(req, opts);
       },
     };

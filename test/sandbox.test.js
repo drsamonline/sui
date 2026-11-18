@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runCode, sandboxCapabilities, runAttackSuite, ATTACKS, DEFAULT_LIMITS } from '@sui/sandbox';
+import { runCode, sandboxCapabilities, runAttackSuite, ATTACKS, DEFAULT_LIMITS } from '@drsamonline/sandbox';
 
 const caps = await sandboxCapabilities();
 

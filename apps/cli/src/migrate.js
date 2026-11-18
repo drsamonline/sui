@@ -11,7 +11,7 @@
 
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import { ConfigError } from '@sui/core';
+import { ConfigError } from '@drsamonline/core';
 
 const PROVIDER_ALIAS_KEYS = ['providers', 'connections', 'upstreams', 'channels', 'endpoints'];
 const MODEL_KEYS = ['models', 'modelMap', 'model_map'];

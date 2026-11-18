@@ -4,13 +4,13 @@
  */
 
 import { createServer } from 'node:http';
-import { createGateway } from '@sui/gateway';
+import { createGateway } from '@drsamonline/gateway';
 
 export { createGateway };
-import { Ledger } from '@sui/telemetry';
-import { CircuitBreaker } from '@sui/router';
-import { ResponseCache } from '@sui/telemetry';
-import { Router } from '@sui/router';
+import { Ledger } from '@drsamonline/telemetry';
+import { CircuitBreaker } from '@drsamonline/router';
+import { ResponseCache } from '@drsamonline/telemetry';
+import { Router } from '@drsamonline/router';
 
 /**
  * A tiny OpenAI-shaped upstream. `behaviour.fail` makes it return an error,

@@ -1,5 +1,5 @@
 /**
- * @sui/core — shared types, config, errors and the invariant table.
+ * @drsamonline/core — shared types, config, errors and the invariant table.
  *
  * Everything above this package may import it; it imports nothing from Sui.
  */

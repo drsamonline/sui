@@ -1,5 +1,5 @@
 /**
- * @sui/mcp/client — Sui calling other MCP servers (B5.4).
+ * @drsamonline/mcp/client — Sui calling other MCP servers (B5.4).
  *
  * The other direction from `server.js`. An MCP server that exposes a tool is,
  * from the gateway's point of view, another provider: it takes a prompt and

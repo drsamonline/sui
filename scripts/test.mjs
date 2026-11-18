@@ -46,7 +46,11 @@ const TIMEOUT_MS = process.env.SUI_TEST_TIMEOUT_MS ?? '120000';
 // CLI children. On a two-core CI runner that contention made a file that takes
 // 2s locally exceed a 60s budget. Two at a time is still faster than serial and
 // stops the suite racing itself.
-const CONCURRENCY = process.env.SUI_TEST_CONCURRENCY ?? '2';
+// Serial by default. Three different tests proved load-sensitive at two at a
+// time on a busy machine — a 52ms classifier budget, a worker kickoff, and a fake
+// upstream that received no request. Correct and slow beats fast and occasionally
+// wrong, and CI overrides this to 2 where the runner is quiet.
+const CONCURRENCY = process.env.SUI_TEST_CONCURRENCY ?? '1';
 
 const child = spawn(
   process.execPath,

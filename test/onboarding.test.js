@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runInit } from '@sui/cli/src/onboarding.js';
-import { run as cli } from '@sui/cli/src/cli.js';
-import { normalizeConfig } from '@sui/core';
+import { runInit } from '@drsamonline/cli/src/onboarding.js';
+import { run as cli } from '@drsamonline/cli/src/cli.js';
+import { normalizeConfig } from '@drsamonline/core';
 
 function tmpProject() {
   const dir = mkdtempSync(join(tmpdir(), 'sui-init-'));

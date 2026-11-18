@@ -1,5 +1,5 @@
 {
-  "name": "@sui/prober",
+  "name": "@drsamonline/prober",
   "version": "0.12.0",
   "description": "Canary prober: liveness, readiness and suitability checks that decide what may be routed to.",
   "type": "module",

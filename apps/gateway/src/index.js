@@ -1,7 +1,7 @@
 /**
- * @sui/gateway — public API.
+ * @drsamonline/gateway — public API.
  *
- *   import { createGateway } from '@sui/gateway';
+ *   import { createGateway } from '@drsamonline/gateway';
  *   const gw = await createGateway({ configPath: './sui.config.json' });
  *   gw.server.listen(gw.config.server.port);
  *
@@ -10,25 +10,25 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { CircuitBreaker } from '@sui/router';
-import { ResponseCache } from '@sui/telemetry';
-import { loadConfig, normalizeConfig, suiHome } from '@sui/core';
-import { Ledger } from '@sui/telemetry';
-import { Router } from '@sui/router';
-import { openVaultForStartup } from '@sui/vault';
+import { CircuitBreaker } from '@drsamonline/router';
+import { ResponseCache } from '@drsamonline/telemetry';
+import { loadConfig, normalizeConfig, suiHome } from '@drsamonline/core';
+import { Ledger } from '@drsamonline/telemetry';
+import { Router } from '@drsamonline/router';
+import { openVaultForStartup } from '@drsamonline/vault';
 import { createSuiServer } from './server.js';
 import { startWorkers } from './workers.js';
-import { createCanary } from '@sui/canary';
+import { createCanary } from '@drsamonline/canary';
 
-export { CircuitBreaker } from '@sui/router';
-export { ResponseCache } from '@sui/telemetry';
-export { Ledger } from '@sui/telemetry';
-export { Router } from '@sui/router';
+export { CircuitBreaker } from '@drsamonline/router';
+export { ResponseCache } from '@drsamonline/telemetry';
+export { Ledger } from '@drsamonline/telemetry';
+export { Router } from '@drsamonline/router';
 export { createSuiServer } from './server.js';
-export { loadConfig, normalizeConfig, resolveCombo, checkToggle, sanitizeConfig, providerHasCredentials, estimatedCost, suiHome, defaultConfigPath } from '@sui/core';
-export { SuiError, ProviderError, ConfigError, ExhaustedError } from '@sui/core';
-export { createAdapter, displayName } from '@sui/providers';
-export { INVARIANTS, auditConfig, BUDGETS } from '@sui/core';
+export { loadConfig, normalizeConfig, resolveCombo, checkToggle, sanitizeConfig, providerHasCredentials, estimatedCost, suiHome, defaultConfigPath } from '@drsamonline/core';
+export { SuiError, ProviderError, ConfigError, ExhaustedError } from '@drsamonline/core';
+export { createAdapter, displayName } from '@drsamonline/providers';
+export { INVARIANTS, auditConfig, BUDGETS } from '@drsamonline/core';
 
 /** Minimal .env reader — no dependency, no surprises, never overrides a real env var. */
 export function loadEnvFile(path = '.env', env = process.env) {

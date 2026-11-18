@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createVault, openVaultForStartup } from '@sui/vault';
-import { providerHasCredentials } from '@sui/core';
+import { createVault, openVaultForStartup } from '@drsamonline/vault';
+import { providerHasCredentials } from '@drsamonline/core';
 import { makeGateway } from './helpers.js';
 
 function tmpVault() {

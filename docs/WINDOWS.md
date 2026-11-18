@@ -93,7 +93,7 @@ In **PowerShell** use `.\sui.ps1` instead of `.\sui.cmd` — both work. If Power
 |---|---|
 | run it now, from this folder | `.\sui.cmd <command>` — works today, no npm account needed |
 | a global `sui` command | `npm link` in the folder, then `sui <command>` anywhere |
-| `npx @sui/cli` | publish first: `npm login` then `npm run publish:real` |
+| `npx @drsamonline/cli` | publish first: `npm login` then `npm run publish:real` |
 
 `npm link` is the middle option and takes one command:
 
@@ -110,7 +110,7 @@ sui doctor
 |---|---|---|
 | `'node' is not recognised` | Node missing, or this window is older than the install | install Node, **reopen** PowerShell |
 | `running scripts is disabled on this system` | PowerShell script policy | use `.\sui.cmd`, or `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
-| `Cannot find package '@sui/gateway'` | the workspace links are missing | run `npm install` in the folder |
+| `Cannot find package '@drsamonline/gateway'` | the workspace links are missing | run `npm install` in the folder |
 | `package.json is not here` | you are one folder too high | `cd` into the folder that has `package.json` |
 | `.\sui.cmd : cannot be found` | you are not in the Sui folder | `cd` to it, or use the full path |
 | port 8787 already in use | something else is on it | `.\sui.cmd start --port 8788` |

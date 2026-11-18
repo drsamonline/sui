@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { FIXTURES, PROBE_FIXTURE_VERSION, Prober, probeTarget } from '@sui/prober';
-import { normalizeEntry } from '@sui/catalog';
+import { FIXTURES, PROBE_FIXTURE_VERSION, Prober, probeTarget } from '@drsamonline/prober';
+import { normalizeEntry } from '@drsamonline/catalog';
 
 /**
  * A fake OpenAI-compatible upstream whose behaviour each test can bend:
@@ -253,7 +253,7 @@ test('start() schedules and stop() clears, without holding the process open', as
 /* -------------------------------------------------- B10.1 the Weather Map */
 
 test('the weather vocabulary is three words plus "not checked yet"', async () => {
-  const { weatherLabel } = await import('@sui/prober');
+  const { weatherLabel } = await import('@drsamonline/prober');
   assert.equal(weatherLabel('healthy'), 'thriving');
   assert.equal(weatherLabel('degraded'), 'resting');
   assert.equal(weatherLabel('disabled'), 'down');
@@ -290,7 +290,7 @@ test('a provider that fails reads as down, with the reason attached', async () =
 /* ---------------------------------- the model is discovered, not assumed */
 
 test('the readiness probe calls a model the endpoint actually listed', async () => {
-  const { probeTarget } = await import('@sui/prober');
+  const { probeTarget } = await import('@drsamonline/prober');
   const seen = [];
   const fetchImpl = async (url, init) => {
     seen.push({ url: String(url), body: init?.body ? JSON.parse(init.body) : null });
@@ -315,7 +315,7 @@ test('the readiness probe calls a model the endpoint actually listed', async () 
 });
 
 test('a family name is never sent as a model', async () => {
-  const { probeTarget } = await import('@sui/prober');
+  const { probeTarget } = await import('@drsamonline/prober');
   const bodies = [];
   const fetchImpl = async (url, init) => {
     if (String(url).endsWith('/models')) {
@@ -331,7 +331,7 @@ test('a family name is never sent as a model', async () => {
 });
 
 test('an explicit probe_model wins over discovery', async () => {
-  const { probeTarget } = await import('@sui/prober');
+  const { probeTarget } = await import('@drsamonline/prober');
   const bodies = [];
   const fetchImpl = async (url, init) => {
     if (String(url).endsWith('/models')) {

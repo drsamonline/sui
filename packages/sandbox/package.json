@@ -1,5 +1,5 @@
 {
-  "name": "@sui/sandbox",
+  "name": "@drsamonline/sandbox",
   "version": "0.12.0",
   "description": "Run model-authored code in a contained process: permission model, network namespace, hard limits.",
   "type": "module",

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DriftMonitor, driftFromLedger } from '@sui/telemetry';
+import { DriftMonitor, driftFromLedger } from '@drsamonline/telemetry';
 
 const mk = (opts = {}) => new DriftMonitor({ baselineSamples: 10, threshold: 5, ...opts });
 

@@ -22,7 +22,7 @@ The reason is leverage: an MCP tool takes a prompt and returns text, which is th
 
 ## Consequences
 
-- `providers` dispatches `mcp` through a **lazy import**, because `@sui/mcp` depends on the router, which depends on `providers`. A static import is a cycle that fails at module-eval time — which is exactly how it failed the first time.
+- `providers` dispatches `mcp` through a **lazy import**, because `@drsamonline/mcp` depends on the router, which depends on `providers`. A static import is a cycle that fails at module-eval time — which is exactly how it failed the first time.
 - The prompt argument name is configurable (`argument`, default `prompt`), because only the operator knows what their tool expects.
 - A tool that reports `isError` becomes a provider failure carrying the tool's own words, so the router falls back as it would from a 500.
 - **Token counts for an MCP tool are estimated** (characters ÷ 4), because the protocol reports no usage. The ledger records an estimate and the docs say so.

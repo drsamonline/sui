@@ -16,14 +16,14 @@ import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createGateway, loadEnvFile } from '@sui/gateway';
-import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, sanitizeConfig, suiHome, INVARIANTS } from '@sui/core';
+import { createGateway, loadEnvFile } from '@drsamonline/gateway';
+import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, sanitizeConfig, suiHome, INVARIANTS } from '@drsamonline/core';
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
 import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdLocal, cmdMcp, cmdProbe, cmdRecipe, cmdRedteam, cmdSandbox, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
-import { kitStatus } from '@sui/kits';
-import { ConfigError } from '@sui/core';
+import { kitStatus } from '@drsamonline/kits';
+import { ConfigError } from '@drsamonline/core';
 
 // One source of truth for the version: the package manifest.
 const HERE_DIR = dirname(fileURLToPath(import.meta.url));

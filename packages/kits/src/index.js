@@ -1,5 +1,5 @@
 /**
- * @sui/kits — the vendored drsamonline kits, loaded safely.
+ * @drsamonline/kits — the vendored drsamonline kits, loaded safely.
  *
  * Each kit is a single-file, dependency-free IIFE that attaches itself to a
  * global (`CryptoKit`, `MLKit`, `Search`, `Tokens`, `Compress`, `Export`,

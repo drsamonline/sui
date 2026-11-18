@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRouter, testConfig, ask, makeGateway, startFakeUpstream } from './helpers.js';
-import { auditConfig, providerHasCredentials, INVARIANTS } from '@sui/core';
-import { tripsBreaker } from '@sui/router';
-import { Ledger } from '@sui/telemetry';
+import { auditConfig, providerHasCredentials, INVARIANTS } from '@drsamonline/core';
+import { tripsBreaker } from '@drsamonline/router';
+import { Ledger } from '@drsamonline/telemetry';
 
 test('every invariant has an enforcement point and a test, or says it does not', () => {
   // the count is asserted so that adding an invariant is a deliberate act: this

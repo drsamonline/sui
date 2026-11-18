@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { clearToken, createAdapter, cachedToken, refreshAccessToken } from '@sui/providers';
+import { clearToken, createAdapter, cachedToken, refreshAccessToken } from '@drsamonline/providers';
 
 /**
  * A provider that 401s until the right bearer arrives, plus a token endpoint that

@@ -1,5 +1,5 @@
 /**
- * @sui/prober — the canary prober (B2.3).
+ * @drsamonline/prober — the canary prober (B2.3).
  *
  * This is the batch that makes "verified before use" mean something. A catalogue
  * entry is an identity; a probed entry is a route. Nothing here runs on the
@@ -17,7 +17,7 @@
  * content, no write tools, nothing that could mutate state upstream.
  */
 
-import { poolKey } from '@sui/catalog';
+import { poolKey } from '@drsamonline/catalog';
 
 /** Bump when a fixture changes, so probe history stays comparable. */
 export const PROBE_FIXTURE_VERSION = '1.0.0';

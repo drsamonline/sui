@@ -8,8 +8,8 @@ import {
   resolveCombo,
   sanitizeConfig,
   validateConfig,
-} from '@sui/core';
-import { filterConfig } from '@sui/cli/src/onboarding.js';
+} from '@drsamonline/core';
+import { filterConfig } from '@drsamonline/cli/src/onboarding.js';
 import { testConfig } from './helpers.js';
 
 const quietEnv = {};

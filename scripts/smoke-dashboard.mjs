@@ -29,7 +29,7 @@ const puppeteer = (await import(puppeteerPath)).default;
 
 // A gateway with a live config, workers on, and one reachable mock provider, so
 // every panel has data to draw rather than an empty state.
-const { createGateway } = await import('@sui/gateway');
+const { createGateway } = await import('@drsamonline/gateway');
 
 /**
  * Three states, because a dashboard usually breaks in the two that are not the

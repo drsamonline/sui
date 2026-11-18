@@ -1,5 +1,5 @@
 /**
- * @sui/mcp — the Model Context Protocol server for Sui.
+ * @drsamonline/mcp — the Model Context Protocol server for Sui.
  */
 
 export { createMcpServer, SUPPORTED_PROTOCOL_VERSIONS, PROTOCOL_VERSION, ERROR_CODES, SERVER_NAME } from './server.js';

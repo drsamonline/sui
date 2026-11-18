@@ -14,7 +14,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { loadKit } from '@sui/kits';
+import { loadKit } from '@drsamonline/kits';
 import { cosine, embed } from './embedding.js';
 
 export class ResponseCache {

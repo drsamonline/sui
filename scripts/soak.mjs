@@ -12,7 +12,7 @@
  */
 
 import { writeFileSync } from 'node:fs';
-import { createGateway } from '@sui/gateway';
+import { createGateway } from '@drsamonline/gateway';
 
 const args = parseArgs(process.argv.slice(2));
 const minutes = Number(args.minutes ?? 1);

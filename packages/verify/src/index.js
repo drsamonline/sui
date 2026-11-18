@@ -1,5 +1,5 @@
 /**
- * @sui/verify — reference-free confidence scoring (B3.4).
+ * @drsamonline/verify — reference-free confidence scoring (B3.4).
  *
  * The spec asks for "verification escalation, fail-closed, confidence threshold
  * 0.7". There is no judge model here on purpose: a judge costs the same quota the

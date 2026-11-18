@@ -1,5 +1,5 @@
 {
-  "name": "@sui/dashboard",
+  "name": "@drsamonline/dashboard",
   "version": "0.12.0",
   "description": "Dashboard UI, served by the gateway.",
   "type": "module",
