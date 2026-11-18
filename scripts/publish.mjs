@@ -50,7 +50,10 @@ const rootPkg = read('package.json');
 try {
   execFileSync('npm', ['whoami'], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' });
 } catch {
-  problems.push('not logged in to npm. Run `npm login` (or set //registry.npmjs.org/:_authToken), then `npm whoami` should print your username.');
+  problems.push(
+    'not logged in to npm. Either run `npm login` here, or let the publish workflow do it: ' +
+      'add an NPM_TOKEN repository secret and push a v* tag (.github/workflows/publish.yml).',
+  );
 }
 
 // 1. a clean tree, because an uncommitted fix is not in the tarball

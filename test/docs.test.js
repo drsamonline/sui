@@ -380,3 +380,19 @@ test('no gate depends on a tool the runner may not have', async () => {
     assert.equal(/'rg'|"rg"/.test(body), false, `scripts/${file} shells out to ripgrep`);
   }
 });
+
+test('publishing is automated, gated, and never needs a token on a laptop', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const path = join(process.cwd(), '.github', 'workflows', 'publish.yml');
+  assert.ok(existsSync(path), 'the publish workflow is how this gets to npm without a local token');
+
+  const wf = readFileSync(path, 'utf8');
+  assert.match(wf, /tags: \['v\*'\]/, 'a tag is the trigger: publishing is permanent');
+  assert.match(wf, /secrets\.NPM_TOKEN/, 'the token comes from a repository secret');
+  assert.match(wf, /NODE_AUTH_TOKEN/, 'npm reads the token from NODE_AUTH_TOKEN');
+  assert.match(wf, /npm test/, 'never publish something the gates have not passed');
+  assert.match(wf, /publish\.mjs --dry-run/, 'the publisher checks everything before it writes');
+  // a tag that disagrees with package.json would publish one version as another
+  assert.match(wf, /does not match package.json version/);
+});

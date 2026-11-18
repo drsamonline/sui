@@ -1,5 +1,20 @@
 # Publishing
 
+**The short path:** add one repository secret, push a tag, done. `.github/workflows/publish.yml` runs the gates, checks the tag against `package.json`, and publishes all 18 packages from a GitHub runner.
+
+```bash
+# 1. once: an npm automation token (npmjs.com → Access Tokens → Granular, read+write)
+#    add it as the repository secret NPM_TOKEN
+
+# 2. whenever you want to publish
+git tag -a v0.12.0 -m "0.12.0"
+git push origin v0.12.0
+```
+
+Nothing is published from a laptop, no token sits in your shell history, and a tag that disagrees with `package.json` stops the run before anything irreversible happens.
+
+The rest of this page is the manual route, and what the publisher refuses to do either way.
+
 `npm run publish:dry` checks everything and publishes nothing. `npm run publish:real` publishes in dependency order.
 
 ## What the script refuses to do
