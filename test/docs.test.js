@@ -367,3 +367,16 @@ test('every script in scripts/ parses', async () => {
     }, `scripts/${file} does not parse`);
   }
 });
+
+test('no gate depends on a tool the runner may not have', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const dir = join(process.cwd(), 'scripts');
+
+  // `rg` is not installed on a GitHub runner, so an ADR check that shelled out to
+  // it failed there and passed here — a gate that silently does not run.
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.mjs'))) {
+    const body = readFileSync(join(dir, file), 'utf8');
+    assert.equal(/'rg'|"rg"/.test(body), false, `scripts/${file} shells out to ripgrep`);
+  }
+});

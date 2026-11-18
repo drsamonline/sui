@@ -93,20 +93,24 @@ const CHECKS = [
     title: 'Kits load in an isolated vm context, never by import',
     check: () => {
       const kits = read('packages/kits/src/index.js');
-      // rg exits 1 when nothing matches, which is the outcome we want
-      let imported = '';
-      try {
-        // an actual import or require of a vendored file — a comment that
-        // mentions the directory is not a violation, and matching prose was the
-        // first version's bug
-        imported = execFileSync(
-          'rg',
-          ['-l', 'import\\s+[^;]*vendor/kits|require\\([\'\"][^\'\"]*vendor/kits', 'apps', 'packages'],
-          { cwd: ROOT, encoding: 'utf8' },
-        ).trim();
-      } catch (err) {
-        imported = err?.status === 1 ? '' : `rg failed: ${err?.message ?? err}`;
-      }
+      // Walk the tree in Node rather than shelling out to ripgrep: `rg` is not on
+      // a GitHub runner, and a gate that depends on a tool the runner lacks is a
+      // gate that silently does not run.
+      const pattern = /(?:import\s+[^;]*vendor\/kits|require\(['"][^'"]*vendor\/kits)/;
+      const offenders = [];
+      const walk = (dir) => {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const full = join(dir, entry.name);
+          if (entry.isDirectory()) {
+            if (entry.name === 'node_modules' || entry.name === 'vendor') continue;
+            walk(full);
+          } else if (entry.name.endsWith('.js') || entry.name.endsWith('.mjs')) {
+            if (pattern.test(readFileSync(full, 'utf8'))) offenders.push(full.replace(`${ROOT}/`, ''));
+          }
+        }
+      };
+      for (const dir of ['apps', 'packages']) walk(join(ROOT, dir));
+      const imported = offenders.join(' ');
       const vm = /node:vm/.test(kits) && /vm\.createContext|createContext\(/.test(kits);
       return {
         ok: vm && imported === '',
