@@ -127,6 +127,10 @@ const report = {
     p95Ms: round(q(sorted, 0.95)),
     p99Ms: round(q(sorted, 0.99)),
     maxMs: round(sorted[sorted.length - 1] ?? 0),
+    // how many samples the percentiles rest on. A p99 from 1,200 requests is the
+    // twelfth-worst request: it is descriptive, not a bound.
+    samples: sorted.length,
+    p99SampleRank: Math.max(1, Math.ceil(sorted.length * 0.01)),
   },
   memory: {
     startMb: round(rss[0] / 1e6, 1),

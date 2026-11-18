@@ -25,6 +25,14 @@ The version that stopped trusting its own documentation.
 - **A catalogue source ledger** (`packages/catalog/sources.json`): seven sources, each with URL, pinned commit, licence, and what was taken and what was not.
 - **An architecture diagram** in `docs/ARCHITECTURE.md`, with a test that keeps it matching the code.
 
+### Measurement
+
+- The eval pass rate now carries a **95% confidence interval** and a per-category breakdown. One prompt in fifty is two percentage points, so a bare "86%" invited the reader to treat a sample as a measurement.
+- Thin categories (fewer than five prompts) are labelled indicative; the aggregate is dominated by coding, which has ten.
+- The regression gate says when a drop is a single prompt — inside sampling noise — instead of implying a trend.
+- The soak reports how many samples its percentiles rest on, because a p99 from 1,200 requests is the twelfth-worst request, not a bound.
+- New `docs/MEASUREMENT.md`: what each number rests on, and what none of them measure.
+
 ### Changed
 
 - The README went from 202 lines with a 42-bullet feature wall to 112 lines in the shape its reader needs; the full list moved to `docs/FEATURES.md`.

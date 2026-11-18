@@ -26,6 +26,22 @@ const golden = readJsonl(join(HERE, 'golden.jsonl'));
 const fixtures = JSON.parse(readFileSync(join(HERE, 'fixtures', 'self-test.json'), 'utf8'));
 const baselinePath = join(HERE, 'baseline.json');
 
+/**
+ * Wilson score interval for a proportion.
+ *
+ * With 50 prompts, one prompt is two percentage points, and a pass rate quoted
+ * without a range invites a reader to treat a sample as a measurement. The
+ * interval is what the number actually supports.
+ */
+function wilson(passed, total, z = 1.96) {
+  if (!total) return { low: 0, high: 0 };
+  const p = passed / total;
+  const denom = 1 + (z * z) / total;
+  const centre = (p + (z * z) / (2 * total)) / denom;
+  const spread = (z * Math.sqrt((p * (1 - p)) / total + (z * z) / (4 * total * total))) / denom;
+  return { low: Math.max(0, centre - spread), high: Math.min(1, centre + spread) };
+}
+
 const REPORT_PATH = process.env.SUI_EVAL_REPORT ?? join(HERE, 'last-report.json');
 
 function parseArgs(argv) {
@@ -169,9 +185,21 @@ async function runAgainstProvider() {
   const previousPassing = new Set(previous?.passedIds ?? []);
   const regressions = graded.filter((g) => previousPassing.has(g.id) && !g.pass);
 
-  console.log(`  pass rate ${Math.round(passRate * 100)}% (${passed}/${graded.length})`);
-  for (const [category, stats] of Object.entries(byCategory)) {
-    console.log(`    ${category.padEnd(14)} ${stats.pass}/${stats.total}`);
+  const ci = wilson(passed, graded.length);
+  console.log(
+    `  pass rate ${Math.round(passRate * 100)}% (${passed}/${graded.length}) · 95% CI ${Math.round(ci.low * 100)}–${Math.round(ci.high * 100)}%`,
+  );
+  // the aggregate is dominated by the largest category; a per-category line stops
+  // 0/2 on tools hiding behind 9/10 on coding
+  for (const [category, stats] of Object.entries(byCategory).sort((a, b) => b[1].total - a[1].total)) {
+    const c = wilson(stats.pass, stats.total);
+    console.log(
+      `    ${category.padEnd(14)} ${String(stats.pass).padStart(2)}/${String(stats.total).padEnd(2)} · ${Math.round(c.low * 100)}–${Math.round(c.high * 100)}%`,
+    );
+  }
+  const thin = Object.entries(byCategory).filter(([, s2]) => s2.total < 5).map(([c]) => c);
+  if (thin.length) {
+    console.log(`    (${thin.join(', ')} have fewer than five prompts — read those rows as indicative only)`);
   }
   if (regressions.length) {
     console.log('');
@@ -187,6 +215,7 @@ async function runAgainstProvider() {
     passed,
     total: graded.length,
     byCategory,
+    confidence: { low: Math.round(ci.low * 1000) / 1000, high: Math.round(ci.high * 1000) / 1000, method: 'wilson', n: graded.length },
     mismatches: graded.filter((g) => !g.pass).map((g) => ({ id: g.id, category: g.category, reason: g.reason })),
     note: `Real run against combo "${combo}".`,
   });
@@ -202,14 +231,22 @@ async function runAgainstProvider() {
   }
 
   if (regressions.length) {
+    // one prompt in fifty is two percentage points, so a single regression is
+    // inside the noise this sample can resolve. Say which it is.
+    const meaningful = regressions.length >= 2 || passed < (previous?.passedIds?.length ?? 0) - 1;
     console.log('');
-    console.log('  FAIL — a prompt that used to pass no longer does (I10).');
+    console.log(
+      meaningful
+        ? `  FAIL — ${regressions.length} prompt(s) that used to pass no longer do (I10).`
+        : `  FAIL — 1 prompt regressed. With ${graded.length} prompts that is inside sampling noise, but the gate still fails: a prompt that used to pass must not stop passing (I10).`,
+    );
     return 1;
   }
 
   if (previous) {
     console.log('');
-    console.log('  no regression against the baseline');
+    const baseN = previous.passedIds?.length ?? 0;
+    console.log(`  no regression against the baseline (${baseN} passing then, ${passed} now)`);
   }
   return 0;
 }

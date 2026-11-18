@@ -54,3 +54,45 @@ test('/api/evals serves the last report, and says so when there is none', async 
   assert.match(json.report.note, /No model was called/);
   await gw.close();
 });
+
+/* ------------------- the numbers must carry their sample size (review) */
+
+test('a 50-prompt pass rate is reported with a confidence interval', async () => {
+  const { execFileSync } = await import('node:child_process');
+  let out = '';
+  try {
+    out = execFileSync(process.execPath, ['evals/run.mjs'], { cwd: process.cwd(), encoding: 'utf8', timeout: 120_000 });
+  } catch (err) {
+    out = `${err?.stdout ?? ''}${err?.stderr ?? ''}`;
+  }
+
+  // one prompt in fifty is two percentage points; a bare percentage invites the
+  // reader to treat a sample as a measurement
+  assert.match(out, /95% CI \d+–\d+%/, 'the pass rate must come with its interval');
+  assert.match(out, /\(\d+\/50\)/, 'and its denominator');
+});
+
+test('per-category rates are shown, so the aggregate cannot hide a category', async () => {
+  const { execFileSync } = await import('node:child_process');
+  let out = '';
+  try {
+    out = execFileSync(process.execPath, ['evals/run.mjs'], { cwd: process.cwd(), encoding: 'utf8', timeout: 120_000 });
+  } catch (err) {
+    out = `${err?.stdout ?? ''}${err?.stderr ?? ''}`;
+  }
+
+  for (const category of ['coding', 'json', 'tools']) {
+    assert.match(out, new RegExp(category), `${category} must appear in the breakdown`);
+  }
+  // two prompts cannot support a rate, and the runner says so
+  assert.match(out, /fewer than five prompts/, 'thin categories must be flagged as indicative');
+});
+
+test('the Wilson interval behaves', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const source = readFileSync(join(process.cwd(), 'evals', 'run.mjs'), 'utf8');
+  assert.match(source, /function wilson\(/);
+  // a proportion of 0 or 1 must not produce a zero-width interval at n=50
+  assert.match(source, /Math\.max\(0, centre - spread\)/);
+});
