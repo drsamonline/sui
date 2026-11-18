@@ -27,6 +27,8 @@ The version that stopped trusting its own documentation.
 
 ### Fixed (found by CI, which had never run)
 
+- **A test wrote to `/proc`.** `mkdirSync('/proc/nonexistent', {recursive:true})` returns EPERM here and **hangs** on a real Linux runner, so a whole test file sat open until CI killed it at 120 seconds. It passed locally every time, which is why it survived four wrong diagnoses — the prober, the keep-alive socket, the CPU count. A read-only temp directory is unwritable everywhere and answers immediately.
+
 - **A worker interval of `0` was a busy loop.** `setInterval(fn, 0)` is not a fast timer — it runs the callback the moment the previous one yields, pegs a core and starves every other timer in the process. `0 ?? fallback` does not help: nullish coalescing only replaces null and undefined. Zero or less now means the job is off.
 - `node --test test/` worked on Node 20 and failed on Node 22, which reads the argument as a file. The suite now runs through a runner that passes explicit paths.
 - the workflow itself was invalid — a job-level `if` referencing `secrets` — so every run since 14 November completed as a failure with **zero jobs**, and no gate ever ran in CI.

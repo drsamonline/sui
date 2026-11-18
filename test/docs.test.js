@@ -337,3 +337,17 @@ test('no test starts a prober that reaches the network', async () => {
     );
   }
 });
+
+test('no test writes to a pseudo-filesystem', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const dir = join(process.cwd(), 'test');
+
+  // mkdirSync on /proc does not fail on a real Linux runner, it hangs — which
+  // held a whole test file open until CI killed it, while passing here in
+  // milliseconds. A read-only directory is unwritable everywhere.
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
+    const body = readFileSync(join(dir, file), 'utf8');
+    assert.equal(/['"]\/(proc|sys)\//.test(body), false, `${file} writes to a pseudo-filesystem`);
+  }
+});

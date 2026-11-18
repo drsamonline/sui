@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HistoryStore, SAMPLE_FIELDS } from '@sui/telemetry';
@@ -119,9 +119,19 @@ test('a row with an unexpected field is dropped on load, not trusted', () => {
 });
 
 test('an unwritable history file does not take the gateway down', () => {
-  const store = new HistoryStore({ file: '/proc/nonexistent/history.jsonl', now: () => T0 });
-  assert.doesNotThrow(() => store.record({ modelId: 'm', ok: true, latencyMs: 5 }));
-  assert.equal(store.rows.length, 1, 'the sample is still in memory');
+  // Not /proc: mkdirSync on procfs hangs on a real Linux runner rather than
+  // failing, which held this whole file open until CI killed it at 120s while it
+  // passed here in milliseconds. A read-only directory is unwritable everywhere
+  // and answers immediately.
+  const dir = mkdtempSync(join(tmpdir(), 'sui-ro-'));
+  chmodSync(dir, 0o500);
+  try {
+    const store = new HistoryStore({ file: join(dir, 'nested', 'history.jsonl'), now: () => T0 });
+    assert.doesNotThrow(() => store.record({ modelId: 'm', ok: true, latencyMs: 5 }));
+    assert.equal(store.rows.length, 1, 'the sample is still in memory');
+  } finally {
+    chmodSync(dir, 0o700);
+  }
 });
 
 /* ------------------------------------------------------------ the API */
