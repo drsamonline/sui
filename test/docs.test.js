@@ -294,6 +294,8 @@ test('the test script runs on every Node version, not just the one in the sandbo
   // extra arguments must still be forwarded, after the force-exit flag
   assert.match(runner, /\.\.\.process\.argv\.slice\(2\), \.\.\.files/, 'extra arguments must be forwarded');
   assert.match(runner, /test-force-exit/, 'a leaked handle must not make CI look like it is still working');
+  // a hang must name the test that hung, not hold the job open
+  assert.match(runner, /--test-timeout=/, 'a per-test timeout is what turns a hang into a diagnosis');
 });
 
 test('every CI job has a timeout, so a hang fails instead of waiting', async () => {

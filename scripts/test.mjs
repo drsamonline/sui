@@ -37,10 +37,19 @@ if (!files.length) {
 // into a normal finish; the per-job timeout in the workflow is the backstop.
 const forceExit = Number(process.versions.node.split('.')[0]) >= 22 || Number(process.versions.node.split('.')[1]) >= 14;
 
-const child = spawn(process.execPath, ['--test', ...(forceExit ? ['--test-force-exit'] : []), ...process.argv.slice(2), ...files], {
-  cwd: ROOT,
-  stdio: 'inherit',
-});
+// A per-test timeout turns "the job is still running" into "this test hung",
+// which is the difference between a mystery and a bug report. 60s is well above
+// the slowest test here (a CLI spawn at ~9s) and well below a CI job timeout.
+const TIMEOUT_MS = process.env.SUI_TEST_TIMEOUT_MS ?? '60000';
+
+const child = spawn(
+  process.execPath,
+  ['--test', ...(forceExit ? ['--test-force-exit'] : []), `--test-timeout=${TIMEOUT_MS}`, ...process.argv.slice(2), ...files],
+  {
+    cwd: ROOT,
+    stdio: 'inherit',
+  },
+);
 
 child.on('exit', (code, signal) => {
   if (signal) process.kill(process.pid, signal);
