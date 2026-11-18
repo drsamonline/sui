@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/gateway",
-  "version": "0.12.5",
+  "version": "0.12.6",
   "description": "HTTP gateway: OpenAI-compatible surface, dashboard API.",
   "type": "module",
   "license": "MIT",
@@ -26,16 +26,16 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@drsamonline/canary": "^0.12.5",
-    "@drsamonline/catalog": "^0.12.5",
-    "@drsamonline/compression": "^0.12.5",
-    "@drsamonline/core": "^0.12.5",
-    "@drsamonline/guardrails": "^0.12.5",
-    "@drsamonline/prober": "^0.12.5",
-    "@drsamonline/providers": "^0.12.5",
-    "@drsamonline/redteam": "^0.12.5",
-    "@drsamonline/router": "^0.12.5",
-    "@drsamonline/telemetry": "^0.12.5",
-    "@drsamonline/vault": "^0.12.5"
+    "@drsamonline/canary": "^0.12.0",
+    "@drsamonline/catalog": "^0.12.0",
+    "@drsamonline/compression": "^0.12.0",
+    "@drsamonline/core": "^0.12.0",
+    "@drsamonline/guardrails": "^0.12.0",
+    "@drsamonline/prober": "^0.12.0",
+    "@drsamonline/providers": "^0.12.0",
+    "@drsamonline/redteam": "^0.12.0",
+    "@drsamonline/router": "^0.12.0",
+    "@drsamonline/telemetry": "^0.12.0",
+    "@drsamonline/vault": "^0.12.0"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/guardrails",
-  "version": "0.12.5",
+  "version": "0.12.6",
   "description": "Prompt checks: size, blocked patterns, token clamps.",
   "type": "module",
   "license": "MIT",
@@ -26,6 +26,6 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@drsamonline/core": "^0.12.5"
+    "@drsamonline/core": "^0.12.0"
   }
 }

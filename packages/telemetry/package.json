@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/telemetry",
-  "version": "0.12.5",
+  "version": "0.12.6",
   "description": "Ledger, cache, aggregates, CSV.",
   "type": "module",
   "license": "MIT",
@@ -26,6 +26,6 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@drsamonline/kits": "^0.12.5"
+    "@drsamonline/kits": "^0.12.0"
   }
 }

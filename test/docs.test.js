@@ -459,3 +459,35 @@ test('the publisher reports a staged release instead of claiming success', async
   assert.match(publish, /STAGED — a maintainer has to approve these/);
   assert.match(publish, /npm stage approve/);
 });
+
+test('internal dependency ranges pin the minor, not the patch', async () => {
+  const { readdirSync, readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  // Lockstep patches break on a partial publish: when one package's version is
+  // staged and the rest go live, `^0.12.5` makes the published CLI depend on a
+  // version that does not exist. `^0.12.0` survives that.
+  const dirs = [
+    ...readdirSync(join(process.cwd(), 'packages')).map((d) => join('packages', d)),
+    ...readdirSync(join(process.cwd(), 'apps')).map((d) => join('apps', d)),
+  ].filter((d) => existsSync(join(process.cwd(), d, 'package.json')));
+
+  for (const dir of dirs) {
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), dir, 'package.json'), 'utf8'));
+    for (const [dep, range] of Object.entries(pkg.dependencies ?? {})) {
+      if (!dep.startsWith('@drsamonline/')) continue;
+      assert.match(range, /^\^\d+\.\d+\.0$/, `${pkg.name} pins ${dep} at ${range} — a patch-level range breaks on a partial publish`);
+    }
+  }
+});
+
+test('the publisher waits for the registry before calling a release staged', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const publish = readFileSync(join(process.cwd(), 'scripts', 'publish.mjs'), 'utf8');
+
+  // reading the registry once, immediately after publishing, reported a
+  // successful release as staged: npm had not finished processing it
+  assert.match(publish, /attempt < 8/, 'the version check must retry');
+  assert.match(publish, /0\.0\.0-stage/, 'only the placeholder means staged');
+});

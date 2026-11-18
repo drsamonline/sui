@@ -2,6 +2,13 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.6 — 2026-11-18
+
+### Fixed
+
+- **Internal ranges pinned the patch.** `cli@0.12.5` declared `@drsamonline/gateway@^0.12.5` while the gateway's newest published version was 0.12.3, because npm staged that one. A partial publish made the CLI uninstallable. Internal ranges now pin the minor (`^0.12.0`), so one package lagging does not break the rest — and a test enforces it.
+- **The staged-release check read the registry too early.** npm answers *"being processed, may take a few minutes"*; reading once, immediately, reported a successful release as staged. It now retries with backoff and only calls a release staged when the registry shows the `0.0.0-stage` placeholder.
+
 ## 0.12.5 — 2026-11-18
 
 ### Fixed

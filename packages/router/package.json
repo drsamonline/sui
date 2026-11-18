@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/router",
-  "version": "0.12.5",
+  "version": "0.12.6",
   "description": "Routing decisions, strategies, circuit breaker.",
   "type": "module",
   "license": "MIT",
@@ -26,12 +26,12 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@drsamonline/compression": "^0.12.5",
-    "@drsamonline/core": "^0.12.5",
-    "@drsamonline/guardrails": "^0.12.5",
-    "@drsamonline/promptcache": "^0.12.5",
-    "@drsamonline/providers": "^0.12.5",
-    "@drsamonline/telemetry": "^0.12.5",
-    "@drsamonline/verify": "^0.12.5"
+    "@drsamonline/compression": "^0.12.0",
+    "@drsamonline/core": "^0.12.0",
+    "@drsamonline/guardrails": "^0.12.0",
+    "@drsamonline/promptcache": "^0.12.0",
+    "@drsamonline/providers": "^0.12.0",
+    "@drsamonline/telemetry": "^0.12.0",
+    "@drsamonline/verify": "^0.12.0"
   }
 }

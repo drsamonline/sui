@@ -162,16 +162,36 @@ console.log('');
 // placeholder and holds the real first version for a maintainer's approval with
 // 2FA. Printing 'published' while the registry serves a placeholder is how you
 // end up with a CLI that cannot install its own dependency.
+// The registry needs a moment: npm answers 'Your package is being processed and
+// may take a few minutes'. Reading it once, immediately, reported a successful
+// publish as staged — a false alarm from the check that exists to prevent false
+// confidence.
 const staged = [];
+const verifyOne = (name, version) => {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    try {
+      const out = execFileSync('npm', ['view', name, 'versions', '--json'], { encoding: 'utf8', stdio: 'pipe' });
+      const versions = JSON.parse(out);
+      if (versions.includes(version)) return null;
+      // the placeholder is npm's staged marker; a lagging index is not
+      if (attempt === 7) {
+        return versions.includes('0.0.0-stage') && versions.length === 1
+          ? `${name}: staged as 0.0.0-stage, needs approval`
+          : `${name}: registry has ${versions[versions.length - 1]}, we sent ${version}`;
+      }
+    } catch {
+      /* not visible yet */
+    }
+    execFileSync('sleep', [String(2 + attempt * 2)]);
+  }
+  return `${name}: not visible after 60s`;
+};
+
 for (const dir of ORDER) {
   if (!existsSync(join(ROOT, dir, 'package.json'))) continue;
   const pkg = read(join(dir, 'package.json'));
-  try {
-    const live = execFileSync('npm', ['view', pkg.name, 'version'], { encoding: 'utf8', stdio: 'pipe' }).trim();
-    if (live !== pkg.version) staged.push(`${pkg.name}: registry has ${live}, we sent ${pkg.version}`);
-  } catch {
-    staged.push(`${pkg.name}: not visible on the registry yet`);
-  }
+  const problem = verifyOne(pkg.name, pkg.version);
+  if (problem) staged.push(problem);
 }
 
 if (staged.length) {
