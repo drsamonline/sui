@@ -446,3 +446,16 @@ test('the publisher ships every package the CLI depends on', async () => {
   assert.match(publish, /'apps\/gateway'/, 'the gateway must be published before the CLI');
   assert.match(publish, /checkDependenciesPublished/, 'an unpublished dependency must stop the run');
 });
+
+test('the publisher reports a staged release instead of claiming success', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const publish = readFileSync(join(process.cwd(), 'scripts', 'publish.mjs'), 'utf8');
+
+  // npm holds the first release of a new package behind approval and serves a
+  // 0.0.0-stage placeholder. A publisher that prints 'published' while the
+  // registry serves a placeholder produces a CLI that cannot install its own
+  // dependency, which is exactly what happened.
+  assert.match(publish, /STAGED — a maintainer has to approve these/);
+  assert.match(publish, /npm stage approve/);
+});

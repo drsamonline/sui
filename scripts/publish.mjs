@@ -158,4 +158,32 @@ for (const dir of ORDER) {
   execFileSync('npm', ['publish', '--access', 'public'], { cwd: join(ROOT, dir), stdio: 'inherit' });
 }
 console.log('');
-console.log('  published.');
+// A brand-new package is staged, not published: npm creates a public 0.0.0-stage
+// placeholder and holds the real first version for a maintainer's approval with
+// 2FA. Printing 'published' while the registry serves a placeholder is how you
+// end up with a CLI that cannot install its own dependency.
+const staged = [];
+for (const dir of ORDER) {
+  if (!existsSync(join(ROOT, dir, 'package.json'))) continue;
+  const pkg = read(join(dir, 'package.json'));
+  try {
+    const live = execFileSync('npm', ['view', pkg.name, 'version'], { encoding: 'utf8', stdio: 'pipe' }).trim();
+    if (live !== pkg.version) staged.push(`${pkg.name}: registry has ${live}, we sent ${pkg.version}`);
+  } catch {
+    staged.push(`${pkg.name}: not visible on the registry yet`);
+  }
+}
+
+if (staged.length) {
+  console.log('  STAGED — a maintainer has to approve these:');
+  for (const line of staged) console.log(`    ${line}`);
+  console.log('');
+  console.log('  npm stages the first release of a new package: it publishes a public');
+  console.log('  0.0.0-stage placeholder and holds the real version until approval, which');
+  console.log('  requires 2FA. Approve at npmjs.com → the package → Staged Packages, or:');
+  console.log('    npm stage list');
+  console.log('    npm stage approve <id>');
+  process.exitCode = 2;
+} else {
+  console.log('  published.');
+}

@@ -22,6 +22,17 @@ rm -rf node_modules package-lock.json && npm install && npm test
 
 `npm run publish:dry` tells you which situation you are in: every package shows `free` when the name is unpublished, and the publish fails at step one with a 403 when the scope belongs to someone else.
 
+## The first release of a new package is staged
+
+npm does not publish a brand-new package directly. It publishes a public placeholder, `0.0.0-stage`, and holds the real first version until a maintainer approves it — approval requires 2FA, which a CI token cannot supply.
+
+So the first run of the workflow can end with *"STAGED — a maintainer has to approve these"*. Approve once per new package:
+
+- npmjs.com → the package → **Staged Packages** → approve, or
+- `npm stage list` then `npm stage approve <id>` on a machine where you can answer the 2FA prompt
+
+Versions of packages that already exist are published immediately, which is why a release that adds one new package shows exactly one staged entry.
+
 ## The short path: add one repository secret, push a tag, done. `.github/workflows/publish.yml` runs the gates, checks the tag against `package.json`, and publishes all 18 packages from a GitHub runner.
 
 ```bash
