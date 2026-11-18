@@ -108,10 +108,15 @@ jobs:
           path: soak.json
 
   eval:
-    # Runs only when a provider key exists, because a free-tier eval with no
-    # free tier is theatre. Add GROQ_API_KEY (or any key) as a repository secret.
+    # A free-tier eval with no free tier is theatre, so this job is skipped when
+    # no key is configured. The check has to live on the step, not the job:
+    # GitHub does not expose the `secrets` context to a job-level `if`, and using
+    # it there makes the whole workflow invalid — which is why this file produced
+    # zero jobs for four days.
     runs-on: ubuntu-latest
-    if: ${{ secrets.GROQ_API_KEY != '' || secrets.GEMINI_API_KEY != '' }}
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -119,18 +124,14 @@ jobs:
           node-version: 20
       - run: npm install --no-audit --no-fund
       - name: Onboarding, then a real round-trip
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        if: env.GROQ_API_KEY != '' || env.GEMINI_API_KEY != ''
         run: |
           set -euo pipefail
           tmp=$(mktemp -d); cd "$tmp"
           SUI_HOME="$tmp/.sui" node "$GITHUB_WORKSPACE/apps/cli/bin/sui.js" init --no-serve | tee out.txt
           grep -q "Endpoint ready" out.txt
       - name: Golden-set eval — blocks the merge on regression (I10)
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        if: env.GROQ_API_KEY != '' || env.GEMINI_API_KEY != ''
         run: node evals/run.mjs --config config/sui.config.json
       - uses: actions/upload-artifact@v4
         if: always()

@@ -258,3 +258,23 @@ test('every script the workflow runs exists', async () => {
     assert.ok(existsSync(join(process.cwd(), path)), `CI references ${path}, which does not exist`);
   }
 });
+
+test('the workflow uses no expression GitHub rejects', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const ci = readFileSync(join(process.cwd(), '.github', 'workflows', 'ci.yml'), 'utf8');
+
+  // GitHub does not expose `secrets` to a job-level `if`, and using it there
+  // makes the whole workflow invalid: the run completes with zero jobs and no
+  // error anyone reads. This file did exactly that for four days.
+  const jobBlocks = ci.split(/\n  [a-z-]+:\n/).slice(1);
+  for (const block of jobBlocks) {
+    const jobIf = /^\s{4}if: .*secrets\./m.test(block);
+    assert.equal(jobIf, false, 'a job-level `if` cannot reference secrets — move the check onto the step');
+  }
+
+  // and every secrets reference must still be a real expression
+  for (const m of ci.matchAll(/\$\{\{([^}]+)\}\}/g)) {
+    assert.match(m[1].trim(), /^(secrets|github|env|matrix|needs)\./, `unexpected expression: ${m[1]}`);
+  }
+});
