@@ -2,6 +2,19 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.1 — 2026-11-18
+
+The first version that can actually be published.
+
+### Changed
+
+- **Scope renamed `@sui/*` → `@drsamonline/*`.** A scope is an owner, not a namespace: `@sui/*` could only be published by the account or organization named `sui`, which is taken. The account owns `@drsamonline`, so all 18 names are free inside it. `scripts/rename-scope.mjs` does the rename — package names, internal dependency ranges, every import across 107 files, and the lockfile — and is re-runnable if the scope changes again.
+
+### Fixed
+
+- **Three flaky tests**, found while verifying the rename under load: the cascade classifier asserted one wall-clock reading under 50 ms (failed at 52 ms, passed at 3 ms next run) and now takes the best of three, warmed up; the worker kickoff waited a fixed 3 s and now waits up to 15 s; the compression test reported "cannot read properties of undefined" when the fake upstream received no request, and now says that.
+- The suite runs one file at a time by default, because two at a time on a busy machine is how all three of those surfaced. CI keeps two: its runner is quiet.
+
 ## 0.12.0 — 2026-11-18
 
 The version that stopped trusting its own documentation.
