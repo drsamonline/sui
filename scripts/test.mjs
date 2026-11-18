@@ -32,7 +32,12 @@ if (!files.length) {
   process.exit(1);
 }
 
-const child = spawn(process.execPath, ['--test', ...process.argv.slice(2), ...files], {
+// A test that leaves a handle open makes `node --test` wait forever, and in CI
+// that reads as "still running" rather than "hung". --test-force-exit turns it
+// into a normal finish; the per-job timeout in the workflow is the backstop.
+const forceExit = Number(process.versions.node.split('.')[0]) >= 22 || Number(process.versions.node.split('.')[1]) >= 14;
+
+const child = spawn(process.execPath, ['--test', ...(forceExit ? ['--test-force-exit'] : []), ...process.argv.slice(2), ...files], {
   cwd: ROOT,
   stdio: 'inherit',
 });

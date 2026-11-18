@@ -291,5 +291,25 @@ test('the test script runs on every Node version, not just the one in the sandbo
   const runner = readFileSync(join(process.cwd(), 'scripts', 'test.mjs'), 'utf8');
   assert.match(runner, /readdirSync\(TEST_DIR\)/);
   assert.match(runner, /endsWith\('\.test\.js'\)/);
-  assert.match(runner, /'--test', \.\.\.process\.argv\.slice\(2\)/, 'extra arguments must be forwarded');
+  // extra arguments must still be forwarded, after the force-exit flag
+  assert.match(runner, /\.\.\.process\.argv\.slice\(2\), \.\.\.files/, 'extra arguments must be forwarded');
+  assert.match(runner, /test-force-exit/, 'a leaked handle must not make CI look like it is still working');
+});
+
+test('every CI job has a timeout, so a hang fails instead of waiting', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const ci = readFileSync(join(process.cwd(), '.github', 'workflows', 'ci.yml'), 'utf8');
+
+  // a leaked handle made the test job sit at "in progress" for fifteen minutes
+  // and would have sat there for six hours. Scope the search to the jobs block:
+  // `on: push:` is not a job, and matching it made the first version of this test
+  // fail on its own regex.
+  const jobsBlock = ci.slice(ci.indexOf('\njobs:'));
+  const jobNames = [...jobsBlock.matchAll(/^  ([a-z-]+):$/gm)].map((m) => m[1]);
+  assert.ok(jobNames.length >= 4, `expected several jobs, found ${jobNames.join(', ')}`);
+  for (const job of jobNames) {
+    const block = jobsBlock.split(new RegExp(`^  ${job}:$`, 'm'))[1]?.split(/^  [a-z-]+:$/m)[0] ?? '';
+    assert.match(block, /timeout-minutes:/, `job "${job}" has no timeout`);
+  }
 });

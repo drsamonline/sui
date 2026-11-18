@@ -8,6 +8,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # a leaked handle used to make this job sit at "in progress" for as long as
+    # GitHub allows. A timeout turns a hang into a failure someone can read.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -68,6 +71,7 @@ jobs:
     # The only job that looks at what a user actually sees. A screenshot cannot
     # tell you the page is broken; this fails on a console error.
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -93,6 +97,7 @@ jobs:
 
   soak:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -108,6 +113,7 @@ jobs:
           path: soak.json
 
   eval:
+    timeout-minutes: 20
     # A free-tier eval with no free tier is theatre, so this job is skipped when
     # no key is configured. The check has to live on the step, not the job:
     # GitHub does not expose the `secrets` context to a job-level `if`, and using
@@ -141,6 +147,7 @@ jobs:
 
   migration:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
