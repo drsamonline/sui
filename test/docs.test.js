@@ -395,4 +395,7 @@ test('publishing is automated, gated, and never needs a token on a laptop', asyn
   assert.match(wf, /publish\.mjs --dry-run/, 'the publisher checks everything before it writes');
   // a tag that disagrees with package.json would publish one version as another
   assert.match(wf, /does not match package.json version/);
+  // the eval self-test writes a committed report; the publisher refuses a dirty
+  // tree, so the gate's own output has to be restored before the check runs
+  assert.match(wf, /git checkout -- evals\/last-report\.json/, 'the gates must not dirty the tree the publisher checks');
 });

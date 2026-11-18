@@ -58,7 +58,16 @@ try {
 
 // 1. a clean tree, because an uncommitted fix is not in the tarball
 const status = execFileSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).trim();
-if (status && !dryRun) problems.push(`working tree is dirty:\n${status.split('\n').slice(0, 5).join('\n')}`);
+// A generated file that a gate wrote is not a dirty tree: the check exists to
+// catch code that was edited after it was tested. Naming the file in the refusal
+// is what turned a fifteen-minute mystery into a one-line fix.
+if (status && !dryRun) {
+  const GENERATED = ['evals/last-report.json'];
+  const lines = status.split('\n').filter(Boolean);
+  const real = lines.filter((l) => !GENERATED.some((g) => l.endsWith(g)));
+  if (real.length) problems.push(`working tree is dirty:\n${real.slice(0, 5).join('\n')}`);
+  else if (lines.length) console.log(`  note: ignoring ${lines.length} generated file(s) in the dirty check`);
+}
 
 // 2. versions agree
 for (const dir of ORDER) {

@@ -58,6 +58,15 @@ jobs:
       - name: Eval harness self-test
         run: npm run eval:self
 
+      # The self-test writes evals/last-report.json, which is committed so the
+      # dashboard has something to show. The publisher refuses a dirty tree —
+      # correctly, since what you tested should be what you ship — so the gate's
+      # own output is restored rather than the check being weakened.
+      - name: Leave no artifact from the gates
+        run: |
+          git checkout -- evals/last-report.json 2>/dev/null || true
+          git status --porcelain
+
       - name: Everything the publisher refuses to publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

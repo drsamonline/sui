@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/gateway",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "description": "HTTP gateway: OpenAI-compatible surface, dashboard API.",
   "type": "module",
   "license": "MIT",

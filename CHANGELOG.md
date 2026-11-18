@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.2 — 2026-11-18
+
+### Fixed
+
+- **The publish job dirtied the tree its own publisher checks.** The eval self-test writes `evals/last-report.json` (committed, so the dashboard has something to show), and the publisher refuses a dirty tree — correctly, since what you tested should be what you ship. The workflow now restores that one generated file, and the publisher names generated files instead of counting them as edits.
+
 ## 0.12.1 — 2026-11-18
 
 The first version that can actually be published.
