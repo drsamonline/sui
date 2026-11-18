@@ -40,11 +40,18 @@ const forceExit = Number(process.versions.node.split('.')[0]) >= 22 || Number(pr
 // A per-test timeout turns "the job is still running" into "this test hung",
 // which is the difference between a mystery and a bug report. 60s is well above
 // the slowest test here (a CLI spawn at ~9s) and well below a CI job timeout.
-const TIMEOUT_MS = process.env.SUI_TEST_TIMEOUT_MS ?? '60000';
+const TIMEOUT_MS = process.env.SUI_TEST_TIMEOUT_MS ?? '120000';
+
+// Files run concurrently, and each one starts gateways, binds ports and spawns
+// CLI children. On a two-core CI runner that contention made a file that takes
+// 2s locally exceed a 60s budget. Two at a time is still faster than serial and
+// stops the suite racing itself.
+const CONCURRENCY = process.env.SUI_TEST_CONCURRENCY ?? '2';
 
 const child = spawn(
   process.execPath,
-  ['--test', ...(forceExit ? ['--test-force-exit'] : []), `--test-timeout=${TIMEOUT_MS}`, ...process.argv.slice(2), ...files],
+  ['--test', ...(forceExit ? ['--test-force-exit'] : []), `--test-timeout=${TIMEOUT_MS}`,
+    `--test-concurrency=${CONCURRENCY}`, ...process.argv.slice(2), ...files],
   {
     cwd: ROOT,
     stdio: 'inherit',

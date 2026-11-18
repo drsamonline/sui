@@ -296,6 +296,9 @@ test('the test script runs on every Node version, not just the one in the sandbo
   assert.match(runner, /test-force-exit/, 'a leaked handle must not make CI look like it is still working');
   // a hang must name the test that hung, not hold the job open
   assert.match(runner, /--test-timeout=/, 'a per-test timeout is what turns a hang into a diagnosis');
+  // files run concurrently and each starts gateways and spawns CLIs; a two-core
+  // runner cannot run thirty of those at once without one file starving
+  assert.match(runner, /--test-concurrency=/, 'concurrency must be bounded for a two-core runner');
 });
 
 test('every CI job has a timeout, so a hang fails instead of waiting', async () => {
