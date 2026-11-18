@@ -2,6 +2,66 @@
 
 Sui is an npm-workspaces monorepo with one direction of dependency. Nothing below `packages/router` knows about HTTP; nothing above it knows a provider's wire format.
 
+## The shape of it
+
+```mermaid
+flowchart TB
+  subgraph clients["what talks to it"]
+    tool["Cline · Continue · Cursor<br/>Aider · Zed"]
+    agent["an MCP client"]
+    human["a person, in a browser"]
+  end
+
+  subgraph agentplane["agent plane (optional, B5.7)"]
+    runs["bounded runs<br/>spend · steps · time · loops"]
+    mcp["MCP server<br/>stdio or HTTP"]
+  end
+
+  subgraph gateway["apps/gateway — HTTP, auth, host allowlist, SSE"]
+    guard["guardrails<br/>size · patterns · clamp"]
+    router["packages/router<br/>the decision"]
+    cache["packages/telemetry<br/>exact + similarity cache"]
+  end
+
+  subgraph modelplane["model plane (optional)"]
+    gate{"paid gate<br/>paidTiers.enabled"}
+    vault["packages/vault<br/>sealed keys"]
+    providers["packages/providers<br/>openai · anthropic · gemini · mcp · mock"]
+  end
+
+  subgraph out["where answers come from"]
+    free["free tiers"]
+    local["a model on this machine"]
+    paid["paid providers<br/>only if you open the gate"]
+  end
+
+  tool --> gateway
+  agent --> mcp
+  mcp --> runs
+  runs --> gateway
+  human --> gateway
+  gateway --> guard --> router
+  router --> cache
+  router -.->|"I4: is this paid?"| gate
+  gate -->|"open: decrypt at startup"| vault
+  vault -->|"keys exist only if opened"| providers
+  router --> providers
+  providers --> free
+  providers --> local
+  providers --> paid
+
+  telemetry["packages/telemetry<br/>ledger · history · savings"]
+  router -.->|"one row per attempt"| telemetry
+  catalog["packages/catalog<br/>29 endpoints, ToS, health"] -.->|"what may be routed"| router
+  prober["packages/prober<br/>liveness · readiness · suitability"] -.->|"what actually answers"| catalog
+```
+
+Two things in that picture are the whole design.
+
+**The prober feeds the catalogue, and the catalogue feeds the router** — a route exists because something measured it, not because someone wrote a URL.
+
+**The gate is a branch in the startup path, not a flag that hides a key.** When `paidTiers.enabled` is false the vault file is never opened, so the key does not exist in memory and no routing decision can conjure it. The router's check (`isPaidProvider` in `packages/core/src/config.js`) is the second line; the first is `apps/gateway/src/index.js`, which does not call `openVaultForStartup` at all.
+
 ```
 apps/cli ───── apps/dashboard (static)
     │

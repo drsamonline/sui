@@ -1,6 +1,6 @@
 {
   "name": "@sui/cli",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "The `sui` command line.",
   "type": "module",
   "license": "MIT",

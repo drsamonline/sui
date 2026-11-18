@@ -73,7 +73,7 @@ Nineteen invariants live as data in [`packages/core/src/invariants.js`](packages
 | **I13** | The breaker trips on 5xx and transport only — never on 401, 404 or 429. |
 | **I19** | The health history holds no prompt content, and drops any row that carries it. |
 
-Run `npm test`, `npm run audit` (8 static checks plus 10 ADR compliance checks), `npm run eval:self`, `npm run soak`, `npm run smoke:dashboard`. The numbers, as of this commit: **514 tests, audit 8/8, ADR 10/10, p95 overhead ~1 ms against a 15 ms budget.**
+Run `npm test`, `npm run audit` (8 static checks plus 10 ADR compliance checks), `npm run eval:self`, `npm run soak`, `npm run smoke:dashboard`. The numbers, as of this commit: **515 tests, audit 8/8, ADR 10/10, p95 overhead ~1 ms against a 15 ms budget.**
 
 ## Documentation
 

@@ -1,6 +1,6 @@
 {
   "name": "@sui/gateway",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "HTTP gateway: OpenAI-compatible surface, dashboard API.",
   "type": "module",
   "license": "MIT",

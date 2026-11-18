@@ -2,6 +2,35 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.0 — 2026-11-18
+
+The version that stopped trusting its own documentation.
+
+### Fixed
+
+- **The budget stopped counting.** Spend was summed from an in-memory window capped at 5,000 records, so past 5,000 turns in a day the cap under-reported — 250 turns at a cent read as $1.00 against a true $2.50. A gateway could overspend while believing it was inside its cap. Spend and per-provider spend now come from a per-day bucket that does not depend on the window.
+- **The ledger file grew forever.** Nothing pruned a file, only an array; at 20 rps a three-day soak writes millions of lines. It rotates at 64 MB, keeping one previous file.
+- **`sui --version` and `sui --help` started onboarding** instead of answering, because both arrive as flags rather than as a command.
+- **The first-run hint told you to run `npx sui`** — the one command that cannot work before a publish.
+- **The dashboard's health column read `0-mining (0s)`.** The breaker emits `half-open`; the stylesheet styled `half_open`. Labels now come from one map and both spellings are styled.
+- **The dashboard card headed "Last eval — 100%"** was showing the harness self-test, which says nothing about answer quality. It is headed "Answer quality" and switches to "Harness self-test" when that is what ran.
+- **`--role` parsed as `true`** because it was missing from `VALUE_FLAGS` — the third flag to hit that trap. A test now cross-checks every flag the help text shows with a value.
+- **An agent plane crashed at boot** without a service token instead of starting and explaining itself.
+
+### Added
+
+- **Windows support**: `sui.cmd`, `sui.ps1` and `sui` wrappers so the CLI runs from a checkout with no npm account, `scripts/install-windows.ps1`, and `docs/WINDOWS.md`.
+- **`sui probe --write`** promotes what answered into `$SUI_HOME/catalog-verified.json`; `--revoke` withdraws a route. Before this a probe reported and recorded nothing.
+- **`DISCLAIMER.md`** and **`docs/legal/LEGAL-INDEX.md`** — the repository ships AI output and had no document saying what that output must not be relied on for.
+- **A catalogue source ledger** (`packages/catalog/sources.json`): seven sources, each with URL, pinned commit, licence, and what was taken and what was not.
+- **An architecture diagram** in `docs/ARCHITECTURE.md`, with a test that keeps it matching the code.
+
+### Changed
+
+- The README went from 202 lines with a 42-bullet feature wall to 112 lines in the shape its reader needs; the full list moved to `docs/FEATURES.md`.
+- The generated catalogue is **empty by design**. Three keyword heuristics for finding model endpoints in a directory of public APIs produced a sudoku API, a model *catalogue* and 24 QR-code services. The catalogue is the 29 deliberately seeded entries.
+- Four false claims were removed from the landing page, including two features listed as missing that had shipped.
+
 ## 0.11.0 — 2026-11-15
 
 The version where the gateway became usable by agents, stopped being one process doing everything, and learned to run code it does not trust.

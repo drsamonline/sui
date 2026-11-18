@@ -208,3 +208,19 @@ test('the README does not carry the stock AI-cadence patterns either', async () 
     assert.equal(pattern.test(readme), false, `README still carries ${why}: ${pattern}`);
   }
 });
+
+test('the architecture diagram only claims what the code does', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const doc = readFileSync(join(process.cwd(), 'docs', 'ARCHITECTURE.md'), 'utf8');
+  const gateway = readFileSync(join(process.cwd(), 'apps', 'gateway', 'src', 'index.js'), 'utf8');
+  const core = readFileSync(join(process.cwd(), 'packages', 'core', 'src', 'config.js'), 'utf8');
+
+  // the diagram says the vault is opened at startup behind the gate — check that
+  assert.match(doc, /gate -->\|"open: decrypt at startup"\| vault/);
+  assert.match(gateway, /if \(config\.paidTiers\?\.enabled\)/, 'the gate must be the branch that opens the vault');
+  assert.match(gateway, /openVaultForStartup/);
+  // and that the router consults the gate rather than the vault
+  assert.match(doc, /router -\.->\|"I4: is this paid\?"\| gate/);
+  assert.match(core, /export function isPaidProvider/);
+});

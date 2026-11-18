@@ -1,6 +1,6 @@
 {
   "name": "@sui/guardrails",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Prompt checks: size, blocked patterns, token clamps.",
   "type": "module",
   "license": "MIT",
