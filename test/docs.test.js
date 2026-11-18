@@ -149,3 +149,62 @@ test('the landing page and the README agree on the catalogue size', async () => 
 
   assert.ok(html.includes(`<div class="v num">${seed.entries.length}</div>`), `the landing page does not say ${seed.entries.length} catalogue entries`);
 });
+
+/* -------------------- the landing page may not claim shipped work is missing */
+
+test('the landing page does not list shipped features as not built', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const html = readFileSync(join(process.cwd(), 'docs', 'index.html'), 'utf8');
+
+  // every one of these shipped; each was on the "not built yet" list at some point
+  const shipped = [
+    'No tenant console',
+    'per-user cost attribution',
+    'No catalogue entry has a resolved endpoint',
+    '6 engines',
+  ];
+  for (const claim of shipped) {
+    assert.equal(html.includes(claim), false, `the landing page still says "${claim}"`);
+  }
+});
+
+test('the landing page limits list names what is actually left', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const html = readFileSync(join(process.cwd(), 'docs', 'index.html'), 'utf8');
+
+  assert.match(html, /sui probe --write<\/code> on a networked machine/);
+  assert.match(html, /The 72-hour soak has not been run/);
+  assert.match(html, /Nothing is published to npm/);
+  // the first-chunk refusal is a decision, so it must be stated as one
+  assert.match(html, /No first-chunk clone, by choice/);
+});
+
+test('the landing page does not carry the stock AI-cadence patterns', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const html = readFileSync(join(process.cwd(), 'docs', 'index.html'), 'utf8');
+
+  // named patterns from the writing guide, each of which was in the draft
+  assert.equal(/Zero blind spots/.test(html), false, 'a claim with no evidence behind it');
+  assert.equal(/not a green tick/.test(html), false, 'not-X-but-Y contrast');
+  assert.equal(/Nothing here is marked finished because it was written/.test(html), false, 'interpretive metadiscourse');
+});
+
+test('the README does not carry the stock AI-cadence patterns either', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const readme = readFileSync(join(process.cwd(), 'README.md'), 'utf8');
+
+  const banned = [
+    [/a green tick requires/, 'not-X-but-Y contrast'],
+    [/Zero blind spots/, 'a claim with no evidence'],
+    [/\bstands as a testament\b/i, 'importance puffery'],
+    [/\b(leverage|seamless|cutting-edge|game changer)\b/i, 'stock AI vocabulary'],
+    [/it's worth noting/i, 'throat-clearing'],
+  ];
+  for (const [pattern, why] of banned) {
+    assert.equal(pattern.test(readme), false, `README still carries ${why}: ${pattern}`);
+  }
+});

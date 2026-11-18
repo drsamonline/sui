@@ -97,12 +97,12 @@
 
   <header>
     <span class="mark">sui</span>
-    <span class="tagline">Free tiers, verified before use. Zero blind spots. Zero silent degradation.</span>
+    <span class="tagline">Free tiers, verified before use.</span>
   </header>
 
   <div class="hero">
     <h1>A gateway that proves the route before it takes it.</h1>
-    <p class="sub">Every free route is probed, policy-checked and scored before it can answer a prompt. Every escalation is traced and explained in plain language. Paid credentials sit in a sealed vault and are not read at all unless you open the gate.</p>
+    <p class="sub">A route answers a probe before it answers a prompt, and every failover is traced in plain language. Paid credentials sit in a sealed vault that is not opened unless you open the gate.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/drsamonline/sui">Get the code</a>
       <a class="btn" href="https://github.com/drsamonline/sui/blob/main/ROADMAP.md">Read the roadmap</a>
@@ -110,7 +110,7 @@
   </div>
 
   <div class="strip">
-    <div class="stat"><div class="k">tests</div><div class="v num">510</div><div class="f">no network, no keys</div></div>
+    <div class="stat"><div class="k">tests</div><div class="v num">514</div><div class="f">no network, no keys</div></div>
     <div class="stat"><div class="k">p95 overhead</div><div class="v num">1.13<span style="font-size:var(--fs-16)"> ms</span></div><div class="f">budget 15 ms</div></div>
     <div class="stat"><div class="k">invariants</div><div class="v num">19</div><div class="f">each with a test</div></div>
     <div class="stat"><div class="k">catalogue</div><div class="v num">29</div><div class="f">endpoints, all awaiting a probe</div></div>
@@ -127,7 +127,7 @@ cd sui &amp;&amp; npm install
 
 # Windows (PowerShell or CMD)
 .\sui.cmd</code></pre>
-    <p class="note">That is the whole setup: the wrapper runs the source directly, no global install. Want a <code>sui</code> command anywhere? <code>npm link</code> once. Then point anything that speaks OpenAI at <code>http://127.0.0.1:8787/v1</code> — the first run ends with a real round-trip, not a green tick. <a href="https://github.com/drsamonline/sui/blob/main/docs/WINDOWS.md">Windows guide</a> · <a href="https://github.com/drsamonline/sui/tree/main/docs/quickstarts">cURL, Node, Python, PHP</a>.</p>
+    <p class="note">That is the whole setup: the wrapper runs the source directly, no global install. Want a <code>sui</code> command anywhere? <code>npm link</code> once. Then point anything that speaks OpenAI at <code>http://127.0.0.1:8787/v1</code> — the first run ends with a real round-trip through the gateway. <a href="https://github.com/drsamonline/sui/blob/main/docs/WINDOWS.md">Windows guide</a> · <a href="https://github.com/drsamonline/sui/tree/main/docs/quickstarts">cURL, Node, Python, PHP</a>.</p>
   </section>
 
   <section>
@@ -202,7 +202,7 @@ cd sui &amp;&amp; npm install
 
   <section>
     <h2>Where it stands</h2>
-    <p class="lede">Status is only <em>done</em> when a command proves it. Nothing here is marked finished because it was written.</p>
+    <p class="lede">A row says <em>done</em> when a command proves it, and the evidence column names the command.</p>
     <table>
       <thead><tr><th scope="col">Area</th><th scope="col">State</th><th scope="col">Evidence</th></tr></thead>
       <tbody>
@@ -216,7 +216,7 @@ cd sui &amp;&amp; npm install
         <tr><td>Canary prober</td><td><span class="pill done">done</span></td><td>3 levels, 16 tests, auto disable</td></tr>
         <tr><td>Worker scheduler</td><td><span class="pill done">done</span></td><td>prober + cache sweep, /api/workers</td></tr>
         <tr><td>Empty-turn retry</td><td><span class="pill done">done</span></td><td>retry once, then fail over</td></tr>
-        <tr><td>Compression engines</td><td><span class="pill done">done</span></td><td>6 engines, 4 presets, cache-aware</td></tr>
+        <tr><td>Compression engines</td><td><span class="pill done">done</span></td><td>7 engines, 4 presets, cache-aware</td></tr>
         <tr><td>Quota budget manager</td><td><span class="pill done">done</span></td><td>60/30/10% thresholds</td></tr>
         <tr><td>Output axis + savings ledger</td><td><span class="pill done">done</span></td><td>4 styles, /api/savings</td></tr>
         <tr><td>Prompt caching + per-key limits</td><td><span class="pill done">done</span></td><td>prefix hints, 429 + Retry-After</td></tr>
@@ -242,13 +242,12 @@ cd sui &amp;&amp; npm install
     <h2>Honest limits</h2>
     <div class="grid2">
       <div class="card">
-        <h3>Not built yet</h3>
+        <h3>Not done yet</h3>
         <ul>
-          <li>No catalogue entry has a resolved endpoint, so nothing is verified yet</li>
-          <li>No first-chunk clone: a mid-stream drop is reported, never spliced</li>
-
-          <li>No tenant console or per-user cost attribution</li>
-          <li>No npm package; run from source</li>
+          <li>29 catalogue endpoints are seeded but unverified. <code>sui probe --write</code> on a networked machine is what promotes them.</li>
+          <li>No eval baseline is recorded, because that needs one working provider key.</li>
+          <li>The 72-hour soak has not been run.</li>
+          <li>Nothing is published to npm, so <code>npx</code> has nothing to download.</li>
         </ul>
       </div>
       <div class="card">
@@ -256,8 +255,8 @@ cd sui &amp;&amp; npm install
         <ul>
           <li>The vault passphrase sits beside the vault unless you supply <code>SUI_VAULT_PASSPHRASE</code></li>
           <li>The lexical cache tier is lexical, not semantic</li>
-          <li>Upstream kit licences still read PolyForm NC</li>
-          <li>Mid-stream failures are reported, never spliced</li>
+          <li>Upstream kits keep their PolyForm NC terms; this repository distributes them under a written owner grant, which is not available to a third party</li>
+          <li>No first-chunk clone, by choice: two providers billed for one answer is a real cost for a fake latency win, so a mid-stream drop is reported rather than spliced</li>
         </ul>
       </div>
     </div>
