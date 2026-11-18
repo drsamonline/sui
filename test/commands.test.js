@@ -171,3 +171,15 @@ test('a documented value flag actually receives its value', async () => {
   }
   assert.match(out, /Unknown plane role "nonsense"/);
 });
+
+test('--version and --help answer before anything else', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const run = (arg) =>
+    execFileSync(process.execPath, ['apps/cli/bin/sui.js', arg], { cwd: process.cwd(), encoding: 'utf8' });
+
+  // both arrive as flags rather than as a command, and both used to fall through
+  // to the first-run onboarding
+  assert.match(run('--version'), /^\d+\.\d+\.\d+/);
+  assert.match(run('-v'), /^\d+\.\d+\.\d+/);
+  assert.match(run('--help'), /sui \d+\.\d+\.\d+ — /);
+});

@@ -77,3 +77,37 @@ test('the landing page claims the same invariant count as the code', async () =>
   assert.ok(html.includes(`${INVARIANTS.length} enforced`), `the landing page does not say ${INVARIANTS.length} enforced`);
   assert.ok(html.includes(`<div class="v num">${INVARIANTS.length}</div>`), 'the headline count is stale');
 });
+
+/* -------------------------------- the wrappers that replace npx */
+
+test('a wrapper exists for each shell, and points at the CLI', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const root = process.cwd();
+
+  for (const file of ['sui', 'sui.cmd', 'sui.ps1']) {
+    assert.ok(existsSync(join(root, file)), `${file} is missing — Windows users cannot run the CLI without it`);
+    const body = readFileSync(join(root, file), 'utf8');
+    assert.match(body, /apps[\\/]cli[\\/]bin[\\/]sui\.js/, `${file} does not point at the CLI entry point`);
+  }
+
+  // the PowerShell one must not carry a broken policy hint: it did once
+  const ps1 = readFileSync(join(root, 'sui.ps1'), 'utf8');
+  assert.equal(/RemoteExecutionPolicy/.test(ps1), false, 'that is not a real execution policy');
+  assert.match(ps1, /RemoteSigned/);
+});
+
+test('the Windows guide answers the question the user actually asked', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const guide = readFileSync(join(root(await import('node:path')), 'docs', 'WINDOWS.md'), 'utf8');
+  // "npx doesnt work" is the whole reason the document exists
+  assert.match(guide, /`npx sui` will not work/);
+  assert.match(guide, /\.\\sui\.cmd doctor/);
+  assert.match(guide, /npm link/);
+  assert.match(guide, /install-windows\.ps1/);
+});
+
+function root(_path) {
+  return process.cwd();
+}

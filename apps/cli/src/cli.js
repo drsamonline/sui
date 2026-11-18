@@ -38,6 +38,11 @@ const VERSION = (() => {
 export async function run(argv = process.argv.slice(2)) {
   const { command, args, flags } = parse(argv);
 
+  // `sui --version` and `sui --help` are the two things anyone types first, and
+  // both arrive as flags rather than as a command. Answer them before dispatch.
+  if (!command && (flags.version === true || flags.v === true)) return console.log(VERSION);
+  if (!command && (flags.help === true || flags.h === true)) return help();
+
   switch (command) {
     case undefined:
     case 'init':

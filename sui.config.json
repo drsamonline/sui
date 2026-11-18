@@ -1,0 +1,111 @@
+{
+  "$schema": "./sui.schema.json",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8787,
+    "cache": {
+      "enabled": true,
+      "ttlMs": 900000,
+      "maxEntries": 500
+    },
+    "allowedHosts": null
+  },
+  "providers": {
+    "demo": {
+      "type": "mock",
+      "mock": {
+        "delayMs": 10
+      }
+    }
+  },
+  "models": {
+    "demo-model": {
+      "provider": "demo",
+      "model": "demo-model",
+      "label": "Built-in demo model (no key needed)",
+      "costPer1kIn": 0,
+      "costPer1kOut": 0,
+      "quality": 1,
+      "tier": "demo"
+    }
+  },
+  "combos": {
+    "chat-default": {
+      "label": "Everyday chat",
+      "strategy": "fallback",
+      "targets": [
+        "demo-model"
+      ]
+    }
+  },
+  "breaker": {
+    "failures": 3,
+    "cooldownMs": 30000,
+    "halfOpenSuccesses": 1
+  },
+  "budgets": {
+    "dailyUsd": 5,
+    "warnAtPct": 80,
+    "perProvider": {}
+  },
+  "paid_tiers": {
+    "enabled": false
+  },
+  "compression": {
+    "enabled": false,
+    "preset": "auto",
+    "minChars": 400,
+    "keepLastUserMessage": true,
+    "outputStyle": "off"
+  },
+  "prompt_cache": {
+    "enabled": true
+  },
+  "verification": {
+    "enabled": false,
+    "threshold": 0.7,
+    "maxEscalations": 1,
+    "grounding": "off",
+    "escalateTo": "next"
+  },
+  "canary": {
+    "enabled": false,
+    "baseline": "chat-default",
+    "candidate": "coding",
+    "percent": 10,
+    "slo": {
+      "minSuccessRate": 0.9,
+      "maxP95Ms": 8000,
+      "minSamples": 20
+    }
+  },
+  "privacy": {
+    "defaultTier": "any"
+  },
+  "workers": {
+    "enabled": true,
+    "kickoffMs": 1500,
+    "cacheSweepMs": 300000,
+    "prober": {
+      "enabled": true,
+      "intervalMs": 3600000,
+      "failuresBeforeDisable": 3,
+      "timeoutMs": 8000
+    }
+  },
+  "guardrails": {
+    "maxOutputTokens": 4096,
+    "maxInputChars": 400000,
+    "blockPatterns": [],
+    "inspectToolChannel": "off",
+    "maxToolResultChars": 20000,
+    "logPrompts": false,
+    "redactPiiInLogs": true
+  },
+  "apiKeys": [],
+  "planes": {
+    "role": "both",
+    "modelPlaneUrl": null,
+    "serviceTokenEnv": "SUI_PLANE_TOKEN"
+  }
+}

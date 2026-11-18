@@ -39,13 +39,21 @@ The version where the gateway became usable by agents, stopped being one process
 - **Worker hardening**: a tick that arrives mid-run is skipped, not queued; a failing job backs off and resets on success.
 - **Compression view**: `POST /api/compress` and a dashboard card showing what a preset would do, without sending anything.
 
+### Windows
+
+- `sui.cmd`, `sui.ps1` and `sui` wrappers, so the CLI runs from a checkout with no npm account and no publish
+- `scripts/install-windows.ps1` — checks Node, links the workspace, proves the CLI runs
+- `docs/WINDOWS.md` — setup for someone who has never opened a terminal
+- `npm link` in the checkout now creates a global `sui`
+- `sui --version` and `sui --help` answer instead of starting onboarding
+
 ### Documentation
 
 - Nine ADRs (0001–0012, with 0002 amended rather than rewritten), `CONTRIBUTING.md`, `MCP.md`, `PLANES.md`, `RECIPES.md`, and two audits in the repository.
 
 ### Verified at this version
 
-500 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
+503 tests · audit 8/8 · eval self-test 56/56 · soak p95 ≈1 ms against a 15 ms budget · 19 invariants, each with an enforcement point and a named test.
 
 ### Sandbox (B5.6)
 

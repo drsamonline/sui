@@ -80,6 +80,8 @@ Not built yet, and listed honestly in [`ROADMAP.md`](ROADMAP.md): the canary pro
 
 ## Quickstart
 
+**Windows, from nothing:** [`docs/WINDOWS.md`](docs/WINDOWS.md) — no `npx`, no publish, one setup script.
+
 ```bash
 npx sui                    # first run: keys, tools, a real round-trip, then serve
 npx sui start              # run the gateway            --port 8787  --config <file>
