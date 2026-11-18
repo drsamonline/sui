@@ -351,3 +351,19 @@ test('no test writes to a pseudo-filesystem', async () => {
     assert.equal(/['"]\/(proc|sys)\//.test(body), false, `${file} writes to a pseudo-filesystem`);
   }
 });
+
+test('every script in scripts/ parses', async () => {
+  const { readdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { execFileSync } = await import('node:child_process');
+  const dir = join(process.cwd(), 'scripts');
+
+  // A multi-line string in a single-quoted literal is a syntax error, and nothing
+  // ran this script between the edit that broke it and CI. `node --check` costs
+  // milliseconds and would have caught it at commit time.
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.mjs'))) {
+    assert.doesNotThrow(() => {
+      execFileSync(process.execPath, ['--check', join(dir, file)], { stdio: 'pipe' });
+    }, `scripts/${file} does not parse`);
+  }
+});

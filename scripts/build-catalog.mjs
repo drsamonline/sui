@@ -120,8 +120,10 @@ console.log(`  kept:         ${kept.length} (model-ish, HTTPS, no key)`);
 console.log(`  categories:   ${[...new Set(kept.map((k) => k.notes.split(': ')[1]?.split(' ·')[0]))].slice(0, 8).join(', ')}`);
 console.log(`  written:      packages/catalog/generated.json`);
 console.log('');
-console.log('Kept nothing: this dataset holds public APIs, not model endpoints. The model
-catalogue is packages/catalog/seed.json, where every entry names its source.');
+console.log(
+  'Kept nothing: this dataset holds public APIs, not model endpoints.\n' +
+    'The model catalogue is packages/catalog/seed.json, where every entry names its source.',
+);
 
 function slug(host) {
   return String(host)
