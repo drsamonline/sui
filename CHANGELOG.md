@@ -25,6 +25,13 @@ The version that stopped trusting its own documentation.
 - **A catalogue source ledger** (`packages/catalog/sources.json`): seven sources, each with URL, pinned commit, licence, and what was taken and what was not.
 - **An architecture diagram** in `docs/ARCHITECTURE.md`, with a test that keeps it matching the code.
 
+### Fixed (found by CI, which had never run)
+
+- **A worker interval of `0` was a busy loop.** `setInterval(fn, 0)` is not a fast timer — it runs the callback the moment the previous one yields, pegs a core and starves every other timer in the process. `0 ?? fallback` does not help: nullish coalescing only replaces null and undefined. Zero or less now means the job is off.
+- `node --test test/` worked on Node 20 and failed on Node 22, which reads the argument as a file. The suite now runs through a runner that passes explicit paths.
+- the workflow itself was invalid — a job-level `if` referencing `secrets` — so every run since 14 November completed as a failure with **zero jobs**, and no gate ever ran in CI.
+- three tests reached the internet, which is instant here and slow on a runner.
+
 ### CI
 
 - The workflow now runs **ADR compliance** and the **ADR-0001 gates**, which existed but were not gated on.

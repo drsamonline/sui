@@ -103,8 +103,9 @@ export function startWorkers(deps) {
     const sentAlerts = new Set();
     /** @type {Array<any>} */
     const alertLog = [];
-    jobs.push(
-      register('budget_alerts', Number(settings.alertIntervalMs ?? 60_000), async () => {
+    const alertMs = intervalFor(settings.alertIntervalMs, 60_000);
+    if (alertMs) jobs.push(
+      register('budget_alerts', alertMs, async () => {
         const fresh = dedupe(checkBudgets({ config: deps.config, ledger: deps.ledger }), sentAlerts);
         for (const alert of fresh) {
           logger.warn(alert.message);
@@ -119,8 +120,9 @@ export function startWorkers(deps) {
     // B3.7: drift runs on a slow timer, off the request path, and never on the
     // same samples twice — it reads what the ledger has recorded since last time.
     const driftMonitor = new DriftMonitor({ baselineSamples: 10, threshold: Number(settings.driftThreshold ?? 5) });
-    jobs.push(
-      register('drift_monitor', Number(settings.driftIntervalMs ?? 300_000), async () => {
+    const driftMs = intervalFor(settings.driftIntervalMs, 300_000);
+    if (driftMs) jobs.push(
+      register('drift_monitor', driftMs, async () => {
         const records = deps.ledger.records ?? [];
         const { alarms } = driftFromLedger({ records, monitor: driftMonitor, since: 0, minSamples: 10 });
         for (const alarm of alarms) {
@@ -131,8 +133,8 @@ export function startWorkers(deps) {
     );
     deps.drift = { snapshot: () => [...driftMonitor.series.keys()].map((k) => driftMonitor.snapshot(k)), alarms: () => driftMonitor.alarms() };
 
-    const sweepMs = Number(settings.cacheSweepMs ?? 300_000);
-    if (cache?.sweep && sweepMs > 0) {
+    const sweepMs = intervalFor(settings.cacheSweepMs, 300_000);
+    if (cache?.sweep && sweepMs) {
       jobs.push(register('cache_sweep', sweepMs, async () => cache.sweep()));
     }
   }
@@ -152,6 +154,20 @@ export function startWorkers(deps) {
    *              the first success
    *   jitter     the first tick is offset, so six jobs do not all fire at boot
    */
+  /**
+   * An interval that is not a positive number means "this job is off".
+   *
+   * `setInterval(fn, 0)` is not a fast timer, it is a busy loop: the callback
+   * runs again the moment the previous one yields, which pegs a core and starves
+   * every other timer in the process. A config value of 0 read as "off" is the
+   * only sane interpretation, and `0 ?? fallback` does not give it — nullish
+   * coalescing only replaces null and undefined.
+   */
+  function intervalFor(value, fallback) {
+    const ms = Number(value ?? fallback);
+    return Number.isFinite(ms) && ms > 0 ? ms : null;
+  }
+
   function register(name, intervalMs, run) {
     const job = {
       name,

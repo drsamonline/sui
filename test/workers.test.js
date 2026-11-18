@@ -176,3 +176,20 @@ test('a failing job backs off and recovers, and the counters say so', async () =
   assert.equal(job.intervalMs, job.baseIntervalMs, 'a fresh job runs at its base interval');
   workers.stop();
 });
+
+test('an interval of zero disables a job instead of spinning the event loop', async () => {
+  const { startWorkers } = await import('../apps/gateway/src/workers.js');
+  const { ResponseCache } = await import('@sui/telemetry');
+
+  const config = {
+    ...testConfig(),
+    workers: { enabled: true, kickoffMs: 0, prober: { enabled: false }, alertIntervalMs: 0, driftIntervalMs: 0, cacheSweepMs: 0 },
+  };
+  const workers = startWorkers({ config, cache: new ResponseCache({}), ledger: { record() {}, todaySpendUsd: () => 0, providerSpendToday: () => 0, records: [] } });
+
+  // setInterval(fn, 0) is a busy loop: it pegs a core and starves every other
+  // timer, so the process stops making progress and a test hangs rather than
+  // failing. Zero has to mean off.
+  assert.deepEqual(workers.snapshot().jobs.map((j) => j.name), []);
+  workers.stop();
+});
