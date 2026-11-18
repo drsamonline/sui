@@ -39,7 +39,7 @@ export function loadConfig(path, env = process.env) {
   const resolved = path ? resolve(path) : defaultConfigPath(env);
   if (!resolved) {
     throw new ConfigError(
-      'No sui config found. Run `npx sui init` to create one, or pass --config <file>.',
+      `No sui config found. Run \`${runAs()}\` init to create one, or pass --config <file>.`,
       { path: 'SUI_CONFIG' },
     );
   }
@@ -307,6 +307,21 @@ export function validateConfig(config) {
  * Is this a paid-tier provider?
  * @param {any} provider
  */
+/**
+ * How should the user run the next command?
+ *
+ * `npx sui` is a bin name, not a package: from a registry install the command is
+ * `npx @drsamonline/cli`, and from a checkout it is `./sui`. Printing the wrong
+ * one sends people to a command that fails, and the failure looks like a broken
+ * install rather than a wrong hint. Every layer asks this function.
+ */
+export function runAs(argv1 = process.argv[1]) {
+  const invoked = String(argv1 ?? '');
+  if (/node_modules/.test(invoked)) return 'npx @drsamonline/cli';
+  if (!/apps[\\/]cli[\\/]bin/.test(invoked)) return 'sui';
+  return process.platform === 'win32' ? '.\\sui.cmd' : './sui';
+}
+
 export function isPaidProvider(provider) {
   return Boolean(provider && (provider.tier === 'paid' || provider.paid === true));
 }

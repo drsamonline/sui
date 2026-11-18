@@ -10,7 +10,7 @@ import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGateway, loadEnvFile } from '@drsamonline/gateway';
-import { providerHasCredentials, suiHome } from '@drsamonline/core';
+import { providerHasCredentials, suiHome, runAs } from '@drsamonline/core';
 import { detectTools, writeToolConfig } from './tools.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -150,7 +150,7 @@ export async function runInit(opts = {}) {
     roundTrip = { ok: false, combo, error: /** @type {any} */ (err).message, ms: Date.now() - started };
     out(`  failed: ${roundTrip.error}`);
     out('');
-    out('Nothing was marked ready. Fix the problem above and run `npx sui init` again.');
+    out('Nothing was marked ready. Fix the problem above and run `${runAs()} init` again.');
     return { ok: false, configPath, config, roundTrip, tools };
   }
 
@@ -184,7 +184,7 @@ export async function runInit(opts = {}) {
     }
   } else if (detected.length) {
     out('');
-    out('Next: `npx sui tools` to point one of these at the gateway.');
+    out('Next: `${runAs()} tools` to point one of these at the gateway.');
   }
 
   return { ok: true, configPath, config, roundTrip, endpoint, tools, toolResult, demo };

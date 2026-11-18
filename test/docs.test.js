@@ -491,3 +491,29 @@ test('the publisher waits for the registry before calling a release staged', asy
   assert.match(publish, /attempt < 8/, 'the version check must retry');
   assert.match(publish, /0\.0\.0-stage/, 'only the placeholder means staged');
 });
+
+test('no source prints a command that cannot work', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  // `npx sui` is a bin name, not a package. Every hint has to go through runAs(),
+  // which knows whether this is an install, a checkout or Windows.
+  const walk = (dir, out = []) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'node_modules') walk(full, out);
+      } else if (entry.name.endsWith('.js')) out.push(full);
+    }
+    return out;
+  };
+
+  for (const file of [...walk(join(process.cwd(), 'apps')), ...walk(join(process.cwd(), 'packages'))]) {
+    const body = readFileSync(file, 'utf8');
+    for (const line of body.split('\n')) {
+      // a comment explaining the rule is fine; a string is not
+      if (/^\s*(\*|\/\/)/.test(line)) continue;
+      assert.equal(/npx sui\b/.test(line), false, `${file.replace(process.cwd() + '/', '')} prints "npx sui": ${line.trim()}`);
+    }
+  }
+});

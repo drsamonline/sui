@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.7 — 2026-11-18
+
+### Fixed
+
+- **`sui doctor` still told you to run `npx sui init`.** Three hints lived outside the CLI's own file and had escaped the first fix. There is now one definition — `runAs()` in core — and every layer asks it, so an install says `npx @drsamonline/cli`, a checkout says `./sui`, and Windows says `.\sui.cmd`. A test fails if any source file prints `npx sui`.
+
 ## 0.12.6 — 2026-11-18
 
 ### Fixed

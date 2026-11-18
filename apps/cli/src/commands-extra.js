@@ -254,7 +254,7 @@ async function readSecret(question) {
 
 export function cmdConfig(flags, args) {
   const path = flags.config ?? defaultConfigPath();
-  if (!path) throw new ConfigError('No config found. Run `npx sui init` first.');
+  if (!path) throw new ConfigError(`No config found. Run \`${runAs()} init\` first.`);
   const raw = JSON.parse(readFileSync(path, 'utf8'));
   const sub = args[0] ?? 'show';
   const dotted = args[1];

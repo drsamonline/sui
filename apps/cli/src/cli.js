@@ -17,7 +17,7 @@ import { stdin, stdout } from 'node:process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGateway, loadEnvFile } from '@drsamonline/gateway';
-import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, sanitizeConfig, suiHome, INVARIANTS } from '@drsamonline/core';
+import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, runAs, sanitizeConfig, suiHome, INVARIANTS } from '@drsamonline/core';
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
@@ -34,19 +34,9 @@ const HERE_DIR = dirname(fileURLToPath(import.meta.url));
  * anyway sends people to a command that fails — and the failure looks like a
  * broken install rather than an unpublished package.
  */
-const RUN_AS = (() => {
-  const invoked = String(process.argv[1] ?? '');
-  // A published install has the package on disk under node_modules, so the
-  // reliable command is the package name — not `sui`, which is a bin name and not
-  // something `npx` can resolve. Printing `npx sui` sent people to a command that
-  // cannot work, and it did so again the moment the package was renamed.
-  if (/node_modules/.test(invoked)) {
-    const pkg = JSON.parse(readFileSync(join(HERE_DIR, '..', 'package.json'), 'utf8'));
-    return `npx ${pkg.name}`;
-  }
-  if (!/apps[\\/]cli[\\/]bin/.test(invoked)) return 'sui';
-  return process.platform === 'win32' ? '.\\sui.cmd' : './sui';
-})();
+// One definition, in core, so the CLI and the errors it throws cannot disagree
+// about what to type next.
+const RUN_AS = runAs();
 
 const VERSION = (() => {
   // The CLI's own manifest, not the repository root: from a registry install there
