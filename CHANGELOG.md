@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.19 — 2026-11-19
+
+### Fixed
+
+- The audit flagged `RTL` as an export nothing imports, which is exactly right: `direction()` is the public way to ask, and the set is an implementation detail. The 0.12.18 publish stopped at the audit step because of it.
+
 ## 0.12.18 — 2026-11-19
 
 ### Added

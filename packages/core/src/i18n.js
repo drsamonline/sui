@@ -16,8 +16,14 @@
  * stop the gateway from starting.
  */
 
-/** Right-to-left scripts need a direction, not just a translation. */
-export const RTL = new Set(['ur']);
+/**
+ * Right-to-left scripts need a direction, not just a translation.
+ *
+ * Internal: `direction()` is the public way to ask, so nothing outside this module
+ * needs the set itself — and an export nothing imports is dead weight the audit
+ * rightly flags.
+ */
+const RTL = new Set(['ur']);
 
 export const LANGUAGES = {
   en: 'English',
