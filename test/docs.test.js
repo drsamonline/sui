@@ -517,3 +517,23 @@ test('no source prints a command that cannot work', async () => {
     }
   }
 });
+
+test('the comparison page does not overclaim', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const path = join(process.cwd(), 'docs', 'COMPARISON.md');
+  assert.ok(existsSync(path), 'docs/COMPARISON.md is how a reader chooses between the two');
+  const doc = readFileSync(path, 'utf8');
+
+  // the honest shape: an "ahead" table for them, one for us, and a refusal list
+  assert.match(doc, /Where OmniRoute is ahead/);
+  assert.match(doc, /Where Sui is ahead/);
+  assert.match(doc, /What Sui will not copy/);
+  // every claim about Sui names where it lives
+  assert.match(doc, /packages\/core\/src\/invariants\.js/);
+  assert.match(doc, /docs\/MEASUREMENT\.md/);
+  // and no marketing superlative
+  for (const word of ['revolutionary', 'best-in-class', 'game-changing', 'unmatched']) {
+    assert.equal(doc.toLowerCase().includes(word), false, `COMPARISON.md says "${word}"`);
+  }
+});

@@ -53,7 +53,7 @@ export function loadEnvFile(path = '.env', env = process.env) {
  * Build a gateway: config, ledger, breaker, cache, router and an HTTP server,
  * all wired together but not yet listening.
  *
- * @param {{configPath?: string, env?: NodeJS.ProcessEnv, configObject?: any, configOverride?: any, ledgerFile?: string|null, logger?: any, startWorkers?: boolean, catalogDir?: string, historyFile?: string|null, now?: () => number}} [opts]
+ * @param {{headless?: boolean, configPath?: string, env?: NodeJS.ProcessEnv, configObject?: any, configOverride?: any, ledgerFile?: string|null, logger?: any, startWorkers?: boolean, catalogDir?: string, historyFile?: string|null, now?: () => number}} [opts]
  */
 export async function createGateway(opts = {}) {
   const env = opts.env ?? loadEnvFile(process.env.SUI_ENV_FILE ?? '.env', { ...process.env });

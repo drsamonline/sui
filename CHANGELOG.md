@@ -2,6 +2,20 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.8 — 2026-11-19
+
+Reviewed against [OmniRoute](https://github.com/cheaper-inference/OmniRoute) v3.8.55.
+
+### Added
+
+- **Inflation guard on compression, on by default.** Restoring protected spans could make the "compressed" prompt longer than the input, so a preset charged the user tokens for a prompt it had grown. If the result is not smaller, the original goes through untouched and the result says `inflation: compression would not have shrunk this prompt`. Four presets × five adversarial inputs are asserted in `test/compression.test.js`.
+- **`--headless`.** The proxy engine without the dashboard: a gateway on a VPS should not serve a page that can rewrite its own config. `/` answers 404 with an explanation, `/v1` and `/healthz` keep working.
+- **`docs/COMPARISON.md`** — where OmniRoute is ahead, where Sui is ahead, what Sui took from it, what it will not copy, and the adoption order. Written to be checkable: every claim about Sui names the file or command that proves it.
+
+### Fixed
+
+- **A flag added to the config schema did nothing.** `normalizeConfig` drops unknown keys, and `--headless` was added to the wrong return block, so the gateway never saw it. The test that caught it is the one that exercises the HTTP route rather than the flag.
+
 ## 0.12.7 — 2026-11-18
 
 ### Fixed

@@ -174,6 +174,9 @@ async function cmdUp(flags) {
   }
 
   const configOverride = {};
+  // --headless: the proxy engine only, no dashboard. A gateway on a VPS should
+  // not serve a page that can rewrite its own config.
+  if (flags.headless === true) configOverride.headless = true;
   if (role) configOverride.planes = { ...(configOverride.planes ?? {}), role };
   if (flags['model-plane']) {
     configOverride.planes = { ...(configOverride.planes ?? {}), modelPlaneUrl: String(flags['model-plane']) };
@@ -586,7 +589,7 @@ sui ${VERSION} — one endpoint for every LLM
 
   ${RUN_AS}                first run: find keys, find tools, prove the route, start
   ${RUN_AS} init           the same, explicitly      --demo  --force  --port 8787
-  ${RUN_AS} start          run the gateway            --port 8787  --config <file>  --no-workers
+  ${RUN_AS} start          run the gateway            --port 8787  --config <file>  --no-workers  --headless
                           (aliases: up, serve)
   ${RUN_AS} invariants     every hard constraint, and which are enforced
   ${RUN_AS} keys hash       replace plaintext API keys with SHA-256 hashes

@@ -170,6 +170,10 @@ export function normalizeConfig(raw, opts = {}) {
       },
     },
     apiKeys: Array.isArray(raw.apiKeys) ? raw.apiKeys : [],
+    // --headless: the proxy engine only, no dashboard. Normalisation drops
+    // unknown keys, so a flag missing from here silently does nothing — which is
+    // exactly what happened on the first attempt.
+    headless: raw.headless === true,
     // I4: the paid air-gap. Closed by default; a paid provider's credentials are
     // never read while it is closed, whatever is in the environment.
     paidTiers: {

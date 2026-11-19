@@ -108,6 +108,14 @@ export function createSuiServer(deps) {
       }
 
       if (req.method === 'GET' && (path === '/' || path === '/dashboard')) {
+        // Headless: the proxy engine only. A gateway on a VPS should not serve a
+        // dashboard that can change its own config, and the page is the largest
+        // thing it would otherwise ship.
+        if (config.headless) {
+          return sendJson(res, 404, {
+            error: { message: 'This gateway runs headless: no dashboard is served. The OpenAI-compatible API is at /v1.', type: 'not_found' },
+          });
+        }
         return sendHtml(res, readDashboard());
       }
       if (req.method === 'GET' && path === '/healthz') {

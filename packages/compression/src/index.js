@@ -609,6 +609,25 @@ export function compress(text, opts = {}) {
   }
 
   const restored = restore(current, spans);
+
+  // Inflation guard, on by default. Restoring protected spans can make the
+  // "compressed" text longer than the input — a compressor that grows a prompt
+  // costs the user tokens and charges them for the privilege. If it did not
+  // shrink, the original goes through untouched and the result says why.
+  if (restored.length >= originalChars) {
+    return {
+      text: original,
+      preset: presetName,
+      originalChars,
+      compressedChars: originalChars,
+      ratio: 0,
+      savedChars: 0,
+      skipped: 'inflation: compression would not have shrunk this prompt',
+      steps,
+      tokens,
+    };
+  }
+
   const compressedChars = restored.length;
   const savedChars = Math.max(0, originalChars - compressedChars);
 

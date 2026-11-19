@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import http from 'node:http';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -209,4 +210,36 @@ test('prompt hashes are capped and the remainder is counted', async () => {
 
   assert.match(html, /prompts\.slice\(0, 3\)/, 'eight rows of hex is noise; three plus a count is a signal');
   assert.match(html, /more prompt\$\{rest === 1 \? '' : 's'\} this session/);
+});
+
+test('headless serves the API and refuses the dashboard', async () => {
+  const { makeGateway, testConfig } = await import('./helpers.js');
+
+  // A gateway on a VPS should not serve a page that can rewrite its own config.
+  const config = testConfig();
+  const gw = await makeGateway({ ...config, headless: true });
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const page = await new Promise((resolve, reject) => {
+    http.get({ host: '127.0.0.1', port, path: '/', agent: false }, (res) => {
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => resolve({ status: res.statusCode, body }));
+    }).on('error', reject);
+  });
+  assert.equal(page.status, 404);
+  assert.match(page.body, /headless/);
+
+  // the API is still there: headless means no page, not no service
+  const health = await new Promise((resolve, reject) => {
+    http.get({ host: '127.0.0.1', port, path: '/healthz', agent: false }, (res) => {
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => resolve(JSON.parse(body)));
+    }).on('error', reject);
+  });
+  assert.equal(health.ok, true);
+
+  await gw.close();
 });

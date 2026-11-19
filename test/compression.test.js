@@ -370,3 +370,29 @@ test('the compression preview refuses an input large enough to block the loop', 
   assert.equal((await res.json()).error.type, 'text_too_long');
   await gw.close();
 });
+
+test('compression never makes a prompt longer, whatever the preset', async () => {
+  const { compress, PRESETS } = await import('../packages/compression/src/index.js');
+
+  // Restoring protected spans can make the "compressed" text longer than the
+  // input. A compressor that grows a prompt costs the user tokens and bills them
+  // for it, so the original must win and the result must say why.
+  const inputs = [
+    'hi',
+    'The reason your component re-renders is that you create a new object on every render. '.repeat(10),
+    '```js\n' + 'const x = 1;\n'.repeat(40) + '```',
+    `Read https://example.com/a/very/long/path?with=query&and=more and summarise ${'it '.repeat(200)}`,
+    JSON.stringify({ rows: Array.from({ length: 60 }, (_, i) => ({ id: i, name: `row-${i}`, ok: true })) }),
+  ];
+
+  for (const preset of Object.keys(PRESETS)) {
+    for (const input of inputs) {
+      const result = compress(input, { preset });
+      assert.ok(
+        result.text.length <= input.length,
+        `${preset} grew the prompt from ${input.length} to ${result.text.length}`,
+      );
+      assert.ok(result.ratio >= 0, `${preset} reported a negative ratio`);
+    }
+  }
+});
