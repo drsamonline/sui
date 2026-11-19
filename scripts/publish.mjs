@@ -171,29 +171,34 @@ console.log('');
 // confidence.
 const staged = [];
 const verifyOne = (name, version) => {
-  // 18 packages, each processed in turn: a minute is not enough for the tail of
-  // the list, and a lagging index was reported as a staged release twice.
+  // Ask for the exact version. Parsing the version list produced a false "needs
+  // approval" three times: the index lags, and a list read mid-update can show
+  // the 0.0.0-stage placeholder without the version that is actually live.
   for (let attempt = 0; attempt < 15; attempt++) {
     try {
-      const out = execFileSync('npm', ['view', name, 'versions', '--json'], { encoding: 'utf8', stdio: 'pipe' });
-      const versions = JSON.parse(out);
-      if (versions.includes(version)) return null;
-      // the placeholder is npm's staged marker; a lagging index is not
-      if (attempt === 14) {
-        // Only the placeholder means staged. A version that simply has not been
-        // indexed yet is a lagging registry, and reporting it as 'needs approval'
-        // sends someone to a page with nothing to approve — which is what
-        // happened to sandbox on 0.12.8, after it had published fine.
-        return versions.includes('0.0.0-stage') && !versions.includes(version)
-          ? `${name}: staged as 0.0.0-stage, needs approval`
-          : `${name}: published, but the registry still reports ${versions[versions.length - 1]} (index lag, not a failure)`;
-      }
+      const live = execFileSync('npm', ['view', `${name}@${version}`, 'version'], {
+        encoding: 'utf8',
+        stdio: 'pipe',
+      }).trim();
+      if (live === version) return null;
     } catch {
-      /* not visible yet */
+      /* not indexed yet */
     }
     execFileSync('sleep', [String(3 + attempt * 2)]);
   }
-  return `${name}: not visible after 150s`;
+
+  // Only now is it worth asking why: a placeholder means a maintainer must approve.
+  try {
+    const versions = JSON.parse(
+      execFileSync('npm', ['view', name, 'versions', '--json'], { encoding: 'utf8', stdio: 'pipe' }),
+    );
+    if (versions.includes('0.0.0-stage') && !versions.includes(version)) {
+      return `${name}: staged as 0.0.0-stage, needs approval`;
+    }
+    return `${name}: published, but the registry still reports ${versions[versions.length - 1]} (index lag, not a failure)`;
+  } catch {
+    return `${name}: not visible after 150s`;
+  }
 };
 
 for (const dir of ORDER) {

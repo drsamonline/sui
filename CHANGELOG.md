@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.14 — 2026-11-19
+
+### Fixed
+
+- **The publish check reported a live package as staged, for the third time.** It parsed the version list; the index lags and a list read mid-update can show the `0.0.0-stage` placeholder without the version that is actually live. It asks the registry for the exact version now (`npm view <name>@<version> version`) and only asks why if that fails. The 0.12.13 publish was complete while the job reported failure.
+
 ## 0.12.13 — 2026-11-19
 
 ### Added
