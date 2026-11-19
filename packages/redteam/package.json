@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/redteam",
-  "version": "0.12.11",
+  "version": "0.12.12",
   "description": "Prompt-injection toolkit and scheduled self-test (B6.1, B6.2).",
   "type": "module",
   "license": "MIT",

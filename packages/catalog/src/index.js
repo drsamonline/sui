@@ -73,6 +73,10 @@ export function normalizeEntry(raw) {
     capabilities: (raw.capabilities ?? ['chat']).filter((c) => CAPABILITIES.includes(c)),
     context_window: raw.context_window ?? null,
     quota: raw.quota ?? null,
+    // a published recurring monthly budget, in tokens, and where the number came
+    // from. Absent is absent: freeBudget() never invents one.
+    monthly_tokens: Number.isFinite(Number(raw.monthly_tokens)) && Number(raw.monthly_tokens) > 0 ? Number(raw.monthly_tokens) : null,
+    budget_source: raw.budget_source ?? null,
     needs_probe: raw.base_url ? Boolean(raw.needs_probe) : true,
     verified_at: raw.verified_at ?? null,
     notes: raw.notes ?? null,
@@ -202,4 +206,86 @@ export function summarise(entries, probes = {}) {
     tos_avoid: rows.filter((r) => r.tos === 'avoid').length,
     rows,
   };
+}
+
+/**
+ * Monthly free headroom, computed honestly.
+ *
+ * The number everyone wants is "how many free tokens per month do I have". The
+ * number that can be defended is smaller: only pools that publish a recurring
+ * budget, counted once per pool (two names for one upstream are one pool), and
+ * kept in two columns — what a probe reached, and what is only a claim.
+ *
+ * Unverified entries are never summed into the verified total. A headline that
+ * mixes them is a marketing number; this one is a measurement, and it says how
+ * much of it is missing.
+ *
+ * @param {Array<any>} entries catalogue entries, each optionally carrying
+ *   `monthly_tokens` (a published recurring budget) and `pool_key`
+ * @param {Record<string, any>} [probes] keyed by pool_key, as `sui probe --write` records
+ * @returns {{verifiedTokens: number, unverifiedTokens: number, verified: Array<any>, unverified: Array<any>, withoutBudget: number, pools: number, note: string}}
+ */
+export function freeBudget(entries, probes = {}) {
+  /** @type {Map<string, any>} */
+  const pools = new Map();
+
+  for (const entry of entries) {
+    const key = entry.pool_key ?? poolKey(entry);
+    const existing = pools.get(key);
+    const tokens = Number(entry.monthly_tokens ?? 0);
+    // one pool, one budget: a second name for the same upstream does not double it
+    if (existing) {
+      existing.names.push(entry.provider);
+      if (tokens > existing.tokens) existing.tokens = tokens;
+      continue;
+    }
+    pools.set(key, {
+      pool_key: key,
+      names: [entry.provider],
+      tokens: Number.isFinite(tokens) ? tokens : 0,
+      tos: entry.tos ?? 'review',
+      budget_source: entry.budget_source ?? null,
+    });
+  }
+
+  const verified = [];
+  const unverified = [];
+  let withoutBudget = 0;
+
+  for (const pool of pools.values()) {
+    if (!pool.tokens) {
+      withoutBudget += 1;
+      continue;
+    }
+    const probe = probes[pool.pool_key];
+    if (probe?.ok === true) verified.push(pool);
+    else unverified.push(pool);
+  }
+
+  const sum = (rows) => rows.reduce((a, r) => a + r.tokens, 0);
+  const verifiedTokens = sum(verified);
+  const unverifiedTokens = sum(unverified);
+
+  const note = verifiedTokens
+    ? `${verified.length} pool(s) with a published budget answered a probe.`
+    : 'No pool with a published budget has answered a probe here yet, so the verified total is zero. That is a measurement, not a shortfall: run `sui probe --write` on a networked machine.';
+
+  return {
+    verifiedTokens,
+    unverifiedTokens,
+    verified,
+    unverified,
+    withoutBudget,
+    pools: pools.size,
+    note,
+  };
+}
+
+/** 1_620_000 → "1.62M". A token count is read, not calculated. */
+export function formatTokens(n) {
+  const num = Number(n ?? 0);
+  if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(1)}k`;
+  return String(num);
 }

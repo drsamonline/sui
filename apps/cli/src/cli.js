@@ -21,7 +21,7 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
-import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdKits, cmdLocal, cmdMcp, cmdProbe, cmdRecipe, cmdRedteam, cmdSandbox, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdFreeBudget, cmdKits, cmdLocal, cmdMcp, cmdProbe, cmdRecipe, cmdRedteam, cmdSandbox, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
 import { kitStatus } from '@drsamonline/kits';
 import { ConfigError } from '@drsamonline/core';
 
@@ -71,6 +71,8 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdUp(flags);
     case 'keys':
       return cmdKeys(flags, args);
+    case 'free-budget':
+      return cmdFreeBudget(flags);
     case 'catalog':
       return cmdCatalog(flags, args);
     case 'probe':
@@ -614,6 +616,7 @@ sui ${VERSION} — one endpoint for every LLM
   ${RUN_AS} tools           point a coding tool here              --set <tool-id>
   ${RUN_AS} migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
   ${RUN_AS} catalog [q]    the provider catalogue, and what is still unverified
+  ${RUN_AS} free-budget    verified free headroom per month, and what is only a claim
   ${RUN_AS} probe [name]   liveness, readiness and suitability checks (B2.3)
   ${RUN_AS} compress <file|-> [--preset lite|standard|aggressive|ultra] [--text "…"]
   ${RUN_AS} budget         which preset the remaining quota would choose

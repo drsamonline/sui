@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { ConfigError, defaultConfigPath, normalizeConfig, sanitizeConfig, suiHome } from '@drsamonline/core';
-import { applyVerified } from '@drsamonline/catalog';
+import { applyVerified, freeBudget, formatTokens } from '@drsamonline/catalog';
 import { dedupeEntries, loadSeed, summarise } from '@drsamonline/catalog';
 import { loadKit, kitStatus } from '@drsamonline/kits';
 import { createVault } from '@drsamonline/vault';
@@ -40,6 +40,55 @@ const ROOT = join(HERE, '..', '..', '..');
 /* ------------------------------------------------------------------ catalog */
 
 /** `sui catalog [query]` — what Sui could route to, and what is still unverified. */
+/**
+ * `sui free-budget` — how much free headroom you actually have.
+ *
+ * Two numbers, never added together: what a probe reached, and what is only a
+ * claim. A pool counted once however many names point at it.
+ */
+export function cmdFreeBudget(flags) {
+  const entries = loadCatalogue();
+  const probes = Object.fromEntries(readVerified().map((v) => [v.pool_key, v]));
+  const budget = freeBudget(entries, probes);
+
+  if (flags.json) {
+    console.log(
+      JSON.stringify(
+        {
+          verifiedTokens: budget.verifiedTokens,
+          unverifiedTokens: budget.unverifiedTokens,
+          verified: budget.verified,
+          unverified: budget.unverified,
+          pools: budget.pools,
+          withoutBudget: budget.withoutBudget,
+          note: budget.note,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  console.log('');
+  console.log(`  ${formatTokens(budget.verifiedTokens)} verified per month   ← pools that answered a probe`);
+  console.log(`  ${formatTokens(budget.unverifiedTokens)} published, unverified   ← never added to the line above`);
+  console.log('');
+  console.log(
+    table(
+      ['pool', 'names', 'tokens/mo', 'state'],
+      [
+        ...budget.verified.map((p) => [p.pool_key.slice(0, 34), p.names.join(', '), formatTokens(p.tokens), 'verified']),
+        ...budget.unverified.map((p) => [p.pool_key.slice(0, 34), p.names.join(', '), formatTokens(p.tokens), 'unverified']),
+      ],
+    ),
+  );
+  console.log('');
+  console.log(`  ${budget.pools} pool(s) · ${budget.withoutBudget} with no published budget recorded`);
+  console.log(`  ${budget.note}`);
+  console.log('');
+}
+
 export function cmdCatalog(flags, args) {
   const entries = loadCatalogue();
   const summary = summarise(entries);

@@ -2,6 +2,16 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.12 — 2026-11-19
+
+### Added
+
+- **`sui free-budget`** — free headroom per month, in two columns that are never added together: what a probe reached, and what is only a published claim. A pool is counted once however many names point at it, and an entry with no published budget is counted as missing rather than assumed. `--json` emits the same split.
+- Catalogue entries can carry `monthly_tokens` and `budget_source`; a test fails if a budget has no source.
+- Three seeded budgets (Mistral 1B, LLM7 150M, Groq 30M) carry the source they came from — OmniRoute's catalogue, MIT — and sit in the unverified column until a probe reaches them.
+
+The verified total on a fresh machine is **zero**, and the command says so with the reason and the command that fixes it. That is the point: a headline that mixes claims with measurements is a marketing number.
+
 ## 0.12.11 — 2026-11-19
 
 ### Added

@@ -183,7 +183,9 @@
         "json_schema"
       ],
       "needs_probe": true,
-      "notes": "Endpoint documented by the provider itself; not imported from a third party."
+      "notes": "Endpoint documented by the provider itself; not imported from a third party.",
+      "monthly_tokens": 30000000,
+      "budget_source": "OmniRoute catalogue v3.8.55 (MIT), re-audited by that project every two weeks"
     },
     {
       "provider": "kilo-gateway",
@@ -230,7 +232,9 @@
       ],
       "needs_probe": true,
       "base_url": "https://api.llm7.io/v1",
-      "notes": "Endpoint recorded by free-coding-models@b9269a5, openproxy@0cc2282."
+      "notes": "Endpoint recorded by free-coding-models@b9269a5, openproxy@0cc2282.",
+      "monthly_tokens": 150000000,
+      "budget_source": "OmniRoute catalogue v3.8.55 (MIT), re-audited by that project every two weeks"
     },
     {
       "provider": "lmstudio",
@@ -262,7 +266,9 @@
         "streaming"
       ],
       "needs_probe": true,
-      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. The upstream project excludes this provider from its own routing."
+      "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. The upstream project excludes this provider from its own routing.",
+      "monthly_tokens": 1000000000,
+      "budget_source": "OmniRoute catalogue v3.8.55 (MIT), re-audited by that project every two weeks"
     },
     {
       "provider": "nvidia",

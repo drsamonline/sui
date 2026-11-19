@@ -245,3 +245,68 @@ test('the catalogue count is the seeded count, not the seeded count plus filler'
   assert.equal(catalogue.length, seed.entries.length, 'nothing may be added to the catalogue that is not in the seed');
   assert.ok(catalogue.every((e) => e.provider && e.pool_key), 'every entry carries an identity');
 });
+
+/* ------------------------------------------ free budget (0.12.12) */
+
+test('a pool is counted once, however many names point at it', async () => {
+  const { freeBudget, formatTokens } = await import('../packages/catalog/src/index.js');
+
+  const entries = [
+    { provider: 'acme', base_url: 'https://api.acme.test/v1', model_family: 'openai-compatible', monthly_tokens: 1_000_000 },
+    { provider: 'acme-free', base_url: 'https://api.acme.test/v1', model_family: 'openai-compatible', monthly_tokens: 1_000_000 },
+  ];
+  const budget = freeBudget(entries, {});
+  assert.equal(budget.pools, 1, 'two names, one upstream, one pool');
+  assert.equal(budget.unverifiedTokens, 1_000_000, 'the budget is not doubled by an alias');
+  assert.equal(formatTokens(budget.unverifiedTokens), '1.00M');
+});
+
+test('unverified headroom is never added to the verified total', async () => {
+  const { freeBudget } = await import('../packages/catalog/src/index.js');
+
+  const entries = [
+    { provider: 'reached', base_url: 'https://a.test/v1', model_family: 'openai-compatible', monthly_tokens: 2_000_000 },
+    { provider: 'claimed', base_url: 'https://b.test/v1', model_family: 'openai-compatible', monthly_tokens: 9_000_000 },
+    { provider: 'nobudget', base_url: 'https://c.test/v1', model_family: 'openai-compatible' },
+  ];
+  const budget = freeBudget(entries, { 'a.test/v1|openai-compatible': { ok: true } });
+
+  assert.equal(budget.verifiedTokens, 2_000_000);
+  assert.equal(budget.unverifiedTokens, 9_000_000);
+  assert.equal(budget.withoutBudget, 1, 'an entry with no published budget is counted, not assumed');
+  // the headline must never be the sum of the two
+  assert.notEqual(budget.verifiedTokens, 11_000_000);
+});
+
+test('a pool with no published budget is never given one', async () => {
+  const { freeBudget } = await import('../packages/catalog/src/index.js');
+  const budget = freeBudget([{ provider: 'x', base_url: 'https://x.test/v1', model_family: 'openai-compatible' }], {});
+  assert.equal(budget.verifiedTokens, 0);
+  assert.equal(budget.unverifiedTokens, 0);
+  assert.equal(budget.withoutBudget, 1);
+  assert.match(budget.note, /verified total is zero/);
+});
+
+test('the seeded catalogue records where each budget came from', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const seed = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'seed.json'), 'utf8'));
+
+  for (const entry of seed.entries.filter((e) => e.monthly_tokens)) {
+    assert.ok(entry.budget_source, `${entry.provider} has a budget with no source`);
+    assert.ok(entry.monthly_tokens > 0);
+  }
+});
+
+test('sui free-budget emits pure JSON', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const out = execFileSync(process.execPath, ['apps/cli/bin/sui.js', 'free-budget', '--json'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    timeout: 60_000,
+  });
+  const parsed = JSON.parse(out);
+  assert.equal(typeof parsed.verifiedTokens, 'number');
+  assert.equal(typeof parsed.unverifiedTokens, 'number');
+  assert.ok(Array.isArray(parsed.verified));
+});
