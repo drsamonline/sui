@@ -78,7 +78,10 @@ const status = execFileSync('git', ['status', '--porcelain'], { cwd: ROOT, encod
 // catch code that was edited after it was tested. Naming the file in the refusal
 // is what turned a fifteen-minute mystery into a one-line fix.
 if (status && !dryRun) {
-  const GENERATED = ['evals/last-report.json'];
+  // Files npm itself rewrites during the workflow's own install step. A version
+  // bump makes the committed lockfile stale, CI's `npm install` fixes it, and the
+  // publisher then refused to ship code it had just verified.
+  const GENERATED = ['evals/last-report.json', 'package-lock.json'];
   const lines = status.split('\n').filter(Boolean);
   const real = lines.filter((l) => !GENERATED.some((g) => l.endsWith(g)));
   if (real.length) problems.push(`working tree is dirty:\n${real.slice(0, 5).join('\n')}`);
