@@ -2,6 +2,17 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.13 — 2026-11-19
+
+### Added
+
+- **The dashboard leads with what needs attention.** Four numbers above every detail card — turns today, spent today, verified routes, p95 — and one sentence that names the worst thing first: disabled providers, resting routes, budget over 80%, or nothing verified yet. The detail below is unchanged; it is now the second thing you read, not the first.
+
+### Fixed
+
+- **The SSRF guard disabled every local model server.** Ollama and LM Studio live on `127.0.0.1`; the guard refused loopback for all entries, so a probe sweep marked them down. A catalogue entry marked `local: true` may now be probed on loopback — a remote entry claiming `127.0.0.1` is still refused.
+- `--warn` and `--bad` are tokens now, measured rather than asserted: 5.9:1 and 7.4:1 on the surface, 8.7:1 and 7.6:1 in dark.
+
 ## 0.12.12 — 2026-11-19
 
 ### Added

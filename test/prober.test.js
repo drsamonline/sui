@@ -380,3 +380,27 @@ test('a probe never touches the user\'s own machine or cloud account', async () 
   // and a loopback probe is possible when something asks for it explicitly
   assert.equal(probeAddressAllowed('http://127.0.0.1:11434/v1', { allowLocal: true }).ok, true);
 });
+
+test('a catalogue entry marked local may be probed on loopback; a remote one may not', async () => {
+  const { probeTarget } = await import('../packages/prober/src/index.js');
+
+  // ollama and LM Studio live on 127.0.0.1 and are marked local: true. Without
+  // this, the SSRF guard disabled every local model server the moment it landed.
+  const local = await probeTarget(
+    { provider: 'ollama', base_url: 'http://127.0.0.1:1/v1', model_family: 'openai-compatible', capabilities: ['chat'], local: true },
+    { timeoutMs: 300 },
+  );
+  assert.equal(
+    local.reasons.some((r) => r.includes('refusing to probe')),
+    false,
+    'a local entry is allowed to reach loopback',
+  );
+  assert.match(local.reasons.join(' '), /unreachable|timed out/);
+
+  // a remote entry that names loopback is not local, and is still refused
+  const remote = await probeTarget(
+    { provider: 'sketchy', base_url: 'http://127.0.0.1:6379/v1', model_family: 'openai-compatible', capabilities: ['chat'] },
+    { timeoutMs: 300 },
+  );
+  assert.match(remote.reasons.join(' '), /refusing to probe/);
+});

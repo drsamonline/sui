@@ -59,9 +59,11 @@ writeFileSync(
   join(catalogDir, 'seed.json'),
   JSON.stringify({
     entries: [
-      { provider: 'demo-a', base_url: upstreamUrl, auth: 'none', model_family: 'demo', capabilities: ['chat'], needs_probe: true },
-      { provider: 'demo-b', base_url: upstreamUrl, auth: 'none', model_family: 'demo-2', capabilities: ['chat'], needs_probe: true },
-      { provider: 'demo-c', base_url: 'http://127.0.0.1:1/v1', auth: 'none', model_family: 'demo-3', capabilities: ['chat'], needs_probe: true },
+      { provider: 'demo-a', base_url: upstreamUrl, auth: 'none', model_family: 'demo', capabilities: ['chat'], needs_probe: true, local: true },
+      { provider: 'demo-b', base_url: upstreamUrl, auth: 'none', model_family: 'demo-2', capabilities: ['chat'], needs_probe: true, local: true },
+      // demo-c points at a closed port on purpose: the screenshot should show one
+      // provider that is genuinely down, not three that look broken
+      { provider: 'demo-c', base_url: 'http://127.0.0.1:1/v1', auth: 'none', model_family: 'demo-3', capabilities: ['chat'], needs_probe: true, local: true },
       { provider: 'unresolved', auth: 'none', capabilities: ['chat'] },
     ],
   }),

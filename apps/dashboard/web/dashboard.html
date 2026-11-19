@@ -24,6 +24,8 @@
 
     --accent:      #2f5d50;   /* single signal colour */
     --accent-weak: #e4eeea;
+    --warn:        #8a5a00;   /* 5.9:1 on --surface, measured */
+    --bad:         #a3241c;   /* 7.4:1 on --surface, measured */
     --on-accent:   #ffffff;
 
     --radius: 10px;
@@ -51,6 +53,8 @@
       --text-dim:  #a5a59d;
       --accent:      #7fbfa8;
       --accent-weak: #23352f;
+      --warn:        #e0b050;
+      --bad:         #ff8a80;
       --on-accent:   #10201b;
       --shadow-rest: 0 1px 2px rgb(0 0 0 / 0.5);
       --shadow-lift: 0 6px 20px rgb(0 0 0 / 0.55);
@@ -134,6 +138,23 @@
   .hint { color: var(--text-dim); font-size: var(--fs-13); }
 
   /* ---- KPI strip ---- */
+
+  /* At a glance: the four numbers that answer "is anything wrong", above every
+     detail, because a dashboard that makes you scroll to find out is a report. */
+  .glance { margin-bottom: var(--space-4); }
+  .glance-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); }
+  .glance-cell {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: var(--space-3); display: grid; gap: 2px;
+  }
+  .glance-cell .k { font-size: var(--fs-12); text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); }
+  .glance-cell .v { font-size: var(--fs-24); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .glance-cell .f { font-size: var(--fs-12); color: var(--text-dim); }
+  .glance-cell[data-state="warn"] { border-color: var(--warn); }
+  .glance-cell[data-state="bad"] { border-color: var(--bad); }
+  .glance-state { margin: var(--space-2) 0 0; font-size: var(--fs-13); color: var(--text-dim); }
+  .glance-state[data-state="bad"] { color: var(--bad); }
+  .glance-state[data-state="warn"] { color: var(--warn); }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: var(--space-3); }
   .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-3) var(--space-4); }
   .kpi .label { font-size: var(--fs-12); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
@@ -266,6 +287,15 @@
       <button class="small" id="refresh" type="button">Refresh</button>
     </div>
   </div>
+
+  <!-- ------------------------------------------------ at a glance -->
+  <section class="glance" id="glance" aria-labelledby="glance-h">
+    <h2 class="sr-only" id="glance-h">At a glance</h2>
+    <div class="glance-row" id="glance-row">
+      <div class="skeleton block" style="height: 54px"></div>
+    </div>
+    <p class="glance-state" id="glance-state" role="status">Checking the gateway…</p>
+  </section>
 
   <div class="grid-main">
 
@@ -495,6 +525,15 @@ function toast(message) {
 }
 
 const money = (n) => (n == null ? '—' : `$${Number(n).toFixed(n < 0.01 ? 5 : 3)}`);
+// A headline is read, not audited: $0.00000 is precision nobody asked for at the
+// top of the page. The detail rows keep the full form.
+const moneyShort = (n) => {
+  if (n == null) return '—';
+  const v = Number(n);
+  if (v === 0) return '$0';
+  if (v < 0.01) return `$${v.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}`;
+  return `$${v.toFixed(2)}`;
+};
 const ms = (n) => (n == null ? '—' : `${Math.round(n)} ms`);
 const num = (n) => (n == null ? '—' : Number(n).toLocaleString('en-IN'));
 
@@ -524,6 +563,7 @@ function render() {
     `${unconfigured.length} model${unconfigured.length === 1 ? '' : 's'} without a key` +
     (warnings.length ? ` · ${warnings.length} invariant warning${warnings.length === 1 ? '' : 's'} (${warnings.map((w) => w.id).join(', ')})` : '');
 
+  renderGlance(state);
   renderBudget(budget);
   renderKpis(metrics.totals, cache);
   renderPool(pool);
@@ -555,6 +595,86 @@ function renderBudget(budget) {
     </div>
     <div class="hint">${over === 'over' ? 'Cap reached — every target is skipped until tomorrow, or raise budgets.dailyUsd.' : over === 'warn' ? `Past the ${budget.warnAtPct}% warning line.` : 'Within budget.'}</div>`;
   $('#budget-note').textContent = `resets at midnight`;
+}
+
+
+/**
+ * At a glance — the four numbers that answer "is anything wrong", and one
+ * sentence that says what needs attention.
+ *
+ * A dashboard that makes you scroll to discover a breaker is open is a report,
+ * not a dashboard. The detail below is unchanged; this is the top of the story.
+ */
+function renderGlance(payload) {
+  const row = document.querySelector('#glance-row');
+  const state = document.querySelector('#glance-state');
+  if (!row || !state) return;
+
+  const totals = payload.totals ?? {};
+  const cache = payload.cache ?? { hitRate: 0, entries: 0 };
+  const budget = payload.budget ?? {};
+  const pool = payload.pool ?? [];
+  const probes = payload.probes ?? [];
+
+  const openBreakers = pool.filter((m) => String(m.health ?? '').replace(/_/g, '-') === 'open');
+  const halfOpen = pool.filter((m) => String(m.health ?? '').replace(/_/g, '-') === 'half-open');
+  const disabled = probes.filter((p) => p.status === 'disabled');
+  const verified = pool.filter((m) => m.verified === true).length;
+  const spentPct = budget.dailyUsd ? Math.min(100, Math.round((Number(budget.spentUsd ?? 0) / Number(budget.dailyUsd)) * 100)) : null;
+
+  const cells = [
+    {
+      k: 'turns today',
+      v: num(totals.turns ?? 0),
+      f: `${totals.failed ?? 0} failed · ${totals.attempts ?? 0} attempts`,
+      state: (totals.failed ?? 0) > 0 ? 'warn' : 'ok',
+    },
+    {
+      k: 'spent today',
+      v: moneyShort(budget.spentUsd ?? totals.costUsd ?? 0),
+      f: budget.dailyUsd ? `of ${moneyShort(budget.dailyUsd)} · ${spentPct}%` : 'no daily cap',
+      state: spentPct == null ? 'ok' : spentPct >= 100 ? 'bad' : spentPct >= 80 ? 'warn' : 'ok',
+    },
+    {
+      k: 'verified routes',
+      v: `${verified}/${pool.length}`,
+      f: verified ? 'answered a probe' : 'none yet — run probe --write',
+      state: verified ? 'ok' : 'warn',
+    },
+    {
+      k: 'p95 latency',
+      v: ms(totals.p95LatencyMs ?? 0),
+      f: `cache hit ${Math.round((cache.hitRate ?? 0) * 100)}%`,
+      state: 'ok',
+    },
+  ];
+
+  row.innerHTML = cells
+    .map(
+      (c) => `
+      <div class="glance-cell" data-state="${c.state}">
+        <div class="k">${c.k}</div>
+        <div class="v">${c.v}</div>
+        <div class="f">${c.f}</div>
+      </div>`,
+    )
+    .join('');
+
+  // One sentence, and it leads with the worst thing rather than the total.
+  const problems = [];
+  if (disabled.length) problems.push(`${disabled.length} provider(s) disabled by the prober`);
+  if (openBreakers.length) problems.push(`${openBreakers.length} route(s) resting after failures`);
+  if (halfOpen.length) problems.push(`${halfOpen.length} route(s) being retried`);
+  if (spentPct != null && spentPct >= 80) problems.push(`${spentPct}% of today's budget used`);
+  if (!verified) problems.push('nothing is verified yet');
+
+  if (problems.length) {
+    state.dataset.state = openBreakers.length || disabled.length ? 'bad' : 'warn';
+    state.textContent = `Needs attention: ${problems.join(' · ')}.`;
+  } else {
+    state.dataset.state = 'ok';
+    state.textContent = `Everything is answering. ${pool.length} route(s) in the pool, ${num(totals.turns ?? 0)} turn(s) today.`;
+  }
 }
 
 function renderKpis(totals, cache) {

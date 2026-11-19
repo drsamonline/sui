@@ -112,9 +112,12 @@ export async function probeTarget(entry, opts = {}) {
   // what it is told, so without this guard a seeded or imported base_url of
   // http://169.254.169.254/ (cloud metadata) or http://127.0.0.1:6379 would be
   // fetched on the user's machine and the result reported as a provider's health.
-  // `allowLocal` is for a loopback probe that something asked for explicitly —
-  // the test fixtures and `sui local`. Production code never sets it.
-  const reachable = base ? probeAddressAllowed(base, { allowLocal: opts.allowLocal === true }) : null;
+  // A loopback probe is allowed when something asked for it explicitly, or when
+  // the catalogue itself says this entry is a model server on this machine
+  // (`local: true` — ollama, LM Studio). A remote provider claiming 127.0.0.1 is
+  // not local, and is still refused.
+  const allowLocal = opts.allowLocal === true || entry.local === true;
+  const reachable = base ? probeAddressAllowed(base, { allowLocal }) : null;
   if (base && !reachable.ok) {
     return {
       pool_key: key,

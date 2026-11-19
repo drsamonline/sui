@@ -243,3 +243,38 @@ test('headless serves the API and refuses the dashboard', async () => {
 
   await gw.close();
 });
+
+/* ------------------------------------ KPI hierarchy (0.12.13) */
+
+test('the four headline numbers are above every detail card', () => {
+  // A dashboard that makes you scroll to discover a breaker is open is a report.
+  const glanceAt = html.indexOf('id="glance-row"');
+  const firstCardAt = html.indexOf('<section class="card"');
+  assert.ok(glanceAt > 0, 'there is an at-a-glance strip');
+  assert.ok(firstCardAt > glanceAt, 'it comes before the first detail card');
+
+  for (const label of ['turns today', 'spent today', 'verified routes', 'p95 latency']) {
+    assert.ok(html.includes(label), `the strip must answer "${label}"`);
+  }
+});
+
+test('the glance strip leads with the worst thing, not the total', () => {
+  assert.match(html, /Needs attention: \$\{problems\.join/);
+  // the order of the checks is the order of severity
+  const body = html.slice(html.indexOf('const problems = []'));
+  const order = ['provider(s) disabled', 'route(s) resting', 'route(s) being retried', "today's budget used", 'nothing is verified yet'];
+  let last = -1;
+  for (const phrase of order) {
+    const at = body.indexOf(phrase);
+    assert.ok(at > last, `"${phrase}" is out of severity order`);
+    last = at;
+  }
+});
+
+test('a headline is read, not audited: no five-decimal money at the top', () => {
+  assert.match(html, /const moneyShort = /);
+  // the detail rows keep the full precision
+  assert.match(html, /const money = \(n\) =>/);
+  const glance = html.slice(html.indexOf('function renderGlance'), html.indexOf('function renderKpis'));
+  assert.equal(/\$\{money\(/.test(glance), false, 'the strip must use the short form');
+});
