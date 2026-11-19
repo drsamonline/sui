@@ -21,7 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RunRegistry } from '@drsamonline/guardrails';
 import { createModelPlaneClient, createPlaneGuard, describePlane } from './planes.js';
-import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@drsamonline/core';
+import { autoCombo, checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@drsamonline/core';
 import { SuiError } from '@drsamonline/core';
 import { explainPlan } from '@drsamonline/router';
 import { PRESETS, compress as compressText } from '@drsamonline/compression';
@@ -724,14 +724,32 @@ export function provenance(meta) {
 
 /** @param {any} config @param {boolean} all */
 function modelList(config, all) {
-  const combos = Object.entries(config.combos).map(([id, c]) => ({
+  // `auto` is synthetic, so it is not in config.combos: list it first, because it
+  // is the one a new caller should use.
+  const auto = autoCombo(config);
+  const combos = [
+    ...(auto
+      ? [
+          {
+            id: 'auto',
+            object: 'model',
+            owned_by: 'sui-router',
+            label: auto.label,
+            strategy: 'auto',
+            targets: auto.targets.map((t) => (typeof t === 'string' ? t : t.model)),
+            synthetic: true,
+          },
+        ]
+      : []),
+    ...Object.entries(config.combos).map(([id, c]) => ({
     id,
     object: 'model',
     owned_by: 'sui-router',
-    label: /** @type {any} */ (c).label ?? id,
-    strategy: /** @type {any} */ (c).strategy,
-    targets: /** @type {any} */ (c).targets.map((t) => (typeof t === 'string' ? t : t.model)),
-  }));
+      label: /** @type {any} */ (c).label ?? id,
+      strategy: /** @type {any} */ (c).strategy,
+      targets: /** @type {any} */ (c).targets.map((t) => (typeof t === 'string' ? t : t.model)),
+    })),
+  ];
   if (!all) return combos;
   const models = Object.entries(config.models).map(([id, m]) => ({
     id,

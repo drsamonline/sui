@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.16 — 2026-11-19
+
+### Added
+
+- **`auto`** — a combo you do not have to write. The cheapest combo that clears the floor answers a simple prompt; the highest-quality combo answers a complex one, using the classifier that was already deciding cheap-versus-strong for every request. It is built from combos you already have, listed first in `/v1/models`, and narrated by `sui explain`. A combo you name `auto` yourself replaces it, so nothing is taken away.
+
 ## 0.12.15 — 2026-11-19
 
 ### Added

@@ -482,7 +482,77 @@ export function verifyApiKey(presented, entry) {
  * @param {any} config
  * @param {string} comboName
  */
+/**
+ * `auto` — a combo you do not have to write.
+ *
+ * The classifier already decides cheap-versus-strong for every request. `auto`
+ * exposes that as a name: the cheapest combo that clears the floor answers a
+ * simple prompt, the highest-quality combo answers a complex one, and the choice
+ * is explained like any other.
+ *
+ * It is synthetic, not magic: it is built from combos you already have, it
+ * appears in /v1/models, and `sui explain` narrates it. If you name a combo
+ * `auto` yourself, yours wins.
+ *
+ * @param {any} config
+ * @returns {any|null}
+ */
+export function autoCombo(config) {
+  if (config.combos?.auto) return null; // an explicit one wins
+  const names = Object.keys(config.combos ?? {}).filter((n) => n !== 'auto');
+  if (names.length < 1) return null;
+
+  /** Blended cost and average quality of a combo's first target. */
+  const profile = (name) => {
+    const combo = config.combos[name];
+    const ids = (combo.targets ?? []).map((t) => (typeof t === 'string' ? t : t.model));
+    const models = ids.map((id) => config.models?.[id]).filter(Boolean);
+    if (!models.length) return { name, cost: Number.POSITIVE_INFINITY, quality: 0 };
+    const cost = models.reduce((a, m) => a + (Number(m.costPer1kIn ?? 0) + Number(m.costPer1kOut ?? 0)) / 2, 0) / models.length;
+    const quality = models.reduce((a, m) => a + Number(m.quality ?? 3), 0) / models.length;
+    return { name, cost, quality };
+  };
+
+  const profiles = names.map(profile).filter((p) => Number.isFinite(p.cost));
+  if (!profiles.length) return null;
+
+  const cheap = [...profiles].sort((a, b) => a.cost - b.cost || b.quality - a.quality)[0];
+  const strong = [...profiles].sort((a, b) => b.quality - a.quality || a.cost - b.cost)[0];
+
+  return {
+    name: 'auto',
+    label: `Auto (${cheap.name} → ${strong.name})`,
+    strategy: 'fallback',
+    minQuality: 1,
+    maxCostPer1k: null,
+    synthetic: true,
+    // The cascade the router already understands takes *model ids*, so the combo
+    // names are resolved to their targets here: a simple prompt gets the cheap
+    // combo's models, everything else gets the strong combo's.
+    cascade: {
+      enabled: true,
+      from: cheap.name,
+      to: strong.name,
+      simple: (config.combos[cheap.name].targets ?? []).map((t) => (typeof t === 'string' ? t : t.model)),
+      complex: (config.combos[strong.name].targets ?? []).map((t) => (typeof t === 'string' ? t : t.model)),
+    },
+    targets: [...new Set([...(config.combos[cheap.name].targets ?? []), ...(config.combos[strong.name].targets ?? [])])],
+  };
+}
+
 export function resolveCombo(config, comboName) {
+  if (comboName === 'auto' && !config.combos?.auto) {
+    const synthetic = autoCombo(config);
+    if (synthetic) {
+      return {
+        ...synthetic,
+        targets: synthetic.targets.map((t) => {
+          const id = typeof t === 'string' ? t : t.model;
+          return { modelId: id, model: config.models[id], weight: typeof t === 'string' ? 1 : (t.weight ?? 1), arm: null };
+        }),
+      };
+    }
+  }
   const combo = config.combos[comboName];
   if (!combo && config.models[comboName]) {
     // A bare model id is callable too: it routes to exactly that model.

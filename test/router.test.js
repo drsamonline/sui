@@ -272,3 +272,69 @@ test('an unknown strategy is refused at config time, not silently ignored', asyn
     'a typo in a strategy name must be reported, or the combo quietly falls back to declared order',
   );
 });
+
+/* ------------------------------------------------- auto combo (0.12.16) */
+
+test('auto is built from your own combos, and picks by prompt shape', async () => {
+  const { makeRouter } = await import('./helpers.js');
+  const { testConfig } = await import('./helpers.js');
+
+  const config = testConfig();
+  config.models = {
+    cheap: { provider: 'mock', model: 'cheap', costPer1kIn: 0, costPer1kOut: 0, quality: 2 },
+    strong: { provider: 'mock', model: 'strong', costPer1kIn: 1, costPer1kOut: 2, quality: 5 },
+  };
+  config.combos = {
+    'cheap-combo': { label: 'Cheap', strategy: 'fallback', targets: ['cheap'] },
+    'strong-combo': { label: 'Strong', strategy: 'fallback', targets: ['strong'] },
+  };
+
+  const { router } = makeRouter(config);
+
+  const simple = router.plan('auto', { promptText: 'what is 2+2' });
+  assert.equal(simple.ordered[0].modelId, 'cheap', 'a simple prompt takes the cheapest combo');
+
+  const complex = router.plan('auto', {
+    promptText: 'Design a distributed rate limiter in Rust, explain the tradeoffs of each approach, and write the tests. '.repeat(8),
+  });
+  assert.equal(complex.ordered[0].modelId, 'strong', 'a complex prompt takes the strongest combo');
+});
+
+test('a combo you name auto yourself replaces the synthetic one', async () => {
+  const { resolveCombo } = await import('@drsamonline/core');
+  const { testConfig } = await import('./helpers.js');
+
+  const config = testConfig();
+  config.combos = {
+    ...config.combos,
+    auto: { label: 'Mine', strategy: 'fallback', targets: ['mock-a'] },
+  };
+
+  const resolved = resolveCombo(config, 'auto');
+  assert.equal(resolved.label, 'Mine', 'an explicit combo wins');
+  assert.equal(resolved.synthetic, undefined);
+});
+
+test('auto appears in /v1/models, first, so a new caller finds it', async () => {
+  const { makeGateway, testConfig } = await import('./helpers.js');
+  const http = await import('node:http');
+
+  const gw = await makeGateway(testConfig());
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const body = await new Promise((resolve, reject) => {
+    http
+      .get({ host: '127.0.0.1', port, path: '/v1/models', agent: false }, (res) => {
+        let raw = '';
+        res.on('data', (c) => (raw += c));
+        res.on('end', () => resolve(JSON.parse(raw)));
+      })
+      .on('error', reject);
+  });
+
+  assert.equal(body.data[0].id, 'auto', 'auto is listed first');
+  assert.equal(body.data[0].synthetic, true, 'and it says it is synthetic');
+
+  await gw.close();
+});

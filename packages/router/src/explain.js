@@ -21,6 +21,12 @@ export function explainPlan(plan) {
     if (combo.strategy === 'cheapest') lines.push('Targets are ordered by blended cost, after the quality floor.');
     if (combo.strategy === 'weighted') lines.push('The first target is picked by weight; the rest are fallbacks in weight order.');
     if (combo.strategy === 'latency') lines.push('Targets are ordered by measured p50 from the ledger.');
+    if (combo.synthetic && combo.name === 'auto') {
+      lines.push(
+        `"auto" is built from your own combos: ${combo.cascade?.from ?? 'the cheapest'} for a simple prompt, ${combo.cascade?.to ?? 'the strongest'} for a complex one.`,
+      );
+      lines.push('Nothing is hidden: it appears in /v1/models like any other combo, and a combo you name "auto" yourself replaces it.');
+    }
     if (combo.strategy === 'quota-weighted') {
       lines.push('Targets are ordered by remaining budget headroom divided by turns already answered today, so the target with the most left to give goes first.');
     }

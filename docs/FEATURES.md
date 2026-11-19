@@ -44,6 +44,7 @@ Every item below is built and covered by `npm test` unless it says otherwise. Th
 - **Background workers** — prober and cache sweep run off the request path, with `/api/workers` and a Probes table on the dashboard.
 - **Catalogue + canary prober** — 29 entries, every one an unverified identity until a probe says otherwise (`sui probe --write` promotes what answers); `sui probe` checks liveness, readiness and suitability (streaming, JSON, tools) with versioned synthetic fixtures, disables a route after three failures and re-enables it on recovery.
 - **Onboarding** with tool detection and one-click config; **migration** from 9router / OmniRoute / HubGate with a preview diff and a post-import smoke test.
+- **`auto`** — a combo you do not have to write: the cheapest combo that clears the floor answers a simple prompt, the highest-quality combo answers a complex one, using the classifier that was already there. It is built from your own combos, listed in `/v1/models`, and narrated by `sui explain`.
 - **Eval harness** — 50-prompt golden set, nine deterministic graders, a self-test that proves the graders grade, and a regression gate against `evals/baseline.json`.
 - **Soak harness** — measures the gateway's own overhead (server-side, not client sockets) and gates p95 against the 15ms budget.
 
