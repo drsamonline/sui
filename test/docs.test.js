@@ -542,3 +542,37 @@ test('the comparison page does not overclaim', async () => {
     assert.equal(doc.toLowerCase().includes(word), false, `COMPARISON.md says "${word}"`);
   }
 });
+
+test('the architecture diagram is editable, not just JSON', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { validateScene } = await import('../scripts/diagram.mjs');
+
+  const scene = JSON.parse(readFileSync(join(process.cwd(), 'docs', 'diagrams', 'sui-architecture.excalidraw'), 'utf8'));
+  assert.equal(scene.type, 'excalidraw');
+  assert.equal(scene.version, 2);
+
+  // unique ids, every arrow bound at both ends, every label at fontFamily 5, and
+  // no two boxes on top of each other — a diagram that fails these is a picture
+  // that happens to be JSON
+  assert.deepEqual(validateScene(scene), []);
+
+  // and it stays in step with the code: the two claims the annotations make
+  assert.ok(scene.elements.some((e) => e.type === 'text' && e.text.includes('the prober feeds the catalogue')));
+  assert.ok(scene.elements.some((e) => e.type === 'text' && e.text.includes('the gate is a branch')));
+});
+
+test('the diagram generator still produces a valid scene', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { readFileSync, mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { validateScene } = await import('../scripts/diagram.mjs');
+
+  const out = join(mkdtempSync(join(tmpdir(), 'sui-diagram-')), 'scene.excalidraw');
+  execFileSync(process.execPath, ['scripts/diagram.mjs', out], { cwd: process.cwd(), timeout: 60_000 });
+
+  const scene = JSON.parse(readFileSync(out, 'utf8'));
+  assert.deepEqual(validateScene(scene), [], 'a regenerated scene must be as valid as the committed one');
+  assert.ok(scene.elements.length > 30);
+});
