@@ -92,3 +92,116 @@ export function checkKeyBudget(input) {
   }
   return { ok: true, spentUsd, capUsd: Number(cap), message: null };
 }
+
+/**
+ * Adaptive admission.
+ *
+ * A gateway that answers 503 the moment it is busy turns a two-second queue into
+ * a failed request and a retry storm. This holds the request instead: up to
+ * `maxConcurrent` are served at once, up to `queueMax` wait for a slot, and a
+ * request that would wait longer than `maxWaitMs` is refused with the number of
+ * seconds to come back in.
+ *
+ * The alternative — an unbounded queue — trades a visible failure for an invisible
+ * one: every caller times out at once, and the gateway looks slow rather than
+ * busy.
+ */
+export class Admission {
+  /**
+   * @param {{maxConcurrent?: number, queueMax?: number, maxWaitMs?: number, now?: () => number}} [opts]
+   */
+  constructor(opts = {}) {
+    this.maxConcurrent = Math.max(1, Number(opts.maxConcurrent ?? 64));
+    this.queueMax = Math.max(0, Number(opts.queueMax ?? 256));
+    this.maxWaitMs = Math.max(0, Number(opts.maxWaitMs ?? 5000));
+    this.now = opts.now ?? Date.now;
+
+    this.active = 0;
+    /** @type {Array<{resolve: () => void, reject: (e: any) => void, timer: any, enqueuedAt: number}>} */
+    this.queue = [];
+    this.stats = { served: 0, queued: 0, rejected: 0, longestWaitMs: 0 };
+  }
+
+  /**
+   * Wait for a slot. Resolves with a release function, or rejects with a refusal
+   * that carries the wait it would have needed.
+   *
+   * @returns {Promise<() => void>}
+   */
+  async acquire() {
+    if (this.active < this.maxConcurrent) {
+      this.active += 1;
+      this.stats.served += 1;
+      return this.#releaseOnce();
+    }
+
+    if (this.queue.length >= this.queueMax) {
+      this.stats.rejected += 1;
+      const err = new Error(
+        `This gateway is at capacity: ${this.active} requests in flight and ${this.queue.length} waiting. Try again in ${Math.max(1, Math.ceil(this.maxWaitMs / 1000))}s.`,
+      );
+      err.code = 'overloaded';
+      err.status = 503;
+      err.retryAfterMs = this.maxWaitMs;
+      throw err;
+    }
+
+    this.stats.queued += 1;
+    const enqueuedAt = this.now();
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const index = this.queue.findIndex((q) => q.timer === timer);
+        if (index >= 0) this.queue.splice(index, 1);
+        this.stats.rejected += 1;
+        const waited = this.now() - enqueuedAt;
+        const err = new Error(
+          `This gateway is at capacity: waited ${Math.round(waited / 100) / 10}s for a slot. Try again in a moment.`,
+        );
+        err.code = 'overloaded';
+        err.status = 503;
+        err.retryAfterMs = Math.max(1000, this.maxWaitMs - waited);
+        reject(err);
+      }, this.maxWaitMs);
+      // Deliberately NOT unref'd. An unref'd timer lets the event loop exit while
+      // a request is still queued, so the waiter neither resolves nor rejects —
+      // a hang instead of a timeout. A queued request holds the loop for at most
+      // maxWaitMs, which is the point.
+      this.queue.push({ resolve, reject, timer, enqueuedAt });
+    }).then((release) => release);
+  }
+
+  #releaseOnce() {
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.#drain();
+    };
+  }
+
+  #drain() {
+    const next = this.queue.shift();
+    if (next) {
+      clearTimeout(next.timer);
+      const waited = this.now() - next.enqueuedAt;
+      this.stats.longestWaitMs = Math.max(this.stats.longestWaitMs, waited);
+      this.stats.served += 1;
+      // the slot passes straight to the waiter; active stays the same
+      next.resolve(this.#releaseOnce());
+      return;
+    }
+    this.active = Math.max(0, this.active - 1);
+  }
+
+  snapshot() {
+    return {
+      maxConcurrent: this.maxConcurrent,
+      queueMax: this.queueMax,
+      maxWaitMs: this.maxWaitMs,
+      active: this.active,
+      waiting: this.queue.length,
+      ...this.stats,
+    };
+  }
+}

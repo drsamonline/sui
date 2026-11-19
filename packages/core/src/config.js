@@ -78,6 +78,13 @@ export function normalizeConfig(raw, opts = {}) {
       // let such a page read the answers and spend the quota. An explicit list
       // (or ['*']) is opt-in, and the config says so out loud.
       corsOrigins: Array.isArray(raw.server?.corsOrigins) ? raw.server.corsOrigins : [],
+      // Adaptive admission: hold a request for a slot rather than answering 503
+      // the moment the gateway is busy.
+      admission: {
+        maxConcurrent: Number(raw.server?.admission?.maxConcurrent ?? 64),
+        queueMax: Number(raw.server?.admission?.queueMax ?? 256),
+        maxWaitMs: Number(raw.server?.admission?.maxWaitMs ?? 5000),
+      },
       cache: {
         enabled: raw.server?.cache?.enabled ?? true,
         ttlMs: Number(raw.server?.cache?.ttlMs ?? 900000),

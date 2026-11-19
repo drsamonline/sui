@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import { makeGateway, testConfig, makeRouter, ask } from './helpers.js';
 import { RateLimiter, checkKeyBudget, keySpendToday } from '@drsamonline/gateway/src/limits.js';
 import { detectPrefix, cacheHints, PrefixMemory, preparePromptCache } from '@drsamonline/promptcache';
@@ -270,3 +270,115 @@ test('the ledger file is rotated rather than growing forever', async () => {
   assert.ok(statSync(file).size < 4096, `the live file stayed small (${statSync(file).size} bytes)`);
   assert.equal(ledger.todaySpendUsd(), 0.2, 'and rotation did not lose the day total');
 });
+
+/* ---------------------------------------------- adaptive admission (0.12.11) */
+
+test('admission holds a request for a slot instead of answering 503', async () => {
+  const { Admission } = await import('../apps/gateway/src/limits.js');
+  const a = new Admission({ maxConcurrent: 1, queueMax: 4, maxWaitMs: 1000 });
+
+  const first = await a.acquire();
+  const second = a.acquire(); // waits, does not fail
+
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(a.snapshot().active, 1);
+  assert.equal(a.snapshot().waiting, 1, 'the second request is queued, not refused');
+
+  first();
+  const release = await second;
+  assert.equal(a.snapshot().active, 1, 'the slot passed straight to the waiter');
+  release();
+  assert.equal(a.snapshot().active, 0);
+});
+
+test('admission refuses with a wait only when the queue itself is full', async () => {
+  const { Admission } = await import('../apps/gateway/src/limits.js');
+  const a = new Admission({ maxConcurrent: 1, queueMax: 1, maxWaitMs: 5000 });
+
+  const held = await a.acquire();
+  const waiting = a.acquire();
+
+  await assert.rejects(a.acquire(), (err) => {
+    assert.equal(err.code, 'overloaded');
+    assert.equal(err.status, 503);
+    assert.ok(err.retryAfterMs > 0, 'a refusal must say when to come back');
+    assert.match(err.message, /at capacity/);
+    return true;
+  });
+
+  held();
+  (await waiting)();
+});
+
+test('a request that waits too long is refused, and the slot is not leaked', async () => {
+  const { Admission } = await import('../apps/gateway/src/limits.js');
+  const a = new Admission({ maxConcurrent: 1, queueMax: 4, maxWaitMs: 40 });
+
+  const held = await a.acquire();
+  await assert.rejects(a.acquire(), (err) => {
+    assert.equal(err.code, 'overloaded');
+    assert.match(err.message, /waited/);
+    return true;
+  });
+
+  held();
+  assert.equal(a.snapshot().active, 0);
+  assert.equal(a.snapshot().waiting, 0, 'a timed-out waiter leaves the queue');
+
+  // and the gateway still serves afterwards
+  const after = await a.acquire();
+  after();
+});
+
+test('the gateway refuses at capacity with Retry-After, and keeps serving after', async () => {
+  const { makeGateway, testConfig } = await import('./helpers.js');
+  const config = testConfig();
+  config.server = { ...config.server, admission: { maxConcurrent: 1, queueMax: 1, maxWaitMs: 60 } };
+  // the slot has to stay occupied long enough to observe a queue: an instant
+  // provider makes the whole test a race
+  config.providers.mock.mock.delayMs = 250;
+
+  const gw = await makeGateway(config);
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  // one long request occupies the only slot
+  const slow = postChat(port, 'x'.repeat(50));
+  await new Promise((r) => setTimeout(r, 20));
+
+  const queued = postChat(port, 'y');
+  const refused = await postChat(port, 'z');
+  assert.equal(refused.status, 503);
+  assert.ok(refused.headers['retry-after'], 'a refusal carries Retry-After');
+  assert.match(refused.body.error.type, /overloaded/);
+
+  await slow;
+  await queued;
+
+  const after = await postChat(port, 'w');
+  assert.equal(after.status, 200, 'the gateway is not wedged after a refusal');
+
+  await gw.close();
+});
+
+function postChat(port, content) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({ model: 'chain', messages: [{ role: 'user', content }] });
+    const req = httpRequest(
+      { host: '127.0.0.1', port, path: '/v1/chat/completions', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) }, agent: false },
+      (res) => {
+        let raw = '';
+        res.on('data', (c) => (raw += c));
+        res.on('end', () => {
+          let body = raw;
+          try {
+            body = JSON.parse(raw);
+          } catch {}
+          resolve({ status: res.statusCode, headers: res.headers, body });
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end(payload);
+  });
+}

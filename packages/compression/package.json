@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/compression",
-  "version": "0.12.10",
+  "version": "0.12.11",
   "description": "Prompt compression engines, presets and the quota-aware budget manager.",
   "type": "module",
   "license": "MIT",

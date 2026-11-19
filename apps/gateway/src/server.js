@@ -25,7 +25,7 @@ import { checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPriva
 import { SuiError } from '@drsamonline/core';
 import { explainPlan } from '@drsamonline/router';
 import { PRESETS, compress as compressText } from '@drsamonline/compression';
-import { RateLimiter, checkKeyBudget } from './limits.js';
+import { Admission, RateLimiter, checkKeyBudget } from './limits.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DASHBOARD = join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html');
@@ -73,6 +73,16 @@ export function createSuiServer(deps) {
   // declared here so the plane-error block above can annotate it
   const logger = deps.logger ?? { info() {}, warn() {}, debug() {} };
   const limiter = deps.limiter ?? new RateLimiter();
+  // Adaptive admission: hold a request for a slot instead of answering 503 the
+  // moment the gateway is busy, and refuse with a wait only when the queue itself
+  // is full.
+  const admission =
+    deps.admission ??
+    new Admission({
+      maxConcurrent: Number(config.server?.admission?.maxConcurrent ?? 64),
+      queueMax: Number(config.server?.admission?.queueMax ?? 256),
+      maxWaitMs: Number(config.server?.admission?.maxWaitMs ?? 5000),
+    });
   let configRef = config;
 
   const server = createServer(async (req, res) => {
@@ -406,10 +416,16 @@ export function createSuiServer(deps) {
         } catch {}
         return;
       }
-      const status = e instanceof SuiError ? e.status : 500;
-      const payload = e instanceof SuiError ? e.toJSON() : {
-        error: { message: 'Something went wrong inside the gateway. The details are in the server log.', type: 'internal_error' },
-      };
+      // an admission refusal carries the wait it would have needed, so a client
+      // can back off instead of hammering
+      if (e?.retryAfterMs) res.setHeader('retry-after', String(Math.max(1, Math.ceil(e.retryAfterMs / 1000))));
+      const status = e instanceof SuiError ? e.status : e?.status ?? 500;
+      const payload =
+        e instanceof SuiError
+          ? e.toJSON()
+          : e?.code === 'overloaded'
+            ? { error: { message: e.message, type: 'overloaded' } }
+            : { error: { message: 'Something went wrong inside the gateway. The details are in the server log.', type: 'internal_error' } };
       logger.warn(`request failed: ${e?.message}`);
       return sendJson(res, status, payload);
     }
@@ -437,6 +453,18 @@ export function createSuiServer(deps) {
         throw new SuiError(budget.message, { code: 'key_budget_reached', status: 429, retryable: false, detail: `key: ${keyId}` });
       }
     }
+
+    // Held until a slot frees, or refused with a wait. Released in a finally so a
+    // thrown provider error cannot leak a slot and slowly strangle the gateway.
+    const release = await admission.acquire();
+    let released = false;
+    const free = () => {
+      if (!released) {
+        released = true;
+        release();
+      }
+    };
+    res.on('close', free);
 
     // A key can be pinned to one model or combo. `forcedModel` is the whole point
     // of a per-tenant key for a shared deployment: the caller does not choose, the

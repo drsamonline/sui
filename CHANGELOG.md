@@ -2,6 +2,16 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.11 — 2026-11-19
+
+### Added
+
+- **Adaptive admission.** A request that arrives when every slot is busy now waits for one instead of failing: `server.admission` sets `maxConcurrent` (64), `queueMax` (256) and `maxWaitMs` (5000). Only when the queue itself is full, or the wait expires, does the caller get a 503 — with `Retry-After` and a sentence naming the wait it would have needed. The slot is released on `res.close`, so a thrown provider error cannot leak one and slowly strangle the gateway.
+
+### Fixed
+
+- **A queued request could hang instead of timing out.** The waiter's timer was `unref`'d, so the event loop was free to exit while a request was still queued: it neither resolved nor rejected. Removed; a queued request holds the loop for at most `maxWaitMs`, which is the point.
+
 ## 0.12.10 — 2026-11-19
 
 Two of the features queued after the OmniRoute review, both built on data this gateway already measures.

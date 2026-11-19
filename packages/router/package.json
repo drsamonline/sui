@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/router",
-  "version": "0.12.10",
+  "version": "0.12.11",
   "description": "Routing decisions, strategies, circuit breaker.",
   "type": "module",
   "license": "MIT",
