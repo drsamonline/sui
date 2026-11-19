@@ -17,7 +17,7 @@ import { stdin, stdout } from 'node:process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGateway, loadEnvFile } from '@drsamonline/gateway';
-import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, runAs, sanitizeConfig, suiHome, INVARIANTS } from '@drsamonline/core';
+import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, runAs, sanitizeConfig, suiHome, t, availableLocales, INVARIANTS } from '@drsamonline/core';
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
@@ -71,6 +71,21 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdUp(flags);
     case 'keys':
       return cmdKeys(flags, args);
+    case 'lang':
+    case 'languages': {
+      const rows = availableLocales().map((l) => [l.code, l.name, l.dir]);
+      if (flags.json) {
+        console.log(JSON.stringify(availableLocales(), null, 2));
+        return;
+      }
+      console.log('');
+      console.log(table(['code', 'language', 'direction'], rows));
+      console.log('');
+      console.log('  Set one with SUI_LANG=hi (or "locale": "hi" in the config).');
+      console.log('  Anything not listed falls back to English rather than failing.');
+      console.log('');
+      return;
+    }
     case 'free-budget':
       return cmdFreeBudget(flags);
     case 'catalog':
@@ -601,7 +616,7 @@ function createGatewayConfig(path) {
 
 function help() {
   console.log(`
-sui ${VERSION} — one endpoint for every LLM
+sui ${VERSION} — ${t('app.tagline')}
 
   ${RUN_AS}                first run: find keys, find tools, prove the route, start
   ${RUN_AS} init           the same, explicitly      --demo  --force  --port 8787
@@ -617,6 +632,8 @@ sui ${VERSION} — one endpoint for every LLM
   ${RUN_AS} migrate <file>  import from 9router / OmniRoute / HubGate   --apply  --only a,b
   ${RUN_AS} catalog [q]    the provider catalogue, and what is still unverified
   ${RUN_AS} free-budget    verified free headroom per month, and what is only a claim
+  ${RUN_AS} lang            the languages this build speaks   (SUI_LANG=hi, gu, mr, ta, te)
+                          (alias: languages)
   ${RUN_AS} probe [name]   liveness, readiness and suitability checks (B2.3)
   ${RUN_AS} compress <file|-> [--preset lite|standard|aggressive|ultra] [--text "…"]
   ${RUN_AS} budget         which preset the remaining quota would choose

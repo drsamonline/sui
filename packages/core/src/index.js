@@ -8,4 +8,5 @@ export * from './errors.js';
 export * from './config.js';
 export * from './invariants.js';
 export * from './tenants.js';
+export * from './i18n.js';
 export * from './recipes.js';

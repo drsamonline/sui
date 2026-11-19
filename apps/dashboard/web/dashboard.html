@@ -524,6 +524,20 @@ function toast(message) {
   toast._t = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+/**
+ * Dashboard labels, in the language the gateway is configured for.
+ *
+ * The table arrives from /api/status rather than being imported: the page has no
+ * build step, and a missing key falls back to English instead of printing the key
+ * name in the middle of a sentence.
+ */
+let LOCALE = { code: 'en', dir: 'ltr' };
+let STRINGS = {};
+function T(key, vars = {}) {
+  const raw = STRINGS[key] ?? key;
+  return String(raw).replace(/\{(\w+)\}/g, (_, name) => String(vars[name] ?? `{${name}}`));
+}
+
 const money = (n) => (n == null ? '—' : `$${Number(n).toFixed(n < 0.01 ? 5 : 3)}`);
 // A headline is read, not audited: $0.00000 is precision nobody asked for at the
 // top of the page. The detail rows keep the full form.
@@ -563,6 +577,12 @@ function render() {
     `${unconfigured.length} model${unconfigured.length === 1 ? '' : 's'} without a key` +
     (warnings.length ? ` · ${warnings.length} invariant warning${warnings.length === 1 ? '' : 's'} (${warnings.map((w) => w.id).join(', ')})` : '');
 
+  if (state.locale) {
+    LOCALE = state.locale;
+    STRINGS = state.locale.strings ?? {};
+    document.documentElement.lang = LOCALE.code;
+    document.documentElement.dir = LOCALE.dir;
+  }
   renderGlance(state);
   renderBudget(budget);
   renderKpis(metrics.totals, cache);
@@ -624,25 +644,25 @@ function renderGlance(payload) {
 
   const cells = [
     {
-      k: 'turns today',
+      k: T('glance.turns'),
       v: num(totals.turns ?? 0),
       f: `${totals.failed ?? 0} failed · ${totals.attempts ?? 0} attempts`,
       state: (totals.failed ?? 0) > 0 ? 'warn' : 'ok',
     },
     {
-      k: 'spent today',
+      k: T('glance.spent'),
       v: moneyShort(budget.spentUsd ?? totals.costUsd ?? 0),
       f: budget.dailyUsd ? `of ${moneyShort(budget.dailyUsd)} · ${spentPct}%` : 'no daily cap',
       state: spentPct == null ? 'ok' : spentPct >= 100 ? 'bad' : spentPct >= 80 ? 'warn' : 'ok',
     },
     {
-      k: 'verified routes',
+      k: T('glance.verified'),
       v: `${verified}/${pool.length}`,
       f: verified ? 'answered a probe' : 'none yet — run probe --write',
       state: verified ? 'ok' : 'warn',
     },
     {
-      k: 'p95 latency',
+      k: T('glance.p95'),
       v: ms(totals.p95LatencyMs ?? 0),
       f: `cache hit ${Math.round((cache.hitRate ?? 0) * 100)}%`,
       state: 'ok',
@@ -666,14 +686,14 @@ function renderGlance(payload) {
   if (openBreakers.length) problems.push(`${openBreakers.length} route(s) resting after failures`);
   if (halfOpen.length) problems.push(`${halfOpen.length} route(s) being retried`);
   if (spentPct != null && spentPct >= 80) problems.push(`${spentPct}% of today's budget used`);
-  if (!verified) problems.push('nothing is verified yet');
+  if (!verified) problems.push(T('glance.nothing_verified'));
 
   if (problems.length) {
     state.dataset.state = openBreakers.length || disabled.length ? 'bad' : 'warn';
-    state.textContent = `Needs attention: ${problems.join(' · ')}.`;
+    state.textContent = `${T('glance.attention')}: ${problems.join(' · ')}.`;
   } else {
     state.dataset.state = 'ok';
-    state.textContent = `Everything is answering. ${pool.length} route(s) in the pool, ${num(totals.turns ?? 0)} turn(s) today.`;
+    state.textContent = `${T('glance.ok')} ${pool.length} route(s) in the pool, ${num(totals.turns ?? 0)} turn(s) today.`;
   }
 }
 

@@ -21,7 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RunRegistry } from '@drsamonline/guardrails';
 import { createModelPlaneClient, createPlaneGuard, describePlane } from './planes.js';
-import { autoCombo, checkToggle, sanitizeConfig, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@drsamonline/core';
+import { autoCombo, checkToggle, direction, normaliseLocale, sanitizeConfig, STRINGS, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@drsamonline/core';
 import { SuiError } from '@drsamonline/core';
 import { explainPlan } from '@drsamonline/router';
 import { PRESETS, compress as compressText } from '@drsamonline/compression';
@@ -157,7 +157,16 @@ export function createSuiServer(deps) {
 
       // ---- dashboard API --------------------------------------------------
       if (req.method === 'GET' && path === '/api/status') {
-        return sendJson(res, 200, statusPayload(configRef, ledger, breaker, cache, router, workers, planesInfo));
+        return sendJson(res, 200, {
+          ...statusPayload(configRef, ledger, breaker, cache, router, workers, planesInfo),
+          // the dashboard has no build step, so the strings it needs travel with
+          // the data it already fetches
+          locale: {
+            code: normaliseLocale(configRef.locale ?? process.env.SUI_LANG ?? 'en'),
+            dir: direction(configRef.locale ?? process.env.SUI_LANG ?? 'en'),
+            strings: STRINGS[normaliseLocale(configRef.locale ?? process.env.SUI_LANG ?? 'en')] ?? STRINGS.en,
+          },
+        });
       }
       // B5.5: bounded runs. A caller that names a run gets its calls counted,
       // costed and gated; a caller that does not is unbounded, exactly as before.

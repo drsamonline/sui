@@ -77,7 +77,7 @@ const record = (check, problems, okDetail) => {
   const commands = [...cli.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]);
   const help = cli.slice(cli.indexOf('function help()'));
   const problems = [];
-  const aliases = new Set(['help', 'version', 'serve', 'up', 'usage', '--help', '-h', '--version', '-v']);
+  const aliases = new Set(['help', 'version', 'serve', 'up', 'usage', '--help', '-h', '--version', '-v', 'languages']);
   for (const cmd of new Set(commands)) {
     if (aliases.has(cmd)) continue;
     // the command prefix is interpolated (RUN_AS): a checkout prints ./sui, an

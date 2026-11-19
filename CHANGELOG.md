@@ -2,6 +2,20 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.18 — 2026-11-19
+
+### Added
+
+- **Hindi, Gujarati, Marathi, Tamil and Telugu** for the strings a person actually meets: the CLI tagline and help header, the first-run messages, the errors a beginner hits, and the dashboard's four headline labels plus its attention sentence. `SUI_LANG=hi` or `"locale": "hi"`; `sui lang` lists what the build ships.
+- Anything unlisted falls back to English rather than failing — a typo in a language code must not stop a gateway from starting.
+- `direction()` is independent of the string table: Urdu reads right-to-left even on a build that has no Urdu strings, so a browser is never told the page is LTR when it is not.
+
+### Deliberate limits, documented and tested
+
+- The numeric foot lines and the detail tables stay English: they are numbers and identifiers (`x-sui-cost-usd`, `fallback`, `demo-b`), and a translated identifier is harder to read than an English one.
+- `docs/LANGUAGES.md` states that boundary, and a test fails if the page stops stating it.
+- Every language translates exactly the same key set with the same placeholders; a test fails if either drifts.
+
 ## 0.12.17 — 2026-11-19
 
 ### Fixed

@@ -253,16 +253,21 @@ test('the four headline numbers are above every detail card', () => {
   assert.ok(glanceAt > 0, 'there is an at-a-glance strip');
   assert.ok(firstCardAt > glanceAt, 'it comes before the first detail card');
 
-  for (const label of ['turns today', 'spent today', 'verified routes', 'p95 latency']) {
-    assert.ok(html.includes(label), `the strip must answer "${label}"`);
+  // the labels come from the i18n table, so the test asserts the keys rather than
+  // the English words: a literal here would pass while the page stopped being
+  // translatable
+  for (const key of ['glance.turns', 'glance.spent', 'glance.verified', 'glance.p95']) {
+    assert.ok(html.includes(`T('${key}')`), `the strip must answer "${key}"`);
   }
 });
 
 test('the glance strip leads with the worst thing, not the total', () => {
-  assert.match(html, /Needs attention: \$\{problems\.join/);
+  // the sentence is built from a translated label and a list of problems
+  assert.match(html, /T\('glance\.attention'\)/);
+  assert.match(html, /problems\.join/);
   // the order of the checks is the order of severity
   const body = html.slice(html.indexOf('const problems = []'));
-  const order = ['provider(s) disabled', 'route(s) resting', 'route(s) being retried', "today's budget used", 'nothing is verified yet'];
+  const order = ['provider(s) disabled', 'route(s) resting', 'route(s) being retried', "today's budget used", "T('glance.nothing_verified')"];
   let last = -1;
   for (const phrase of order) {
     const at = body.indexOf(phrase);

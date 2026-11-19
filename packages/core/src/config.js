@@ -186,6 +186,8 @@ export function normalizeConfig(raw, opts = {}) {
     // unknown keys, so a flag missing from here silently does nothing — which is
     // exactly what happened on the first attempt.
     headless: raw.headless === true,
+    // which language the CLI and dashboard speak; anything unknown means English
+    locale: String(raw.locale ?? raw.language ?? 'en'),
     // I4: the paid air-gap. Closed by default; a paid provider's credentials are
     // never read while it is closed, whatever is in the environment.
     paidTiers: {
