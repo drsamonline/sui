@@ -504,7 +504,7 @@ export function createSuiServer(deps) {
     const requested = body.model ?? Object.keys(configRef.combos)[0];
     if (!configRef.combos[requested] && !configRef.models[requested]) {
       throw new SuiError(
-        `"${requested}" is not a combo or model this gateway knows. Call GET /v1/models for the list.`,
+        `"${requested}" is not a combo or model this gateway knows. Available: ${[...Object.keys(configRef.combos), ...Object.keys(configRef.models)].join(', ')}. Call GET /v1/models for the list.`,
         { code: 'unknown_model', status: 404 },
       );
     }
@@ -930,11 +930,17 @@ function readDashboard() {
 function readJson(req) {
   return new Promise((resolve, reject) => {
     let raw = '';
+    let tooLarge = false;
     req.on('data', (c) => {
+      if (tooLarge) return;
       raw += c;
       if (raw.length > 20_000_000) {
+        tooLarge = true;
+        // Pause rather than destroy: destroying the socket here means the caller
+        // sees ECONNRESET and never reads the 413 explaining why. The response is
+        // sent first, and the socket closes with it.
+        req.pause();
         reject(new SuiError('Request body is larger than 20 MB.', { code: 'payload_too_large', status: 413 }));
-        req.destroy();
       }
     });
     req.on('end', () => {

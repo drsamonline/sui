@@ -134,6 +134,49 @@ await check('the dashboard is the real page, not a placeholder', async () => {
   }
 });
 
+await check('streams a response, the way a coding tool asks for one', async () => {
+  const { spawn } = await import('node:child_process');
+  const home = join(dir, '.sui-home');
+  const child = spawn(bin, ['start', '--port', '0'], {
+    cwd: dir,
+    env: { ...process.env, SUI_HOME: home },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  const port = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('the server did not announce a port in 20s')), 20_000);
+    child.stdout.on('data', (chunk) => {
+      const match = /127\.0\.0\.1:(\d+)/.exec(String(chunk));
+      if (match) {
+        clearTimeout(timer);
+        resolve(Number(match[1]));
+      }
+    });
+    child.on('error', reject);
+  });
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'chat-default', stream: true, messages: [{ role: 'user', content: 'say hi' }] }),
+    });
+    if (!res.ok) throw new Error(`stream answered ${res.status}`);
+    if (!/text\/event-stream/.test(res.headers.get('content-type') ?? '')) {
+      throw new Error(`content-type was ${res.headers.get('content-type')}`);
+    }
+
+    const text = await res.text();
+    if (!/^data: /m.test(text)) throw new Error('no data: frames');
+    if (!/data: \[DONE\]/.test(text)) throw new Error('no [DONE] terminator');
+
+    const frames = text.split('\n').filter((l) => l.startsWith('data: ') && !l.includes('[DONE]')).length;
+    return `${frames} frames + [DONE]`;
+  } finally {
+    child.kill('SIGTERM');
+  }
+});
+
 await check('every package is on the registry at this version', () => {
   const names = [];
   for (const dirName of ['packages', 'apps']) {

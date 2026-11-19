@@ -2,6 +2,18 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.22 — 2026-11-19
+
+### Fixed
+
+- **A body over 20 MB reset the connection instead of answering.** The caller saw `ECONNRESET` and never read the 413 that said why. The request is paused now, the response is sent, and the socket closes with it.
+- **"not a combo or model this gateway knows" did not say what it does know.** The 404 now lists the combos and models that exist, because a dead end with no map is not an error message.
+
+### Added
+
+- **A malformed-input suite** (`test/robustness.test.js`): truncated JSON, an empty body, an unknown model, an oversized body, a prompt in three scripts and an emoji, a caller-supplied header full of markup, twenty concurrent requests, an unserved method, an unknown path, and a forged Host. The contract for all of them is the same — an answer, never a crash, never a stack trace, never a hang.
+- **Streaming is verified from the published tarball**: `verify-published.mjs` asks for `stream: true` the way a coding tool does and asserts `text/event-stream`, `data:` frames and the `[DONE]` terminator. It is the feature every client depends on and it had never been checked outside the repository.
+
 ## 0.12.21 — 2026-11-19
 
 ### Fixed
