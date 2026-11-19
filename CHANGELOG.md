@@ -2,6 +2,21 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.20 — 2026-11-19
+
+### Added
+
+- **Twelve more catalogue endpoints**, every one with its source recorded: Z.ai (GLM Flash, listed free permanently), IBM watsonx Lite (300k tokens/month), Baseten, Nebius Token Factory, Novita, AI21, Alibaba Model Studio (intl), Vercel AI Gateway, Jina, Arli AI, Clarifai, Typhoon. 29 → 41.
+- A new ledger entry for the source — a site read on a date rather than a repository, so the date is the pin and the licence line says only facts were taken.
+
+### Changed
+
+- The source ledger now accepts a dated source. A repository is pinned by a commit; a page read on a date has no commit, and pretending otherwise would mean either dropping the source or inventing a pin.
+
+### Honest about what this is
+
+All 41 entries remain `needs_probe`. A base URL from a third party is a candidate, not a route — `sui probe --write` is still what turns one into the other, and `sui free-budget` still reports **0 verified** until it does.
+
 ## 0.12.19 — 2026-11-19
 
 ### Fixed

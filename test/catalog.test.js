@@ -146,10 +146,15 @@ test('every source records its licence and a pinned commit', async () => {
   const { join } = await import('node:path');
   const ledger = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'catalog', 'sources.json'), 'utf8'));
 
-  assert.ok(ledger.sources.length >= 7, `expected the seven sources, found ${ledger.sources.length}`);
+  assert.ok(ledger.sources.length >= 8, `expected at least eight sources, found ${ledger.sources.length}`);
   for (const source of ledger.sources) {
-    assert.match(source.url, /^https:\/\/github\.com\//, `${source.id} needs a github url`);
-    assert.match(source.commit, /^[0-9a-f]{7}$/, `${source.id} needs a pinned commit, not a branch`);
+    // a repository is pinned by a commit; anything else — a site read on a date —
+    // is pinned by that date, which is the only thing it has
+    if (/^https:\/\/github\.com\//.test(source.url)) {
+      assert.match(source.commit, /^[0-9a-f]{7}$/, `${source.id} needs a pinned commit, not a branch`);
+    } else {
+      assert.match(source.read ?? '', /^\d{4}-\d{2}-\d{2}$/, `${source.id} is not a repository, so it needs the date it was read`);
+    }
     assert.ok(source.licence, `${source.id} must say what its licence is`);
     assert.ok(source.taken, `${source.id} must say what was taken`);
     assert.ok(source.notTaken, `${source.id} must say what was not taken`);

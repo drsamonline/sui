@@ -92,7 +92,7 @@ MCP: [`docs/MCP.md`](docs/MCP.md) · two-plane split: [`docs/PLANES.md`](docs/PL
 
 Everything in the specification is built. What is left needs a networked machine, a provider key, or a decision — listed in [`ROADMAP.md`](ROADMAP.md) and stated plainly rather than hidden:
 
-- the 29 catalogue endpoints are seeded but **unverified** until you run `sui probe --write` on a machine with internet
+- the 41 catalogue endpoints are seeded but **unverified** until you run `sui probe --write` on a machine with internet
 - no eval baseline is recorded, because that needs one working provider key
 - the 72-hour soak has not been run
 - nothing is published to npm

@@ -3,6 +3,23 @@
   "version": 1,
   "entries": [
     {
+      "provider": "ai21",
+      "label": "AI21 Labs",
+      "auth": "key",
+      "key_env": "AI21_API_KEY",
+      "base_url": "https://api.ai21.com/studio/v1",
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). $10 trial credit valid three months.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
+    },
+    {
       "provider": "airforce",
       "label": "API.airforce",
       "auth": "key",
@@ -17,6 +34,24 @@
       ],
       "needs_probe": true,
       "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway."
+    },
+    {
+      "provider": "alibaba-dashscope",
+      "label": "Alibaba Model Studio (intl)",
+      "auth": "key",
+      "key_env": "DASHSCOPE_API_KEY",
+      "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). Typically 1,000,000 tokens per model for new users on the Singapore deployment.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
     },
     {
       "provider": "anthropic",
@@ -38,6 +73,23 @@
       "notes": "Endpoint documented by the provider itself; not imported from a third party."
     },
     {
+      "provider": "arliai",
+      "label": "Arli AI",
+      "auth": "key",
+      "key_env": "ARLIAI_API_KEY",
+      "base_url": "https://api.arliai.com/v1",
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). Free plan is heavily rate-limited for testing: five requests every two days per model.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
+    },
+    {
       "provider": "bai",
       "label": "B.ai",
       "auth": "none",
@@ -51,6 +103,23 @@
       ],
       "needs_probe": true,
       "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. Upstream uses a \"bai\" credential for this provider, which is not a plain API key. The upstream project excludes this provider from its own routing."
+    },
+    {
+      "provider": "baseten",
+      "label": "Baseten",
+      "auth": "key",
+      "key_env": "BASETEN_API_KEY",
+      "base_url": "https://inference.baseten.co/v1",
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). New accounts receive free credits; the amount is not published.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
     },
     {
       "provider": "bazaarlink",
@@ -99,6 +168,23 @@
       ],
       "needs_probe": true,
       "notes": "Endpoint recorded by 9router-auto-free@ae6c91d. Unverified by this gateway."
+    },
+    {
+      "provider": "clarifai",
+      "label": "Clarifai",
+      "auth": "key",
+      "key_env": "CLARIFAI_PAT",
+      "base_url": "https://api.clarifai.com/v2/ext/openai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). One-time $5 credit after phone verification. The service could not be re-verified on 2026-11-13 — probe before trusting it.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
     },
     {
       "provider": "deepinfra",
@@ -188,6 +274,23 @@
       "budget_source": "OmniRoute catalogue v3.8.55 (MIT), re-audited by that project every two weeks"
     },
     {
+      "provider": "jina",
+      "label": "Jina AI",
+      "auth": "key",
+      "key_env": "JINA_API_KEY",
+      "base_url": "https://api.jina.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "none",
+      "capabilities": [
+        "embedding"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). 10M free tokens, one-time, across embeddings and rerankers. The keyless Reader at r.jina.ai is ongoing.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
+    },
+    {
       "provider": "kilo-gateway",
       "label": "Kilo Gateway",
       "auth": "none",
@@ -269,6 +372,42 @@
       "notes": "Imported from 9router-auto-free@ae6c91d (MIT). Endpoint unverified by this gateway. The upstream project excludes this provider from its own routing.",
       "monthly_tokens": 1000000000,
       "budget_source": "OmniRoute catalogue v3.8.55 (MIT), re-audited by that project every two weeks"
+    },
+    {
+      "provider": "nebius",
+      "label": "Nebius Token Factory",
+      "auth": "key",
+      "key_env": "NEBIUS_API_KEY",
+      "base_url": "https://api.tokenfactory.nebius.com/v1",
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). Renamed from Nebius AI Studio. A bank card is required to set up billing.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
+    },
+    {
+      "provider": "novita",
+      "label": "Novita AI",
+      "auth": "key",
+      "key_env": "NOVITA_API_KEY",
+      "base_url": "https://api.novita.ai/openai",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). A few models are listed free; the advertised signup credits cover sandbox usage, not model calls. Terms forbid commercial use without permission.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
     },
     {
       "provider": "nvidia",
@@ -483,6 +622,77 @@
       ],
       "needs_probe": true,
       "notes": "Endpoint recorded by free-ai-router@4e8652c, openproxy@0cc2282. Unverified by this gateway."
+    },
+    {
+      "provider": "typhoon",
+      "label": "Typhoon (SCB 10X)",
+      "auth": "key",
+      "key_env": "TYPHOON_API_KEY",
+      "base_url": "https://api.opentyphoon.ai/v1",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). Thai-language models with a free tier; the base URL follows the documented /v1 layout and is unverified here.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
+    },
+    {
+      "provider": "vercel-ai-gateway",
+      "label": "Vercel AI Gateway",
+      "auth": "key",
+      "key_env": "AI_GATEWAY_API_KEY",
+      "base_url": "https://ai-gateway.vercel.sh/v1",
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). A monthly free credit covers a subset of models at lower rate limits; the amount is not published.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
+    },
+    {
+      "provider": "watsonx",
+      "label": "IBM watsonx.ai (Lite)",
+      "auth": "key",
+      "key_env": "WATSONX_API_KEY",
+      "base_url": "https://us-south.ml.cloud.ibm.com/ml/v1",
+      "model_family": "openai-compatible",
+      "tos": "allowed",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat"
+      ],
+      "monthly_tokens": 300000,
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). Lite plan: 300,000 tokens/month for foundation-model inference. A card is required at signup.",
+      "needs_probe": true,
+      "budget_source": "freellmapihub.com openai-compatible collection (read 2026-11-14)",
+      "docs_url": null
+    },
+    {
+      "provider": "zai",
+      "label": "Z.ai (Zhipu GLM)",
+      "auth": "key",
+      "key_env": "ZAI_API_KEY",
+      "base_url": "https://api.z.ai/api/paas/v4/",
+      "model_family": "openai-compatible",
+      "tos": "review",
+      "privacy_retention": "unknown",
+      "capabilities": [
+        "chat",
+        "streaming"
+      ],
+      "notes": "Recorded by freellmapihub.com (read 2026-11-14). GLM-4.5-Flash, GLM-4.7-Flash and GLM-4.6V-Flash are listed at $0 permanently. Terms forbid using it to build a competing model.",
+      "needs_probe": true,
+      "budget_source": null,
+      "docs_url": null
     }
   ]
 }

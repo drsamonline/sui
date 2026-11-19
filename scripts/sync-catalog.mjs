@@ -35,8 +35,16 @@ const ids = ledger.sources.map((s) => s.id);
 
 // ---- 1. the ledger is complete -------------------------------------------
 for (const source of ledger.sources) {
-  if (!source.url || !/^https:\/\/github\.com\//.test(source.url)) problems.push(`${source.id}: no usable github url`);
-  if (!/^[0-9a-f]{7}$/.test(source.commit ?? '')) problems.push(`${source.id}: commit is not pinned`);
+  // A repository is pinned by a commit. A site read on a date has no commit, so the
+  // date is the pin — and it may contribute facts only, which the licence field and
+  // the notTaken line have to say.
+  const isRepo = /^https:\/\/github\.com\//.test(source.url ?? '');
+  if (!source.url || !/^https:\/\//.test(source.url)) problems.push(`${source.id}: no usable url`);
+  if (isRepo) {
+    if (!/^[0-9a-f]{7}$/.test(source.commit ?? '')) problems.push(`${source.id}: commit is not pinned`);
+  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(source.read ?? '')) {
+    problems.push(`${source.id}: not a repository, so it needs the date it was read`);
+  }
   if (!source.licence) problems.push(`${source.id}: no licence recorded`);
   if (!source.taken) problems.push(`${source.id}: does not say what was taken`);
   if (!source.notTaken) problems.push(`${source.id}: does not say what was not taken`);

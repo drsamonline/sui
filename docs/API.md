@@ -154,7 +154,7 @@ npx sui probe <provider> --revoke   # withdraw a route
 
 ## Catalogue contents
 
-`packages/catalog/seed.json` is the catalogue: 29 entries, each naming the source of its endpoint. `packages/catalog/generated.json` is **empty by design** — the app-endpoints dataset is a directory of public APIs (QR codes, avatars, random words), not a source of model endpoints, and three attempts to filter it produced exactly that filler.
+`packages/catalog/seed.json` is the catalogue: 41 entries, each naming the source of its endpoint. `packages/catalog/generated.json` is **empty by design** — the app-endpoints dataset is a directory of public APIs (QR codes, avatars, random words), not a source of model endpoints, and three attempts to filter it produced exactly that filler.
 
 ## Catalogue sync (B2.2)
 

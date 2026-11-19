@@ -8,7 +8,7 @@ This page is what Sui can and cannot claim, and what it took from OmniRoute's de
 
 | Area | OmniRoute | Sui |
 |---|---|---|
-| Providers | 394, of which 153 catalogued free | 29 seeded, 0 verified until you probe |
+| Providers | 394, of which 153 catalogued free | 41 seeded, 0 verified until you probe |
 | Routing strategies | 22, composable per combo step | 4 (`fallback`, `weighted`, `cheapest`, `latency`) |
 | Compression engines | 12, pipeline-ordered, per-combo toggles | 7 (`canonicalise`, `session_dedup`, `rtk`, `headroom`, `caveman`, `llmlingua_2`, `ccr`) |
 | Dashboard | full app, 67 languages | one page, English |
