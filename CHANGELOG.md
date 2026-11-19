@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.17 — 2026-11-19
+
+### Fixed
+
+- **npm's transparency log rejected a duplicate attestation and stopped the run.** `TLOG_CREATE_ENTRY_ERROR (409) an equivalent entry already exists` — which happens when the same commit is published twice. The publisher now asks whether the version is already live (nothing to do), retries once if the log wants a second attempt, and only then fails. The 0.12.16 release stopped at `router`; `core` and `gateway` had already gone out.
+
 ## 0.12.16 — 2026-11-19
 
 ### Added

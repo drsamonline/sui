@@ -495,6 +495,9 @@ test('the publisher waits for the registry before calling a release staged', asy
   // not fail the run: sandbox@0.12.8 published fine and was reported as staged
   assert.match(publish, /index lag, not a failure/);
   assert.match(publish, /needsApproval/, 'only an approval requirement fails the run');
+  // a re-run of the same commit makes npm's transparency log answer 409
+  assert.match(publish, /TLOG_CREATE_ENTRY_ERROR|equivalent entry already exists/);
+  assert.match(publish, /isLive\(/, 'an already-published version is not an error');
 });
 
 test('no source prints a command that cannot work', async () => {

@@ -155,10 +155,45 @@ if (dryRun) {
   process.exit();
 }
 
+/** Is this exact version already on the registry? */
+function isLive(name, version) {
+  try {
+    return (
+      execFileSync('npm', ['view', `${name}@${version}`, 'version'], { encoding: 'utf8', stdio: 'pipe' }).trim() === version
+    );
+  } catch {
+    return false;
+  }
+}
+
 for (const dir of ORDER) {
   if (!existsSync(join(ROOT, dir, 'package.json'))) continue;
-  console.log(`  publishing ${read(join(dir, 'package.json')).name}…`);
-  execFileSync('npm', ['publish', '--access', 'public'], { cwd: join(ROOT, dir), stdio: 'inherit' });
+  const pkg = read(join(dir, 'package.json'));
+  console.log(`  publishing ${pkg.name}…`);
+
+  const publish = () =>
+    execFileSync('npm', ['publish', '--access', 'public'], { cwd: join(ROOT, dir), stdio: 'inherit' });
+
+  try {
+    publish();
+  } catch (err) {
+    // npm's transparency log answers 409 when an equivalent attestation already
+    // exists — which happens on a re-run of the same commit. The version is either
+    // already published (nothing to do) or the log wants a second attempt.
+    const message = String(err?.message ?? '') + String(err?.stderr ?? '');
+    const duplicateAttestation = /TLOG_CREATE_ENTRY_ERROR|equivalent entry already exists/i.test(message);
+
+    if (isLive(pkg.name, pkg.version)) {
+      console.log(`  ${pkg.name}@${pkg.version} is already on the registry — nothing to do`);
+      continue;
+    }
+    if (duplicateAttestation) {
+      console.log(`  ${pkg.name}: transparency log rejected a duplicate attestation, retrying once`);
+      publish();
+      continue;
+    }
+    throw err;
+  }
 }
 console.log('');
 // A brand-new package is staged, not published: npm creates a public 0.0.0-stage
