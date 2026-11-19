@@ -28,7 +28,19 @@ import { PRESETS, compress as compressText } from '@drsamonline/compression';
 import { Admission, RateLimiter, checkKeyBudget } from './limits.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DASHBOARD = join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html');
+/**
+ * Where the dashboard lives.
+ *
+ * Inside this repository it is apps/dashboard/web/dashboard.html. From an npm
+ * install only apps/gateway/web/dashboard.html exists, because that is what the
+ * package ships — the first version walked up to a directory that is not there and
+ * served "Dashboard file missing" to every user. Both are tried, packaged first,
+ * because the packaged one is what a stranger has.
+ */
+const DASHBOARD = [
+  join(HERE, '..', 'web', 'dashboard.html'),
+  join(HERE, '..', '..', 'dashboard', 'web', 'dashboard.html'),
+].find((candidate) => existsSync(candidate)) ?? join(HERE, '..', 'web', 'dashboard.html');
 
 /**
  * @param {{router: any, config: any, ledger: any, breaker: any, cache: any, logger?: any}} deps

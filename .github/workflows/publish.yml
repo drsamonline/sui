@@ -49,6 +49,12 @@ jobs:
           fi
 
       # Never publish something that has not passed the gates in this repository.
+      # The gateway ships its own copy of the dashboard, generated from the single
+      # source in apps/dashboard. Without this step the tarball has no page and
+      # every user gets "Dashboard file missing".
+      - name: Bundle the dashboard into the gateway
+        run: node scripts/bundle-dashboard.mjs
+
       - name: Tests
         run: npm test
 
@@ -78,6 +84,12 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
         run: node scripts/publish.mjs --real
+
+      # CI tests the working tree; this tests the tarball a stranger installs. It
+      # is the only check that would have caught the missing dashboard.
+      - name: Verify what npm actually serves
+        if: ${{ !inputs.dry_run }}
+        run: node scripts/verify-published.mjs
 
       - name: Keep the tarballs as evidence
         if: always()

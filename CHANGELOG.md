@@ -2,6 +2,19 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.21 — 2026-11-19
+
+### Fixed
+
+- **Every npm user got a broken dashboard.** `GET /` answered 200 with `<h1>Dashboard file missing</h1><p>Reinstall the package.</p>` — the gateway read the page from a path that only resolves inside this repository, so reinstalling never helped. The gateway now ships its own copy, generated from the single source by `scripts/bundle-dashboard.mjs`, and a test fails if the copy drifts.
+- **`sui start --port 0` printed port 0** instead of the port the OS assigned, sending the user to a URL that cannot work.
+
+### Added
+
+- **`scripts/verify-published.mjs`** — installs the published tarball into an empty directory and uses it the way the README says to: version, help, a real round-trip, a language, the dashboard page, and every package present at that version. CI runs it after publishing, because every other check tests the working tree and a user installs a tarball.
+
+It found the dashboard bug on its first run.
+
 ## 0.12.20 — 2026-11-19
 
 ### Added

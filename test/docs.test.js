@@ -579,3 +579,25 @@ test('the diagram generator still produces a valid scene', async () => {
   assert.deepEqual(validateScene(scene), [], 'a regenerated scene must be as valid as the committed one');
   assert.ok(scene.elements.length > 30);
 });
+
+test('the dashboard the gateway ships is the dashboard this repo has', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  // The gateway used to serve a path that only resolves inside the repository, so
+  // every npm user got "Dashboard file missing". It ships a copy now, and this test
+  // is what keeps the copy honest.
+  const source = join(process.cwd(), 'apps', 'dashboard', 'web', 'dashboard.html');
+  const shipped = join(process.cwd(), 'apps', 'gateway', 'web', 'dashboard.html');
+
+  assert.ok(existsSync(shipped), 'apps/gateway/web/dashboard.html must exist — run node scripts/bundle-dashboard.mjs');
+  assert.equal(
+    readFileSync(shipped, 'utf8'),
+    readFileSync(source, 'utf8'),
+    'the shipped copy has drifted from apps/dashboard/web/dashboard.html',
+  );
+
+  // and the package has to include it, or the copy does not travel
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'apps', 'gateway', 'package.json'), 'utf8'));
+  assert.ok((pkg.files ?? []).includes('web'), 'apps/gateway must list web/ in files');
+});

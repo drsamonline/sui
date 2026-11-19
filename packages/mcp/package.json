@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/mcp",
-  "version": "0.12.20",
+  "version": "0.12.21",
   "description": "Model Context Protocol server: stdio and HTTP transports over the gateway.",
   "type": "module",
   "license": "MIT",

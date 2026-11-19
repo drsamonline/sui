@@ -247,9 +247,12 @@ async function cmdUp(flags) {
   const shown = host === '0.0.0.0' ? '127.0.0.1' : host;
   const combos = Object.keys(config.combos);
   console.log('');
+  // The port the server actually bound, not the one that was asked for: `--port 0`
+  // means "any free port", and printing 0 sends the user to a URL that cannot work.
+  const bound = server.address()?.port ?? port;
   console.log(`sui ${VERSION} is up`);
-  console.log(`  endpoint   http://${shown}:${port}/v1`);
-  console.log(`  dashboard  http://${shown}:${port}/`);
+  console.log(`  endpoint   http://${shown}:${bound}/v1`);
+  console.log(`  dashboard  http://${shown}:${bound}/`);
   console.log(`  config     ${config.path ?? '(none)'}`);
   console.log(`  combos     ${combos.join(', ')}`);
   console.log(`  paid tier  ${config.paidTiers?.enabled ? 'ENABLED — paid credentials will load' : 'closed (paid credentials are never read)'}`);
