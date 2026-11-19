@@ -490,6 +490,10 @@ test('the publisher waits for the registry before calling a release staged', asy
   // successful release as staged: npm had not finished processing it
   assert.match(publish, /attempt < 15/, 'the version check must retry long enough for 18 packages');
   assert.match(publish, /0\.0\.0-stage/, 'only the placeholder means staged');
+  // a version the index has not caught up on is not a staged release, and must
+  // not fail the run: sandbox@0.12.8 published fine and was reported as staged
+  assert.match(publish, /index lag, not a failure/);
+  assert.match(publish, /needsApproval/, 'only an approval requirement fails the run');
 });
 
 test('no source prints a command that cannot work', async () => {

@@ -180,9 +180,13 @@ const verifyOne = (name, version) => {
       if (versions.includes(version)) return null;
       // the placeholder is npm's staged marker; a lagging index is not
       if (attempt === 14) {
-        return versions.includes('0.0.0-stage') && versions.length === 1
+        // Only the placeholder means staged. A version that simply has not been
+        // indexed yet is a lagging registry, and reporting it as 'needs approval'
+        // sends someone to a page with nothing to approve — which is what
+        // happened to sandbox on 0.12.8, after it had published fine.
+        return versions.includes('0.0.0-stage') && !versions.includes(version)
           ? `${name}: staged as 0.0.0-stage, needs approval`
-          : `${name}: registry has ${versions[versions.length - 1]}, we sent ${version}`;
+          : `${name}: published, but the registry still reports ${versions[versions.length - 1]} (index lag, not a failure)`;
       }
     } catch {
       /* not visible yet */
@@ -199,7 +203,12 @@ for (const dir of ORDER) {
   if (problem) staged.push(problem);
 }
 
-if (staged.length) {
+const needsApproval = staged.filter((line) => line.includes('needs approval'));
+if (staged.length && !needsApproval.length) {
+  console.log('  Published. The registry index is still catching up on:');
+  for (const line of staged) console.log(`    ${line}`);
+  process.exitCode = 0;
+} else if (needsApproval.length) {
   console.log('  STAGED — a maintainer has to approve these:');
   for (const line of staged) console.log(`    ${line}`);
   console.log('');
