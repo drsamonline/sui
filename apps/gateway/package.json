@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/gateway",
-  "version": "0.12.22",
+  "version": "0.12.23",
   "description": "HTTP gateway: OpenAI-compatible surface, dashboard API.",
   "type": "module",
   "license": "MIT",
@@ -37,5 +37,22 @@
     "@drsamonline/router": "^0.12.0",
     "@drsamonline/telemetry": "^0.12.0",
     "@drsamonline/vault": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "llm",
+    "gateway",
+    "ai",
+    "router",
+    "openai-compatible",
+    "free-tier",
+    "mit",
+    "proxy",
+    "local-first"
+  ],
+  "bugs": {
+    "url": "https://github.com/drsamonline/sui/issues"
   }
 }

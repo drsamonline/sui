@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/vault",
-  "version": "0.12.22",
+  "version": "0.12.23",
   "description": "Paid-credential vault: AES-256-GCM sealed at rest, opened only when the paid gate is on.",
   "type": "module",
   "license": "MIT",
@@ -10,7 +10,8 @@
     "./src/*": "./src/*"
   },
   "files": [
-    "src"
+    "src",
+    "LICENSE"
   ],
   "repository": {
     "type": "git",
@@ -24,5 +25,22 @@
   },
   "dependencies": {
     "@drsamonline/kits": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "llm",
+    "gateway",
+    "ai",
+    "router",
+    "openai-compatible",
+    "free-tier",
+    "mit",
+    "proxy",
+    "local-first"
+  ],
+  "bugs": {
+    "url": "https://github.com/drsamonline/sui/issues"
   }
 }

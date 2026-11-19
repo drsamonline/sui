@@ -601,3 +601,53 @@ test('the dashboard the gateway ships is the dashboard this repo has', async () 
   const pkg = JSON.parse(readFileSync(join(process.cwd(), 'apps', 'gateway', 'package.json'), 'utf8'));
   assert.ok((pkg.files ?? []).includes('web'), 'apps/gateway must list web/ in files');
 });
+
+test('every published package is findable and legally complete', async () => {
+  const { readdirSync, readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  const dirs = [
+    ...readdirSync(join(process.cwd(), 'packages')).map((d) => join('packages', d)),
+    ...readdirSync(join(process.cwd(), 'apps')).map((d) => join('apps', d)),
+  ].filter((d) => existsSync(join(process.cwd(), d, 'package.json')));
+
+  for (const dir of dirs) {
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), dir, 'package.json'), 'utf8'));
+    if (pkg.private) continue;
+
+    // npm cannot warn a Node 18 user without engines, and cannot find the package
+    // in search without keywords
+    assert.ok(pkg.engines?.node, `${pkg.name} has no engines.node`);
+    assert.ok((pkg.keywords ?? []).length >= 3, `${pkg.name} has fewer than three keywords`);
+    assert.ok(pkg.bugs?.url, `${pkg.name} has no issues link`);
+
+    // MIT requires the notice to travel with every copy, and a tarball without it
+    // is a licence violation however the manifest reads
+    assert.ok(existsSync(join(process.cwd(), dir, 'LICENSE')), `${pkg.name} ships no LICENSE file`);
+    assert.ok((pkg.files ?? []).includes('LICENSE'), `${pkg.name} does not include LICENSE in files`);
+
+    // npm warns when it has to clean a bin path
+    for (const [name, target] of Object.entries(pkg.bin ?? {})) {
+      assert.equal(String(target).startsWith('./'), false, `${pkg.name} bin "${name}" starts with ./`);
+    }
+  }
+});
+
+test('the roadmap keeps the quick wins above the decisions', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const doc = readFileSync(join(process.cwd(), 'ROADMAP.md'), 'utf8');
+
+  // the order is the plan: cheap and real first, decisions last, human steps last
+  const order = ['Quick wins', 'Medium', 'Large', 'Needs a human'];
+  let last = -1;
+  for (const section of order) {
+    const at = doc.indexOf(section);
+    assert.ok(at > last, `"${section}" is out of order in the roadmap`);
+    last = at;
+  }
+  // and the human steps are last, because they are the ones nobody can do for you
+  assert.ok(doc.indexOf('Needs a human') > doc.indexOf('What is deliberately not built'));
+  // a roadmap that does not say what is unproven is a wish list
+  assert.match(doc, /0 verified/);
+});

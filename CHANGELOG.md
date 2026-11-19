@@ -2,6 +2,25 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.23 — 2026-11-19
+
+Audit pass. Five metadata gaps across 19 packages, one of them a licence violation.
+
+### Fixed
+
+- **No package shipped a LICENSE file.** Every manifest said `"license": "MIT"` and no tarball carried the text — and MIT requires the notice to travel with every copy. Each package has the file now, and `files` includes it.
+- **No package declared `engines`**, so npm could not warn a Node 18 user about a gateway that needs 20.
+- **No package had keywords**, so npm search found none of them.
+- **No package had an issues link**, so its npm page offered no way to report a bug.
+- **npm was cleaning the `bin` path on every publish** (`bin[sui] script name was cleaned`).
+- Stale numbers: the README and the landing page said 572 tests when there were 583; `docs/PUBLISHING.md` still showed `v0.12.0` in its example, which would have failed the version check it documents.
+
+A test now fails if any published package loses its `engines`, its keywords, its issues link, its LICENSE, or puts `./` in a bin path.
+
+### Changed
+
+- `ROADMAP.md` rewritten as a plan rather than a status board: quick wins first, then medium, then the decisions, and the human steps last. A test fails if the order drifts or the roadmap stops saying what is unproven.
+
 ## 0.12.22 — 2026-11-19
 
 ### Fixed
