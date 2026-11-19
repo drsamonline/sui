@@ -438,6 +438,20 @@ export function createSuiServer(deps) {
       }
     }
 
+    // A key can be pinned to one model or combo. `forcedModel` is the whole point
+    // of a per-tenant key for a shared deployment: the caller does not choose, the
+    // key does, and a request naming something else is refused rather than
+    // quietly routed somewhere the operator did not intend.
+    if (keyMeta?.forcedModel) {
+      if (body.model && body.model !== keyMeta.forcedModel) {
+        throw new SuiError(
+          `This API key is pinned to "${keyMeta.forcedModel}" and may not request "${body.model}".`,
+          { code: 'forced_model', status: 403 },
+        );
+      }
+      body.model = keyMeta.forcedModel;
+    }
+
     const requested = body.model ?? Object.keys(configRef.combos)[0];
     if (!configRef.combos[requested] && !configRef.models[requested]) {
       throw new SuiError(

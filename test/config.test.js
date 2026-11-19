@@ -65,7 +65,8 @@ test('every problem is listed at once, not one per run', () => {
   assert.throws(
     () => normalizeConfig(raw, { env: quietEnv }),
     (err) => {
-      assert.match(err.message, /3 problems to fix/);
+      // 4 since the strategy-name check landed: an unknown strategy is one of them
+      assert.match(err.message, /4 problems to fix/);
       return true;
     },
   );

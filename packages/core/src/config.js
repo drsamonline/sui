@@ -287,10 +287,20 @@ export function validateConfig(config) {
     }
   }
 
+  for (const [name, combo] of Object.entries(config.combos ?? {})) {
+    const strategy = String(combo?.strategy ?? '');
+    if (strategy && !['fallback', 'weighted', 'cheapest', 'latency', 'quota-weighted'].includes(strategy)) {
+      problems.push(`combos.${name}.strategy "${strategy}" is not one of: fallback, weighted, cheapest, latency, quota-weighted.`);
+    }
+  }
+
   for (const [i, k] of config.apiKeys.entries()) {
     if (!k.key && !k.key_hash) problems.push(`apiKeys[${i}] needs either key_hash (preferred) or key.`);
     if (k.key_hash && !/^[a-f0-9]{64}$/.test(String(k.key_hash))) {
       problems.push(`apiKeys[${i}].key_hash must be a 64-character SHA-256 hex digest.`);
+    }
+    if (k.forcedModel != null && typeof k.forcedModel !== 'string') {
+      problems.push(`apiKeys[${i}].forcedModel must be a combo or model name.`);
     }
     if (k.allowedCombos && !Array.isArray(k.allowedCombos)) {
       problems.push(`apiKeys[${i}].allowedCombos must be an array of combo names.`);

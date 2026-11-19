@@ -87,7 +87,7 @@ export class Ledger {
     const key = this.#dayKey(row);
     let day = this.daily.get(key);
     if (!day) {
-      day = { costUsd: 0, turns: 0, failed: 0, cached: 0, byProvider: new Map() };
+      day = { costUsd: 0, turns: 0, failed: 0, cached: 0, byProvider: new Map(), byModel: new Map() };
       this.daily.set(key, day);
       // keep at most three days: yesterday is useful, last week is not
       if (this.daily.size > 3) {
@@ -101,6 +101,7 @@ export class Ledger {
     if (row.cached) day.cached += 1;
     const provider = row.provider ?? 'unknown';
     day.byProvider.set(provider, (day.byProvider.get(provider) ?? 0) + Number(row.costUsd ?? 0));
+    if (row.modelId) day.byModel.set(row.modelId, (day.byModel.get(row.modelId) ?? 0) + 1);
   }
 
   /** The bucket for a given day, or an empty one. */
@@ -203,6 +204,11 @@ export class Ledger {
     // from the daily bucket, not from the record window: a budget that stops
     // counting after 5,000 turns is not a budget
     return round6(this.#day(now).costUsd);
+  }
+
+  /** Turns a model has answered today. Used by quota-weighted routing. */
+  turnsForModel(modelId, now = new Date()) {
+    return this.#day(now).byModel?.get(modelId) ?? 0;
   }
 
   providerSpendToday(provider, now = new Date()) {

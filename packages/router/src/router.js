@@ -283,6 +283,21 @@ export class Router {
       ordered = [...usable].sort((a, b) => a.estimate - b.estimate || Number(b.model.quality ?? 0) - Number(a.model.quality ?? 0));
     } else if (combo.strategy === 'latency') {
       ordered = [...usable].sort((a, b) => this.#p50(a.modelId) - this.#p50(b.modelId));
+    } else if (combo.strategy === 'quota-weighted' && usable.length) {
+      // OmniRoute calls this the twentieth strategy; here it is the one that uses
+      // what this gateway actually measures. A provider at 90% of its cap has less
+      // to give than one at 10%, and a target already answering has less than one
+      // that is idle — so the score is headroom ÷ (1 + turns today).
+      const scored = usable.map((target, index) => {
+        const providerId = this.config.models?.[target.modelId]?.provider;
+        const cap = providerId ? this.config.budgets?.perProvider?.[providerId] : null;
+        const spent = providerId ? this.ledger.providerSpendToday(providerId) : 0;
+        const headroom = cap == null ? 1 : Math.max(0, 1 - spent / Math.max(Number(cap), 1e-9));
+        const turns = Number(this.ledger.turnsForModel?.(target.modelId) ?? 0);
+        return { target, index, score: headroom / (1 + turns) };
+      });
+      scored.sort((a, b) => b.score - a.score || a.index - b.index);
+      ordered = scored.map((x) => x.target);
     } else if (combo.strategy === 'weighted' && usable.length) {
       const primary = pickWeighted(usable, this.random);
       ordered = [primary, ...usable.filter((t) => t.modelId !== primary.modelId).sort((a, b) => b.weight - a.weight)];

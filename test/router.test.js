@@ -216,3 +216,59 @@ test('plan: skipping reasons name the fix, not just the failure', async () => {
   const reasons = plan.skipped.map((s) => s.reason).join(' | ');
   assert.match(reasons, /provider budget reached/);
 });
+
+/* ------------------------------------------- quota-weighted routing (0.12.10) */
+
+test('quota-weighted sends the request where the most headroom is left', async () => {
+  const { makeRouter } = await import('./helpers.js');
+  const { Ledger } = await import('@drsamonline/telemetry');
+
+  const config = testConfig();
+  config.models = {
+    'near-cap': { provider: 'p-a', model: 'near-cap', costPer1kIn: 0.001, costPer1kOut: 0.001, quality: 3 },
+    'plenty': { provider: 'p-b', model: 'plenty', costPer1kIn: 0.001, costPer1kOut: 0.001, quality: 3 },
+  };
+  config.providers = { 'p-a': { type: 'mock' }, 'p-b': { type: 'mock' } };
+  config.combos = { mixed: { label: 'Mixed', strategy: 'quota-weighted', targets: ['near-cap', 'plenty'] } };
+  config.budgets = { dailyUsd: 100, perProvider: { 'p-a': 1, 'p-b': 10 } };
+
+  const { router, ledger } = makeRouter(config);
+  // p-a is nearly out of its cap; p-b has barely started
+  for (let i = 0; i < 9; i++) ledger.record({ modelId: 'near-cap', provider: 'p-a', ok: true, costUsd: 0.1 });
+  ledger.record({ modelId: 'plenty', provider: 'p-b', ok: true, costUsd: 0.1 });
+  const plan = router.plan('mixed');
+
+  assert.equal(plan.ordered[0].modelId, 'plenty', 'the target with headroom left goes first');
+  assert.equal(plan.ordered.length, 2, 'the other target stays as a fallback');
+});
+
+test('quota-weighted prefers the idle target when headroom is equal', async () => {
+  const { makeRouter } = await import('./helpers.js');
+  const { Ledger } = await import('@drsamonline/telemetry');
+
+  const config = testConfig();
+  config.models = {
+    busy: { provider: 'p-a', model: 'busy', costPer1kIn: 0, costPer1kOut: 0, quality: 3 },
+    idle: { provider: 'p-b', model: 'idle', costPer1kIn: 0, costPer1kOut: 0, quality: 3 },
+  };
+  config.providers = { 'p-a': { type: 'mock' }, 'p-b': { type: 'mock' } };
+  config.combos = { mixed: { label: 'Mixed', strategy: 'quota-weighted', targets: ['busy', 'idle'] } };
+  config.budgets = { dailyUsd: 100 };
+
+  const { router, ledger } = makeRouter(config);
+  for (let i = 0; i < 5; i++) ledger.record({ modelId: 'busy', provider: 'p-a', ok: true, costUsd: 0 });
+  const plan = router.plan('mixed');
+  assert.equal(plan.ordered[0].modelId, 'idle', 'a target that has answered nothing today is preferred at equal headroom');
+});
+
+test('an unknown strategy is refused at config time, not silently ignored', async () => {
+  const { normalizeConfig } = await import('@drsamonline/core');
+  const config = testConfig();
+  config.combos = { bad: { label: 'Bad', strategy: 'quota-weightd', targets: ['mock-a'] } };
+  // normalizeConfig throws on a bad config rather than returning the problems
+  assert.throws(
+    () => normalizeConfig(config, { env: {} }),
+    /quota-weightd/,
+    'a typo in a strategy name must be reported, or the combo quietly falls back to declared order',
+  );
+});

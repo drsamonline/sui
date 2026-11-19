@@ -2,6 +2,19 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.10 — 2026-11-19
+
+Two of the features queued after the OmniRoute review, both built on data this gateway already measures.
+
+### Added
+
+- **`quota-weighted` routing.** Orders targets by remaining budget headroom ÷ turns already answered today, so the target with the most left to give goes first. Unlike a strategy that reads a declared weight, this uses what the ledger recorded: `providerSpendToday()` and a new per-model turn count in the same day bucket. An unknown strategy name is now refused at config time — a typo used to fall through to declared order silently.
+- **`forcedModel` per API key.** A key can be pinned to one combo or model; a request naming anything else is refused with 403 rather than quietly routed where the operator did not intend. This is what makes a per-tenant key meaningful on a shared deployment.
+
+### Changed
+
+- `sui explain` narrates the new strategy in sentences, like the others.
+
 ## 0.12.9 — 2026-11-19
 
 Full audit pass — [`AUDIT-2026-11-19.md`](AUDIT-2026-11-19.md). Three security findings, all fixed.

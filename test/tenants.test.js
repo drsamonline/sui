@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { tenantSnapshot, tenantSummary, hashApiKey } from '@drsamonline/core';
+import http from 'node:http';
 import { makeGateway, testConfig } from './helpers.js';
 
 const ledgerOf = (rows) => ({ entries: () => rows });
@@ -147,3 +148,52 @@ test('patching an unknown tenant is a 404, and a bad value is a 400', async () =
   assert.equal((await bad.json()).error.type, 'bad_budget');
   await gw.close();
 });
+
+/* ------------------------------------------- per-key pinning (0.12.10) */
+
+test('a key pinned to one model refuses to be steered elsewhere', async () => {
+  const { makeGateway, testConfig } = await import('./helpers.js');
+  const { hashApiKey } = await import('@drsamonline/core');
+
+  const config = testConfig();
+  config.apiKeys = [{ key_hash: hashApiKey('pinned-key'), name: 'pinned', forcedModel: 'chain' }];
+
+  const gw = await makeGateway(config);
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+  const headers = { authorization: 'Bearer pinned-key', 'content-type': 'application/json' };
+
+  // asking for something else is a refusal, not a silent redirect
+  const refused = await post(port, headers, { model: 'cheap', messages: [{ role: 'user', content: 'hi' }] });
+  assert.equal(refused.status, 403);
+  assert.match(refused.body.error.message, /pinned to "chain"/);
+
+  // no model at all resolves to the pinned one
+  const ok = await post(port, headers, { messages: [{ role: 'user', content: 'hi' }] });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.model, 'chain', 'the pinned combo answered, not one the caller named');
+
+  await gw.close();
+});
+
+function post(port, headers, body) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify(body);
+    const req = http.request(
+      { host: '127.0.0.1', port, path: '/v1/chat/completions', method: 'POST', headers: { ...headers, 'content-length': Buffer.byteLength(payload) }, agent: false },
+      (res) => {
+        let raw = '';
+        res.on('data', (c) => (raw += c));
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode, body: JSON.parse(raw) });
+          } catch {
+            resolve({ status: res.statusCode, body: raw });
+          }
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end(payload);
+  });
+}
