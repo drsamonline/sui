@@ -2,6 +2,25 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.9 — 2026-11-19
+
+Full audit pass — [`AUDIT-2026-11-19.md`](AUDIT-2026-11-19.md). Three security findings, all fixed.
+
+### Security
+
+- **`Access-Control-Allow-Origin: *` on every response.** A gateway on `127.0.0.1` is reachable by any page the user has open, and the Host-header guard does not stop it — that page sends the allowed Host. Any website could read answers and spend quota. Cross-origin is denied by default now; `server.corsOrigins` is the opt-in, and Node clients (Cline, Continue, the SDK) never needed it.
+- **The prober fetched any address the catalogue named**, including `169.254.169.254` (cloud metadata) and `127.0.0.1:6379`. `probeAddressAllowed()` refuses loopback, link-local, private, ULA and internal hostnames, and requires https. `sui probe <name>` and `sui local` opt in explicitly with `allowLocal`.
+- **Serving on a non-loopback host with no API keys is an open relay** and nothing said so. It now refuses to start, naming both ways out; `--allow-open` proceeds with a warning.
+
+### Fixed
+
+- `--headless` did nothing: `normalizeConfig` drops unknown keys and the flag landed in the wrong return block.
+- The publish job dirtied the tree its own publisher checks — `evals/last-report.json`, then `package-lock.json`.
+
+### Documentation
+
+- `AUDIT-2026-11-19.md`: findings with file and case, what came back clean, and what this audit did not do.
+
 ## 0.12.8 — 2026-11-19
 
 Reviewed against [OmniRoute](https://github.com/cheaper-inference/OmniRoute) v3.8.55.

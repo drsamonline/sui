@@ -65,7 +65,7 @@ test('workers are opt-in: a gateway created programmatically starts none', async
 test('startWorkers registers the prober and the cache sweep', async () => {
   const fake = await fakeUpstream();
   const dir = catalogDirWith(fake.url);
-  const config = { ...testConfig(), workers: { enabled: true, kickoffMs: 10, cacheSweepMs: 20, prober: { enabled: true, intervalMs: 60000, timeoutMs: 2000 } } };
+  const config = { ...testConfig(), workers: { enabled: true, kickoffMs: 10, cacheSweepMs: 20, prober: { enabled: true, intervalMs: 60000, timeoutMs: 2000, allowLocal: true } } };
   const cache = new ResponseCache({ ttlMs: 10 });
 
   const workers = startWorkers({ config, cache, ledger: { record() {} }, catalogDir: dir, now: Date.now });

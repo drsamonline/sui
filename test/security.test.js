@@ -162,3 +162,49 @@ test('the invariants endpoint reports the audit for the running config', async (
   assert.equal(json.paidTiers.enabled, false);
   await gw.stop();
 });
+
+/* ---------------------------------------- cross-origin access (audit 2026-11-19) */
+
+/** One request, with the headers we care about. */
+function plainGet(port, path, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port, path, headers, agent: false }, (res) => {
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+test('a page from another origin gets no CORS grant by default', async () => {
+  // A gateway on 127.0.0.1 is reachable by any web page the user has open. The
+  // Host-header guard does not stop it (the page sends the allowed Host), so the
+  // CORS grant is what decides whether that page can read the answers.
+  const gw = await makeGateway(testConfig());
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const res = await plainGet(port, '/healthz', { origin: 'https://evil.example' });
+  assert.equal(res.headers['access-control-allow-origin'], undefined, 'cross-origin must not be granted by default');
+
+  await gw.close();
+});
+
+test('an origin named in server.corsOrigins is granted, and only it', async () => {
+  const config = testConfig();
+  config.server = { ...config.server, corsOrigins: ['https://trusted.example'] };
+  const gw = await makeGateway(config);
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+
+  const allowed = await plainGet(port, '/healthz', { origin: 'https://trusted.example' });
+  assert.equal(allowed.headers['access-control-allow-origin'], 'https://trusted.example');
+  assert.equal(allowed.headers.vary, 'origin');
+
+  const other = await plainGet(port, '/healthz', { origin: 'https://evil.example' });
+  assert.equal(other.headers['access-control-allow-origin'], undefined);
+
+  await gw.close();
+});

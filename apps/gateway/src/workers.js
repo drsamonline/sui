@@ -53,6 +53,9 @@ export function startWorkers(deps) {
       if (entries.length) {
         prober = new Prober({
           entries,
+          // a loopback target is opt-in, like everywhere else: a probe sweep must
+          // not touch the user's own machine unless the config says so
+          allowLocal: settings.prober?.allowLocal === true,
           intervalMs: Number(settings.prober?.intervalMs ?? 3600_000),
           failuresBeforeDisable: Number(settings.prober?.failuresBeforeDisable ?? 3),
           timeoutMs: Number(settings.prober?.timeoutMs ?? 8000),

@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/core",
-  "version": "0.12.8",
+  "version": "0.12.9",
   "description": "Shared types, config schema, error taxonomy, invariants.",
   "type": "module",
   "license": "MIT",

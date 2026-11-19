@@ -1023,7 +1023,15 @@ export async function cmdProbe(flags, args) {
   }
   say('');
 
-  const prober = new Prober({ entries: probeable, timeoutMs: Number(flags.timeout ?? 8000) });
+  // Naming a provider is intent: `sui probe ollama` means "probe the model server
+  // on this machine". A full sweep is not — there the guard refuses loopback,
+  // link-local and private addresses, because a catalogue entry is data and data
+  // can name anything, including cloud metadata.
+  const prober = new Prober({
+    entries: probeable,
+    timeoutMs: Number(flags.timeout ?? 8000),
+    allowLocal: args.length > 0,
+  });
   const results = await prober.runOnce();
 
   if (flags.json) {

@@ -48,7 +48,7 @@ test('a probe that answers is what makes an entry routable', async () => {
 
   assert.equal(isRoutable(entry), false, 'an unprobed entry cannot route');
 
-  const result = await probeTarget(entry, { timeoutMs: 3000 });
+  const result = await probeTarget(entry, { timeoutMs: 3000, allowLocal: true });
   assert.equal(result.ok, true);
   assert.equal(result.levels.liveness.models, 1, 'the embedding model is not counted as chat-capable');
 
@@ -66,7 +66,7 @@ test('a probe that answers is what makes an entry routable', async () => {
 test('an entry that fails to answer stays unroutable', async () => {
   const upstream = await fakeUpstream({ healthy: false });
   const entry = entryFor(upstream.base);
-  const result = await probeTarget(entry, { timeoutMs: 2000 });
+  const result = await probeTarget(entry, { timeoutMs: 2000, allowLocal: true });
 
   assert.equal(result.ok, false);
   // nothing is written for a failure, so the overlay stays empty

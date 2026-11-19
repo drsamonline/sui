@@ -20,6 +20,46 @@
 import { poolKey } from '@drsamonline/catalog';
 
 /** Bump when a fixture changes, so probe history stays comparable. */
+/**
+ * Is this URL something a probe should touch?
+ *
+ * HTTPS only, and never a loopback, link-local, private or metadata address:
+ * those are the user's own machine or their cloud account, not a provider. The
+ * one exception is an explicit loopback probe, which `sui local` asks for by
+ * passing `allowLocal`.
+ *
+ * @param {string} baseUrl
+ * @param {{allowLocal?: boolean}} [opts]
+ * @returns {{ok: boolean, reason?: string}}
+ */
+export function probeAddressAllowed(baseUrl, opts = {}) {
+  let url;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return { ok: false, reason: `not a URL: ${baseUrl}` };
+  }
+
+  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0';
+
+  if (url.protocol !== 'https:' && !(opts.allowLocal && isLoopback)) {
+    return { ok: false, reason: `refusing to probe ${url.protocol}// — a probe needs https, unless it is an explicit loopback check` };
+  }
+  if (isLoopback && !opts.allowLocal) {
+    return { ok: false, reason: 'refusing to probe a loopback address — use `sui local` for a model on this machine' };
+  }
+  // link-local (cloud metadata), private ranges, and bare IPv6 ULA
+  if (/^169\.254\./.test(host)) return { ok: false, reason: 'refusing to probe a link-local address (cloud metadata lives there)' };
+  if (/^10\./.test(host)) return { ok: false, reason: 'refusing to probe a private address' };
+  if (/^192\.168\./.test(host)) return { ok: false, reason: 'refusing to probe a private address' };
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return { ok: false, reason: 'refusing to probe a private address' };
+  if (/^(fc|fd)[0-9a-f]{2}:/.test(host)) return { ok: false, reason: 'refusing to probe a private address' };
+  if (host.endsWith('.local') || host.endsWith('.internal')) return { ok: false, reason: 'refusing to probe an internal hostname' };
+
+  return { ok: true };
+}
+
 export const PROBE_FIXTURE_VERSION = '1.0.0';
 
 export const FIXTURES = {
@@ -67,6 +107,29 @@ export async function probeTarget(entry, opts = {}) {
 
   /** @type {{liveness: any, readiness: any, suitability: Record<string, any>}} */
   const levels = { liveness: null, readiness: null, suitability: {} };
+
+  // A catalogue entry is data, and data can name any address. The prober fetches
+  // what it is told, so without this guard a seeded or imported base_url of
+  // http://169.254.169.254/ (cloud metadata) or http://127.0.0.1:6379 would be
+  // fetched on the user's machine and the result reported as a provider's health.
+  // `allowLocal` is for a loopback probe that something asked for explicitly —
+  // the test fixtures and `sui local`. Production code never sets it.
+  const reachable = base ? probeAddressAllowed(base, { allowLocal: opts.allowLocal === true }) : null;
+  if (base && !reachable.ok) {
+    return {
+      pool_key: key,
+      provider: entry.provider,
+      checkedAt,
+      fixtureVersion: PROBE_FIXTURE_VERSION,
+      ok: false,
+      verified: false,
+      latencyMs: 0,
+      levels,
+      reasons: [reachable.reason],
+      fixtures: {},
+    };
+  }
+
 
   if (!base) {
     return {
@@ -385,6 +448,9 @@ export class Prober {
     this.timeoutMs = opts.timeoutMs;
     this.now = opts.now ?? Date.now;
     this.onResult = opts.onResult ?? null;
+    // explicit opt-in for a loopback probe (tests and `sui local`); the default
+    // refuses the user's own machine and their cloud metadata
+    this.allowLocal = opts.allowLocal === true;
 
     /** @type {Map<string, any>} */
     this.state = new Map();
@@ -409,7 +475,7 @@ export class Prober {
   async runOnce() {
     this.runs += 1;
     const results = await Promise.all(
-      this.entries.map((entry) => probeTarget(entry, { fetchImpl: this.fetchImpl, timeoutMs: this.timeoutMs, now: this.now })),
+      this.entries.map((entry) => probeTarget(entry, { fetchImpl: this.fetchImpl, timeoutMs: this.timeoutMs, now: this.now, allowLocal: this.allowLocal })),
     );
 
     for (const result of results) {

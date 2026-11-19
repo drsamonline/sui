@@ -188,6 +188,20 @@ async function cmdUp(flags) {
     ...(Object.keys(configOverride).length ? { configOverride } : {}),
   });
   const { config, server } = gateway;
+
+  // An open relay: bound to the network, no key, so anyone who can reach the port
+  // spends your quota and reads your traffic. Refuse unless asked explicitly.
+  const bindsPublicly = !['127.0.0.1', 'localhost', '::1'].includes(String(config.server.host));
+  if (bindsPublicly && !(config.apiKeys ?? []).length && flags['allow-open'] !== true) {
+    throw new ConfigError(
+      `Refusing to serve on ${config.server.host} with no API keys: anyone who can reach this port could spend your quota. ` +
+        `Add an apiKeys entry to the config, or pass --allow-open if this network is trusted.`,
+      { path: 'server.host' },
+    );
+  }
+  if (bindsPublicly && !(config.apiKeys ?? []).length) {
+    console.warn(`  warning: serving on ${config.server.host} with no API keys (--allow-open). Anyone on this network can use your providers.`);
+  }
   const host = config.server.host;
   const port = flags.port ? Number(flags.port) : config.server.port;
 
@@ -589,7 +603,7 @@ sui ${VERSION} — one endpoint for every LLM
 
   ${RUN_AS}                first run: find keys, find tools, prove the route, start
   ${RUN_AS} init           the same, explicitly      --demo  --force  --port 8787
-  ${RUN_AS} start          run the gateway            --port 8787  --config <file>  --no-workers  --headless
+  ${RUN_AS} start          run the gateway            --port 8787  --config <file>  --no-workers  --headless  --allow-open
                           (aliases: up, serve)
   ${RUN_AS} invariants     every hard constraint, and which are enforced
   ${RUN_AS} keys hash       replace plaintext API keys with SHA-256 hashes

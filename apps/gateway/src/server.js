@@ -79,10 +79,25 @@ export function createSuiServer(deps) {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
     const path = url.pathname;
 
-    // Local tools (Cline, Continue, a browser tab) call this from other origins.
-    res.setHeader('access-control-allow-origin', '*');
-    res.setHeader('access-control-allow-headers', 'authorization, content-type, x-sui-key');
-    res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+    // Cross-origin is off by default.
+    //
+    // A gateway on 127.0.0.1 is reachable by any web page the user has open, and
+    // the Host-header guard does not stop it — a page at evil.example calling
+    // http://127.0.0.1:8787 sends the allowed Host. `Access-Control-Allow-Origin:
+    // *` then let that page read the answers and spend the quota. Node clients
+    // (Cline, Continue, the SDK) ignore CORS entirely, so denying it by default
+    // costs them nothing; a browser-based tool has to be named in
+    // server.corsOrigins.
+    const origin = req.headers.origin;
+    const allowedOrigins = configRef.server?.corsOrigins ?? [];
+    if (origin && allowedOrigins.length) {
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        res.setHeader('access-control-allow-origin', allowedOrigins.includes('*') ? '*' : origin);
+        res.setHeader('vary', 'origin');
+        res.setHeader('access-control-allow-headers', 'authorization, content-type, x-sui-key');
+        res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+      }
+    }
     if (req.method === 'OPTIONS') {
       res.writeHead(204).end();
       return;

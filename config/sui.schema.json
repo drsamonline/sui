@@ -56,6 +56,14 @@
             "type": "string"
           },
           "description": "Host headers this gateway answers to. null means the safe default: 127.0.0.1, localhost, [::1]."
+        },
+        "corsOrigins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Origins allowed to call this gateway from a browser. Empty (the default) means same-origin only: a page on another site cannot read answers or spend quota. Use [\"*\"] only on a network you trust."
         }
       }
     },

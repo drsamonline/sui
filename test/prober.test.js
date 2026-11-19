@@ -102,7 +102,7 @@ test('fixtures are versioned, synthetic and side-effect free', () => {
 
 test('a healthy upstream is verified, with all three levels recorded', async () => {
   const fake = await startFake();
-  const result = await probeTarget(entryFor(fake.url));
+  const result = await probeTarget(entryFor(fake.url), { allowLocal: true });
   assert.equal(result.ok, true);
   assert.equal(result.verified, true);
   assert.equal(result.levels.liveness.ok, true);
@@ -115,7 +115,7 @@ test('a healthy upstream is verified, with all three levels recorded', async () 
 
 test('an empty completion fails readiness, so the route is not verified', async () => {
   const fake = await startFake({ readiness: 'empty' });
-  const result = await probeTarget(entryFor(fake.url));
+  const result = await probeTarget(entryFor(fake.url), { allowLocal: true });
   assert.equal(result.ok, false);
   assert.equal(result.verified, false);
   assert.match(result.reasons.join(' '), /readiness: empty completion/);
@@ -124,7 +124,7 @@ test('an empty completion fails readiness, so the route is not verified', async 
 
 test('a 500 fails readiness even though liveness passed', async () => {
   const fake = await startFake({ readiness: '500' });
-  const result = await probeTarget(entryFor(fake.url));
+  const result = await probeTarget(entryFor(fake.url), { allowLocal: true });
   assert.equal(result.levels.liveness.ok, true);
   assert.equal(result.levels.readiness.ok, false);
   assert.equal(result.ok, false);
@@ -133,7 +133,7 @@ test('a 500 fails readiness even though liveness passed', async () => {
 
 test('suitability: one frame pretending to be a stream is caught', async () => {
   const fake = await startFake({ streaming: 'blob' });
-  const result = await probeTarget(entryFor(fake.url));
+  const result = await probeTarget(entryFor(fake.url), { allowLocal: true });
   assert.equal(result.levels.suitability.streaming.ok, false);
   assert.match(result.levels.suitability.streaming.note, /not a real stream/);
   assert.equal(result.ok, false, 'a claimed capability that does not work must fail the probe');
@@ -142,7 +142,7 @@ test('suitability: one frame pretending to be a stream is caught', async () => {
 
 test('suitability: prose instead of JSON fails the json_schema check', async () => {
   const fake = await startFake({ json: 'prose' });
-  const result = await probeTarget(entryFor(fake.url, ['chat', 'json_schema']));
+  const result = await probeTarget(entryFor(fake.url, ['chat', 'json_schema']), { allowLocal: true });
   assert.equal(result.levels.suitability.json_schema.ok, false);
   assert.match(result.levels.suitability.json_schema.note, /not JSON/);
   await fake.close();
@@ -150,7 +150,7 @@ test('suitability: prose instead of JSON fails the json_schema check', async () 
 
 test('suitability: a rejected tool schema is a failure, not a preference', async () => {
   const fake = await startFake({ tools: 'reject' });
-  const result = await probeTarget(entryFor(fake.url, ['chat', 'tools']));
+  const result = await probeTarget(entryFor(fake.url, ['chat', 'tools']), { allowLocal: true });
   assert.equal(result.levels.suitability.tools.ok, false);
   assert.match(result.levels.suitability.tools.note, /tools rejected/);
   await fake.close();
@@ -158,7 +158,7 @@ test('suitability: a rejected tool schema is a failure, not a preference', async
 
 test('capabilities it does not claim are not probed', async () => {
   const fake = await startFake();
-  const result = await probeTarget(entryFor(fake.url, ['chat']));
+  const result = await probeTarget(entryFor(fake.url, ['chat']), { allowLocal: true });
   assert.deepEqual(Object.keys(result.levels.suitability), []);
   assert.equal(result.ok, true);
   await fake.close();
@@ -172,14 +172,14 @@ test('an identity with no base_url is refused, not guessed', async () => {
 });
 
 test('an unreachable host is reported as unreachable, not as a crash', async () => {
-  const result = await probeTarget(entryFor('http://127.0.0.1:1/v1'), { timeoutMs: 500 });
+  const result = await probeTarget(entryFor('http://127.0.0.1:1/v1'), { timeoutMs: 500, allowLocal: true });
   assert.equal(result.ok, false);
   assert.match(JSON.stringify(result.reasons), /unreachable|timed out/);
 });
 
 test('an unreachable host is not asked twice: readiness is skipped, not retried', async () => {
   const t0 = Date.now();
-  const result = await probeTarget(entryFor('http://127.0.0.1:1/v1'), { timeoutMs: 300 });
+  const result = await probeTarget(entryFor('http://127.0.0.1:1/v1'), { timeoutMs: 300, allowLocal: true });
   const elapsed = Date.now() - t0;
 
   assert.equal(result.levels.readiness.ok, false);
@@ -190,7 +190,7 @@ test('an unreachable host is not asked twice: readiness is skipped, not retried'
 
 test('the prober disables a route after three consecutive failures', async () => {
   const fake = await startFake({ readiness: '500' });
-  const prober = new Prober({ entries: [entryFor(fake.url)], failuresBeforeDisable: 3 });
+  const prober = new Prober({ entries: [entryFor(fake.url)], failuresBeforeDisable: 3, allowLocal: true });
 
   await prober.runOnce();
   assert.equal(prober.snapshot()[0].status, 'degraded');
@@ -204,7 +204,7 @@ test('the prober disables a route after three consecutive failures', async () =>
 
 test('and re-enables it the moment a probe succeeds', async () => {
   const fake = await startFake({ readiness: '500' });
-  const prober = new Prober({ entries: [entryFor(fake.url)], failuresBeforeDisable: 2 });
+  const prober = new Prober({ entries: [entryFor(fake.url)], failuresBeforeDisable: 2, allowLocal: true });
   await prober.runOnce();
   await prober.runOnce();
   assert.equal(prober.snapshot()[0].status, 'disabled');
@@ -220,7 +220,7 @@ test('and re-enables it the moment a probe succeeds', async () => {
 
 test('the probe map feeds catalogue scoring without a second format', async () => {
   const fake = await startFake();
-  const prober = new Prober({ entries: [entryFor(fake.url)] });
+  const prober = new Prober({ entries: [entryFor(fake.url)], allowLocal: true });
   await prober.runOnce();
   const map = prober.probeMap();
   const [key] = Object.keys(map);
@@ -231,7 +231,7 @@ test('the probe map feeds catalogue scoring without a second format', async () =
 
 test('history is capped, so a long soak cannot grow it without bound', async () => {
   const fake = await startFake();
-  const prober = new Prober({ entries: [entryFor(fake.url)] });
+  const prober = new Prober({ entries: [entryFor(fake.url)], allowLocal: true });
   for (let i = 0; i < 30; i++) await prober.runOnce();
   const state = prober.state.get(prober.snapshot()[0].pool_key);
   assert.equal(state.history.length, 24);
@@ -240,7 +240,7 @@ test('history is capped, so a long soak cannot grow it without bound', async () 
 
 test('start() schedules and stop() clears, without holding the process open', async () => {
   const fake = await startFake();
-  const prober = new Prober({ entries: [entryFor(fake.url)], intervalMs: 50 });
+  const prober = new Prober({ entries: [entryFor(fake.url)], intervalMs: 50, allowLocal: true });
   prober.start();
   assert.ok(prober.timer);
   await new Promise((r) => setTimeout(r, 120));
@@ -262,7 +262,7 @@ test('the weather vocabulary is three words plus "not checked yet"', async () =>
 
 test('the snapshot carries history and a weather word for the map', async () => {
   const fake = await startFake();
-  const prober = new Prober({ entries: [entryFor(fake.url)] });
+  const prober = new Prober({ entries: [entryFor(fake.url)], allowLocal: true });
   await prober.runOnce();
   await prober.runOnce();
 
@@ -276,7 +276,7 @@ test('the snapshot carries history and a weather word for the map', async () => 
 
 test('a provider that fails reads as down, with the reason attached', async () => {
   const fake = await startFake({ readiness: '500' });
-  const prober = new Prober({ entries: [entryFor(fake.url)], failuresBeforeDisable: 2 });
+  const prober = new Prober({ entries: [entryFor(fake.url)], failuresBeforeDisable: 2, allowLocal: true });
   await prober.runOnce();
   await prober.runOnce();
 
@@ -346,4 +346,37 @@ test('an explicit probe_model wins over discovery', async () => {
     { fetchImpl, timeoutMs: 1000 },
   );
   assert.equal(bodies[0].model, 'chosen-model');
+});
+
+test('a probe never touches the user\'s own machine or cloud account', async () => {
+  const { probeAddressAllowed } = await import('../packages/prober/src/index.js');
+
+  // The catalogue is data, and data can name any address. Without this guard a
+  // seeded or imported base_url of http://169.254.169.254/ would be fetched on
+  // the user's machine and reported as a provider's health.
+  const refused = [
+    'http://169.254.169.254/latest/meta-data',
+    'https://169.254.169.254/latest/meta-data',
+    'https://127.0.0.1/v1',
+    'https://[::1]/v1',
+    'https://10.0.0.5/v1',
+    'https://192.168.1.1/v1',
+    'https://172.16.0.9/v1',
+    'https://db.internal/v1',
+    'https://printer.local/v1',
+    'http://api.groq.com/v1', // plain http, not loopback
+    'ftp://example.com',
+    'not a url',
+  ];
+  for (const url of refused) {
+    assert.equal(probeAddressAllowed(url).ok, false, `${url} should not be probeable`);
+  }
+
+  // real providers are still probeable
+  for (const url of ['https://api.groq.com/openai/v1', 'https://generativelanguage.googleapis.com/v1beta']) {
+    assert.equal(probeAddressAllowed(url).ok, true, `${url} should be probeable`);
+  }
+
+  // and a loopback probe is possible when something asks for it explicitly
+  assert.equal(probeAddressAllowed('http://127.0.0.1:11434/v1', { allowLocal: true }).ok, true);
 });

@@ -73,6 +73,11 @@ export function normalizeConfig(raw, opts = {}) {
       // I15: a request whose Host header is not on this list is refused. Without
       // it, DNS rebinding turns a localhost gateway into a remote one.
       allowedHosts: Array.isArray(raw.server?.allowedHosts) ? raw.server.allowedHosts : null,
+      // Cross-origin access is off by default. A gateway on localhost is reachable
+      // by any web page the user has open, and `Access-Control-Allow-Origin: *`
+      // let such a page read the answers and spend the quota. An explicit list
+      // (or ['*']) is opt-in, and the config says so out loud.
+      corsOrigins: Array.isArray(raw.server?.corsOrigins) ? raw.server.corsOrigins : [],
       cache: {
         enabled: raw.server?.cache?.enabled ?? true,
         ttlMs: Number(raw.server?.cache?.ttlMs ?? 900000),

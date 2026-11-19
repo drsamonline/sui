@@ -8,7 +8,8 @@
       "ttlMs": 900000,
       "maxEntries": 500
     },
-    "allowedHosts": null
+    "allowedHosts": null,
+    "corsOrigins": []
   },
   "providers": {
     "demo": {
