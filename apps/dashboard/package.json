@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/dashboard",
-  "version": "0.12.25",
+  "version": "0.12.26",
   "description": "The dashboard page. Its HTML is bundled into @drsamonline/gateway by scripts/bundle-dashboard.mjs, so it is not published on its own.",
   "type": "module",
   "license": "MIT",

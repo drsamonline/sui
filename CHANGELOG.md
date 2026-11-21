@@ -2,6 +2,16 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.26 — 2026-11-21
+
+### Fixed
+
+- **Your provider keys were found and then ignored.** `sui init` printed `found GROQ_API_KEY`, then `No provider keys are set, so I am wiring a demo provider` — because the first-run template was read from a repository-relative path, so from an install the provider list was empty and every key the user had was discarded. The template ships with the CLI now and is resolved from either place.
+- **A crash message pointed at `github.com/your-org/sui`** — a placeholder, so the person who just hit a bug was sent to a 404. It names the real issue tracker, and a test fails if a placeholder URL ships again.
+- `fs.existsSync` is called with a coerced argument where a caller could pass a non-string, which is a deprecation (DEP0187) on Node 22+.
+
+This is the fifth bug of the same shape — a file that resolves inside this repository and not from a tarball. The verifier covers four of them now; the template is the fifth.
+
 ## 0.12.25 — 2026-11-21
 
 ### Fixed

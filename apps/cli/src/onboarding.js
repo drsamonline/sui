@@ -14,7 +14,18 @@ import { providerHasCredentials, suiHome, runAs } from '@drsamonline/core';
 import { detectTools, writeToolConfig } from './tools.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TEMPLATE = join(HERE, '..', '..', '..', 'config', 'sui.config.json');
+/**
+ * The first-run template.
+ *
+ * Inside this repository it is config/sui.config.json. From an npm install there is
+ * no repository: the file travels inside this package, and reading it from a
+ * repo-relative path left the provider list empty — so the first run printed
+ * "found GROQ_API_KEY" and then "no provider keys are set, so I am wiring a demo
+ * provider", and the user's key was ignored.
+ */
+const TEMPLATE = [join(HERE, '..', 'config', 'sui.config.json'), join(HERE, '..', '..', '..', 'config', 'sui.config.json')].find(
+  (candidate) => existsSync(candidate),
+) ?? join(HERE, '..', 'config', 'sui.config.json');
 
 const PROVIDER_KEYS = [
   { id: 'groq', env: 'GROQ_API_KEY', note: 'has a free tier' },
@@ -103,7 +114,7 @@ export async function runInit(opts = {}) {
   }
 
   // 3. write config
-  const exists = existsSync(configPath);
+  const exists = typeof configPath === 'string' && existsSync(configPath);
   if (exists && !opts.force) {
     const backup = `${configPath}.bak-${Date.now()}`;
     copyFileSync(configPath, backup);

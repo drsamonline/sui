@@ -29,6 +29,16 @@ if (!existsSync(from)) {
 mkdirSync(dirname(to), { recursive: true });
 copyFileSync(from, to);
 
+// The first-run template has the same problem the dashboard had: the CLI read it
+// from the repository root, so from an install the provider list was empty and every
+// key the user had was ignored — "found GROQ_API_KEY" followed by "no provider keys
+// are set, wiring a demo provider".
+const templateFrom = join(ROOT, 'config', 'sui.config.json');
+const templateTo = join(ROOT, 'apps', 'cli', 'config', 'sui.config.json');
+mkdirSync(dirname(templateTo), { recursive: true });
+copyFileSync(templateFrom, templateTo);
+console.log(`  bundled apps/cli/config/sui.config.json · ${statSync(templateTo).size} bytes`);
+
 const bytes = statSync(to).size;
 const same = readFileSync(from, 'utf8') === readFileSync(to, 'utf8');
 console.log(`  bundled apps/gateway/web/dashboard.html · ${bytes} bytes · identical: ${same}`);

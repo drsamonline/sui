@@ -1,0 +1,295 @@
+{
+  "$schema": "./sui.schema.json",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8787,
+    "cache": {
+      "enabled": true,
+      "ttlMs": 900000,
+      "maxEntries": 500
+    },
+    "allowedHosts": null,
+    "corsOrigins": []
+  },
+  "providers": {
+    "groq": {
+      "type": "openai",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "apiKeyEnv": "GROQ_API_KEY",
+      "timeoutMs": 30000,
+      "tier": "free",
+      "tos": "allowed",
+      "privacy": {
+        "retention": "session",
+        "trainsOnData": false
+      }
+    },
+    "gemini": {
+      "type": "gemini",
+      "apiKeyEnv": "GEMINI_API_KEY",
+      "timeoutMs": 30000,
+      "tier": "free",
+      "tos": "allowed",
+      "privacy": {
+        "retention": "short"
+      }
+    },
+    "openai": {
+      "type": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "timeoutMs": 60000,
+      "tier": "paid",
+      "tos": "allowed",
+      "privacy": {
+        "retention": "long",
+        "trainsOnData": false
+      }
+    },
+    "anthropic": {
+      "type": "anthropic",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "timeoutMs": 60000,
+      "tier": "paid",
+      "tos": "allowed",
+      "privacy": {
+        "retention": "long",
+        "trainsOnData": false
+      }
+    },
+    "openrouter": {
+      "type": "openai",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "timeoutMs": 45000,
+      "tier": "free",
+      "tos": "allowed",
+      "privacy": {
+        "retention": "unknown"
+      }
+    },
+    "ollama": {
+      "type": "openai",
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "apiKeyEnv": null,
+      "timeoutMs": 120000,
+      "local": true,
+      "tier": "free",
+      "tos": "allowed",
+      "privacy": {
+        "retention": "none",
+        "trainsOnData": false
+      }
+    }
+  },
+  "models": {
+    "groq-fast": {
+      "provider": "groq",
+      "model": "llama-3.1-8b-instant",
+      "label": "Fast and free (Groq Llama 3.1 8B)",
+      "costPer1kIn": 5e-05,
+      "costPer1kOut": 8e-05,
+      "quality": 2,
+      "tier": "free",
+      "contextWindow": 131072
+    },
+    "groq-70b": {
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "label": "Fast and strong (Groq Llama 3.3 70B)",
+      "costPer1kIn": 0.00059,
+      "costPer1kOut": 0.00079,
+      "quality": 4,
+      "tier": "paid",
+      "contextWindow": 131072
+    },
+    "gemini-flash": {
+      "provider": "gemini",
+      "model": "gemini-2.5-flash",
+      "label": "Balanced everyday (Gemini 2.5 Flash)",
+      "costPer1kIn": 0.0003,
+      "costPer1kOut": 0.0025,
+      "quality": 4,
+      "tier": "paid",
+      "contextWindow": 1000000
+    },
+    "gemini-pro": {
+      "provider": "gemini",
+      "model": "gemini-2.5-pro",
+      "label": "Hardest problems (Gemini 2.5 Pro)",
+      "costPer1kIn": 0.00125,
+      "costPer1kOut": 0.01,
+      "quality": 5,
+      "tier": "paid",
+      "contextWindow": 1000000
+    },
+    "gpt-mini": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "label": "Cheap and reliable (GPT-4o mini)",
+      "costPer1kIn": 0.00015,
+      "costPer1kOut": 0.0006,
+      "quality": 3,
+      "tier": "paid",
+      "contextWindow": 128000
+    },
+    "claude-haiku": {
+      "provider": "anthropic",
+      "model": "claude-3-5-haiku-20241022",
+      "label": "Careful writer (Claude 3.5 Haiku)",
+      "costPer1kIn": 0.0008,
+      "costPer1kOut": 0.004,
+      "quality": 4,
+      "tier": "paid",
+      "contextWindow": 200000
+    },
+    "or-free": {
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct:free",
+      "label": "Free tier (OpenRouter Llama 3.3 70B)",
+      "costPer1kIn": 0,
+      "costPer1kOut": 0,
+      "quality": 3,
+      "tier": "free",
+      "contextWindow": 65536
+    },
+    "local-qwen": {
+      "provider": "ollama",
+      "model": "qwen2.5-coder:7b",
+      "label": "Runs on this machine (Qwen 2.5 Coder 7B)",
+      "costPer1kIn": 0,
+      "costPer1kOut": 0,
+      "quality": 3,
+      "tier": "local",
+      "contextWindow": 32768
+    }
+  },
+  "combos": {
+    "chat-default": {
+      "label": "Everyday chat",
+      "strategy": "fallback",
+      "targets": [
+        "groq-70b",
+        "gemini-flash",
+        "gpt-mini",
+        "claude-haiku"
+      ]
+    },
+    "cheap": {
+      "label": "Cheapest that still works",
+      "strategy": "cheapest",
+      "minQuality": 2,
+      "targets": [
+        "groq-fast",
+        "or-free",
+        "gpt-mini",
+        "gemini-flash",
+        "local-qwen"
+      ]
+    },
+    "coding": {
+      "label": "Coding help",
+      "strategy": "fallback",
+      "targets": [
+        "gpt-mini",
+        "claude-haiku",
+        "gemini-flash",
+        "groq-70b"
+      ]
+    },
+    "balanced": {
+      "label": "Split 70/30 between two providers",
+      "strategy": "weighted",
+      "targets": [
+        {
+          "model": "gemini-flash",
+          "weight": 70
+        },
+        {
+          "model": "gpt-mini",
+          "weight": 30
+        }
+      ]
+    },
+    "hardest": {
+      "label": "Hardest problems",
+      "strategy": "fallback",
+      "targets": [
+        "gemini-pro",
+        "claude-haiku",
+        "gpt-mini"
+      ]
+    }
+  },
+  "breaker": {
+    "failures": 3,
+    "cooldownMs": 30000,
+    "halfOpenSuccesses": 1
+  },
+  "budgets": {
+    "dailyUsd": 5,
+    "warnAtPct": 80,
+    "perProvider": {}
+  },
+  "paid_tiers": {
+    "enabled": false
+  },
+  "compression": {
+    "enabled": false,
+    "preset": "auto",
+    "minChars": 400,
+    "keepLastUserMessage": true,
+    "outputStyle": "off"
+  },
+  "prompt_cache": {
+    "enabled": true
+  },
+  "verification": {
+    "enabled": false,
+    "threshold": 0.7,
+    "maxEscalations": 1,
+    "grounding": "off",
+    "escalateTo": "next"
+  },
+  "canary": {
+    "enabled": false,
+    "baseline": "chat-default",
+    "candidate": "coding",
+    "percent": 10,
+    "slo": {
+      "minSuccessRate": 0.9,
+      "maxP95Ms": 8000,
+      "minSamples": 20
+    }
+  },
+  "privacy": {
+    "defaultTier": "any"
+  },
+  "workers": {
+    "enabled": true,
+    "kickoffMs": 1500,
+    "cacheSweepMs": 300000,
+    "prober": {
+      "enabled": true,
+      "intervalMs": 3600000,
+      "failuresBeforeDisable": 3,
+      "timeoutMs": 8000
+    }
+  },
+  "guardrails": {
+    "maxOutputTokens": 4096,
+    "maxInputChars": 400000,
+    "blockPatterns": [],
+    "inspectToolChannel": "off",
+    "maxToolResultChars": 20000,
+    "logPrompts": false,
+    "redactPiiInLogs": true
+  },
+  "apiKeys": [],
+  "planes": {
+    "role": "both",
+    "modelPlaneUrl": null,
+    "serviceTokenEnv": "SUI_PLANE_TOKEN"
+  }
+}

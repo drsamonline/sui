@@ -11,7 +11,7 @@ let shuttingDown = false;
 process.on('unhandledRejection', (reason) => {
   const message = reason instanceof Error ? reason.message : String(reason);
   console.error(`\nsui: an unexpected error escaped (${message}).`);
-  console.error('Nothing was corrupted — this is a bug worth reporting: https://github.com/your-org/sui/issues');
+  console.error('Nothing was corrupted — this is a bug worth reporting: https://github.com/drsamonline/sui/issues/new?template=bug_report.md');
   if (process.env.SUI_DEBUG === '1' && reason instanceof Error) console.error(reason.stack);
   if (!shuttingDown) process.exitCode = 1;
 });

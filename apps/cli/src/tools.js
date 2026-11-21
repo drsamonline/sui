@@ -23,7 +23,10 @@ import { join } from 'node:path';
 export function detectTools(opts = {}) {
   const home = opts.home ?? homedir();
   const env = opts.env ?? process.env;
-  const has = (p) => existsSync(p);
+  // Coerced: fs.existsSync deprecates a non-string argument (DEP0187), and this
+  // helper is handed whatever a caller builds. A path that is not a string does not
+  // exist, and saying so is cheaper than a deprecation warning on every first run.
+  const has = (p) => typeof p === 'string' && p.length > 0 && existsSync(p);
   const firstExisting = (...paths) => paths.find(has) ?? null;
 
   /** @type {Tool[]} */

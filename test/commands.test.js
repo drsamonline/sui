@@ -272,3 +272,31 @@ test('doctor diagnoses a missing config instead of refusing to look', async () =
   assert.match(out, /init/, 'and the command that fixes it');
   assert.equal(/No sui config found/.test(out), false, 'a diagnosis, not a refusal');
 });
+
+test('the first run raises no deprecation warnings', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  // DEP0187 ("passing invalid argument types to fs.existsSync") only exists on
+  // Node 22+, so this sandbox cannot see it — CI runs 22 and this turns any
+  // deprecation into a hard failure there rather than a line nobody reads.
+  const home = mkdtempSync(join(tmpdir(), 'sui-dep-'));
+  // NODE_OPTIONS is not used here: --throw-deprecation turns a warning inside the
+  // kit loader's WebAssembly into a fatal error, which tests something else. The
+  // assertion is on the output instead, which is what a user would see.
+  const env = { ...process.env, SUI_HOME: home };
+  delete env.GROQ_API_KEY;
+  delete env.GEMINI_API_KEY;
+
+  const out = execFileSync(process.execPath, [join(process.cwd(), 'apps/cli/bin/sui.js'), 'init', '--demo', '--no-serve'], {
+    cwd: home,
+    encoding: 'utf8',
+    env,
+    timeout: 120_000,
+  });
+
+  assert.match(out, /Endpoint ready/);
+  assert.equal(/DeprecationWarning|DEP\d{4}/.test(out), false, 'the first run warned about a deprecated call');
+});

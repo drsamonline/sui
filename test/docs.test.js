@@ -660,3 +660,40 @@ test('the roadmap keeps the quick wins above the decisions', async () => {
   // a roadmap that does not say what is unproven is a wish list
   assert.match(doc, /0 verified/);
 });
+
+test('no shipped message points at a placeholder url', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  const walk = (dir, out = []) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'node_modules') walk(full, out);
+      } else if (/\.(js|mjs)$/.test(entry.name)) out.push(full);
+    }
+    return out;
+  };
+
+  // a crash message that says "report it at github.com/your-org/sui" sends the
+  // person who just hit a bug to a 404
+  for (const file of [...walk(join(process.cwd(), 'apps')), ...walk(join(process.cwd(), 'packages'))]) {
+    const body = readFileSync(file, 'utf8');
+    assert.equal(/your-org|example\.com\/your|TODO-org/i.test(body), false, `${file.replace(process.cwd() + '/', '')} ships a placeholder url`);
+  }
+});
+
+test('the first-run template travels with the CLI', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  // It did not, and the consequence was the worst kind: the first run printed
+  // "found GROQ_API_KEY" and then ignored it, wiring a demo provider instead.
+  const source = join(process.cwd(), 'config', 'sui.config.json');
+  const shipped = join(process.cwd(), 'apps', 'cli', 'config', 'sui.config.json');
+  assert.ok(existsSync(shipped), 'apps/cli/config/sui.config.json must exist — run node scripts/bundle-dashboard.mjs');
+  assert.equal(readFileSync(shipped, 'utf8'), readFileSync(source, 'utf8'), 'the shipped template has drifted');
+
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'apps', 'cli', 'package.json'), 'utf8'));
+  assert.ok((pkg.files ?? []).includes('config'), 'the CLI must list config/ in files');
+});
