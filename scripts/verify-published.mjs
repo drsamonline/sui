@@ -186,6 +186,56 @@ await check('streams a response, the way a coding tool asks for one', async () =
   }
 });
 
+await check('every package has a tarball, not just a version in the metadata', async () => {
+  // `npm view name@version version` answers from the metadata, and the metadata can
+  // exist without a tarball: redteam@0.12.25 was listed and its .tgz was a 404, so
+  // `npm install` failed on a release the publish job called a success.
+  //
+  // The URL is derivable, so this asks the registry directly and in parallel: 19
+  // sequential `npm view` calls took longer than the sandbox allows.
+  const names = [];
+  for (const dirName of ['packages', 'apps']) {
+    for (const entry of execFileSync('ls', [join(ROOT, dirName)], { encoding: 'utf8' }).trim().split('\n')) {
+      try {
+        const pkg = JSON.parse(readFileSync(join(ROOT, dirName, entry, 'package.json'), 'utf8'));
+        if (!pkg.private) names.push(pkg.name);
+      } catch {
+        /* not a package */
+      }
+    }
+  }
+
+  const urlFor = (name) => {
+    const bare = name.includes('/') ? name.split('/')[1] : name;
+    const scope = name.includes('/') ? `${name.split('/')[0]}/` : '';
+    return `https://registry.npmjs.org/${scope}${bare}/-/${bare}-${version}.tgz`;
+  };
+
+  // curl rather than fetch: fetch ignores the HTTPS_PROXY that a locked-down network
+  // provides, and a check that reports "fetch failed" for every package is a check
+  // that cannot tell a missing tarball from a blocked socket.
+  const statusOf = (url) => {
+    try {
+      return execFileSync('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '-I', url], {
+        encoding: 'utf8',
+        stdio: 'pipe',
+        timeout: 20_000,
+      }).trim();
+    } catch {
+      return '000';
+    }
+  };
+
+  const results = names.map((name) => {
+    const code = statusOf(urlFor(name));
+    return code === '200' ? null : `${name} (${code})`;
+  });
+
+  const broken = results.filter(Boolean);
+  if (broken.length) throw new Error(`listed but no tarball: ${broken.join(', ')}`);
+  return `${names.length} tarballs`;
+});
+
 await check('every package is on the registry at this version', () => {
   const names = [];
   for (const dirName of ['packages', 'apps']) {
