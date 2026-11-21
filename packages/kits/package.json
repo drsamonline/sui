@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/kits",
-  "version": "0.12.30",
+  "version": "0.12.31",
   "description": "Vendored drsamonline kits (crypto, ml, search, tokens, compress) loaded in an isolated VM context.",
   "type": "module",
   "license": "MIT",

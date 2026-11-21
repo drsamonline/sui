@@ -707,3 +707,28 @@ export function checkToggle(config, patch) {
 
   return { ok: blockers.length === 0, blockers };
 }
+
+/**
+ * The key as a provider should receive it.
+ *
+ * A key pasted into a Windows terminal arrives with whatever was around it: a
+ * trailing space, a carriage return, a pair of quotes the shell did not strip, or
+ * the word "Bearer" already in front. Every one of those makes the provider answer
+ * 401, and "rejected the API key" is then true and useless — the key is fine and the
+ * whitespace is not.
+ *
+ * @param {unknown} raw
+ * @returns {string|undefined}
+ */
+export function sanitiseKey(raw) {
+  if (raw == null) return undefined;
+  let key = String(raw)
+    .replace(/[\u200b\u00a0\ufeff]/g, ' ')
+    .replace(/[\r\n\t]/g, '')
+    .trim();
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1).trim();
+  }
+  key = key.replace(/^Bearer\s+/i, '').trim();
+  return key.length ? key : undefined;
+}

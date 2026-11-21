@@ -78,3 +78,51 @@ test('a rejected key says how to fix it, not just that it was rejected', async (
     server.close();
   }
 });
+
+test('a key with spaces, quotes or a Bearer prefix is cleaned before use', async () => {
+  const { sanitiseKey } = await import('../packages/core/src/index.js');
+
+  // every one of these is what a key looks like after being pasted into a Windows
+  // terminal, and every one of them makes the provider answer 401
+  assert.equal(sanitiseKey('  gsk_abc123  '), 'gsk_abc123');
+  assert.equal(sanitiseKey('"gsk_abc123"'), 'gsk_abc123');
+  assert.equal(sanitiseKey("'gsk_abc123'"), 'gsk_abc123');
+  assert.equal(sanitiseKey('Bearer gsk_abc123'), 'gsk_abc123');
+  assert.equal(sanitiseKey('gsk_abc123\r\n'), 'gsk_abc123');
+  assert.equal(sanitiseKey('gsk_abc\u00a0123'), 'gsk_abc 123'.replace(' ', ' ')); // nbsp becomes a space, not a silent drop
+  assert.equal(sanitiseKey('   '), undefined);
+  assert.equal(sanitiseKey(null), undefined);
+  assert.equal(sanitiseKey(undefined), undefined);
+});
+
+test('doctor shows what it can see about a key without printing the key', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  const home = mkdtempSync(join(tmpdir(), 'sui-creds-'));
+  // init exits non-zero when the round-trip fails, and with no network it does:
+  // the config is still written, which is what this test needs
+  const { spawnSync } = await import('node:child_process');
+  const out = spawnSync(process.execPath, [join(process.cwd(), 'apps/cli/bin/sui.js'), 'init', '--no-serve'], {
+    cwd: home,
+    encoding: 'utf8',
+    env: { ...process.env, SUI_HOME: home, GROQ_API_KEY: '  "gsk_secret_value_123456"  ' },
+    timeout: 120_000,
+  }).stdout;
+
+  const doctor = spawnSync(process.execPath, [join(process.cwd(), 'apps/cli/bin/sui.js'), 'doctor'], {
+    cwd: home,
+    encoding: 'utf8',
+    env: { ...process.env, SUI_HOME: home, GROQ_API_KEY: '  "gsk_secret_value_123456"  ' },
+    timeout: 120_000,
+  }).stdout;
+
+  // "rejected the API key" is useless when the key is fine and a trailing space is not
+  assert.match(doctor, /GROQ_API_KEY/);
+  assert.match(doctor, /chars/);
+  assert.match(doctor, /had spaces or quotes/);
+  assert.equal(doctor.includes('gsk_secret_value_123456'), false, 'the key itself must never be printed');
+  assert.ok(out.includes('Config written'));
+});

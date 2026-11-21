@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/guardrails",
-  "version": "0.12.30",
+  "version": "0.12.31",
   "description": "Prompt checks: size, blocked patterns, token clamps.",
   "type": "module",
   "license": "MIT",

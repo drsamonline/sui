@@ -2,6 +2,15 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.31 — 2026-11-21
+
+### Fixed
+
+- **A key with a trailing space, a wrapping quote or a leading `Bearer` was sent as-is**, so the provider answered 401 and the user was told their brand-new key had been rejected. `sanitiseKey` strips all of it before the header is built — the most common way a correct key fails on Windows.
+- **`sui doctor` shows what it can see about each key without printing it**: which variable, how many characters, and whether it needed cleaning. "Rejected the API key" is true and useless when the key is fine and the whitespace is not; this is the line that tells the two apart.
+
+`redteam`'s tarball also took longer than the new wait once more, so the publish step's post-check is advisory only (0.12.28) and the tarball wait is 20 × 20 s (0.12.30).
+
 ## 0.12.30 — 2026-11-21
 
 ### Fixed

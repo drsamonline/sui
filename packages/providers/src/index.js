@@ -113,8 +113,12 @@ export function cachedToken(providerId, now = Date.now) {
   return entry.token;
 }
 
+import { sanitiseKey } from '@drsamonline/core';
+
+export { sanitiseKey };
+
 export function createAdapter(providerId, provider, env = process.env) {
-  const initialKey = cachedToken(providerId) ?? provider.apiKey ?? (provider.apiKeyEnv ? env[provider.apiKeyEnv] : undefined);
+  const initialKey = cachedToken(providerId) ?? sanitiseKey(provider.apiKey ?? (provider.apiKeyEnv ? env[provider.apiKeyEnv] : undefined));
   const base = { id: providerId, type: provider.type, name: displayName(providerId), hasKey: Boolean(initialKey) };
 
   // An MCP server is a provider like any other (B5.4). Imported lazily because
@@ -519,7 +523,7 @@ export async function discoverModel(providerId, provider, key, env = process.env
   const baseUrl = String(provider.baseUrl ?? '').replace(/\/$/, '');
   if (!baseUrl) return null;
   const headers = { accept: 'application/json' };
-  const auth = key ?? (provider.apiKeyEnv ? env[provider.apiKeyEnv] : undefined);
+  const auth = sanitiseKey(key ?? (provider.apiKeyEnv ? env[provider.apiKeyEnv] : undefined));
   if (auth) headers.authorization = `Bearer ${auth}`;
 
   try {

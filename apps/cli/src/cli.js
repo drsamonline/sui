@@ -17,7 +17,7 @@ import { stdin, stdout } from 'node:process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGateway, loadEnvFile } from '@drsamonline/gateway';
-import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, runAs, sanitizeConfig, suiHome, t, availableLocales, INVARIANTS } from '@drsamonline/core';
+import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHasCredentials, runAs, sanitizeConfig, suiHome, t, availableLocales, INVARIANTS, sanitiseKey } from '@drsamonline/core';
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
@@ -279,6 +279,37 @@ async function cmdUp(flags) {
   process.on('SIGTERM', shutdown);
 }
 
+
+/**
+ * What the gateway can see about each key, without printing the key.
+ *
+ * "rejected the API key" is true and useless when the key is fine and a trailing
+ * space is not. Length and cleanliness are enough to tell those apart, and neither
+ * reveals the secret.
+ */
+function credentialRows(config) {
+  const rows = [];
+  for (const [id, provider] of Object.entries(config.providers ?? {})) {
+    const prov = /** @type {any} */ (provider);
+    const envName = prov.apiKeyEnv;
+    if (!envName) continue;
+    const raw = process.env[envName];
+    if (!raw) {
+      rows.push([envName, 'not set', id, '']);
+      continue;
+    }
+    const clean = sanitiseKey(raw);
+    const dirty = clean !== String(raw).trim() || clean !== String(raw);
+    rows.push([
+      envName,
+      `${String(clean ?? '').length} chars`,
+      id,
+      clean ? (dirty ? 'had spaces or quotes — cleaned' : 'clean') : 'empty after cleaning',
+    ]);
+  }
+  return rows;
+}
+
 async function cmdDoctor(flags) {
   // `doctor` is the health check, so a missing config is something it should
   // diagnose rather than something it should refuse to look at. Refusing turned the
@@ -325,6 +356,17 @@ async function cmdDoctor(flags) {
   console.log('');
   console.log('sui doctor — one real turn per combo');
   console.log('');
+
+  const creds = credentialRows(config);
+  if (creds.length) {
+    console.log(table(['key', 'length', 'provider', 'state'], creds));
+    const suspect = creds.filter((row) => row[3] && row[3] !== 'clean');
+    for (const row of suspect) {
+      console.log(`  ${row[0]}: ${row[3]} — a key with a space or a quote in it is rejected by every provider`);
+    }
+    if (creds.every((row) => row[1] === 'not set')) console.log('  no provider keys are set in this window');
+    console.log('');
+  }
 
   const rows = [];
   let anyOk = false;
