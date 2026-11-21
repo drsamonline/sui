@@ -226,8 +226,25 @@ await check('every package has a tarball, not just a version in the metadata', a
     }
   };
 
+  // npm lists the version before the tarball is ready, and the gap can be minutes
+  // for the last package published. A check that calls that a failure reports a
+  // broken release every time; a check that waits reports the ones that never
+  // arrive. Same reason the version check retries.
+  const waitFor = (url, attempts = 10) => {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const code = statusOf(url);
+      if (code === '200') return code;
+      if (code === '404' && attempt < attempts - 1) {
+        execFileSync('sleep', [String(15)]);
+        continue;
+      }
+      return code;
+    }
+    return '000';
+  };
+
   const results = names.map((name) => {
-    const code = statusOf(urlFor(name));
+    const code = waitFor(urlFor(name));
     return code === '200' ? null : `${name} (${code})`;
   });
 

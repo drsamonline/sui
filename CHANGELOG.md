@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.27 — 2026-11-21
+
+### Fixed
+
+- **The published-package check called a release broken during npm's processing window.** It fetched every tarball once, immediately after publishing, and `redteam@0.12.26` was still a 404 a few seconds later — the same gap that made `npm install -g` fail for the first person to try. It now waits for the registry instead of failing on it: a 404 is retried for a few minutes, and only a tarball that never arrives fails the run.
+
 ## 0.12.26 — 2026-11-21
 
 ### Fixed
