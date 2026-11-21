@@ -453,11 +453,11 @@ test('the publisher reports a staged release instead of claiming success', async
   const publish = readFileSync(join(process.cwd(), 'scripts', 'publish.mjs'), 'utf8');
 
   // npm holds the first release of a new package behind approval and serves a
-  // 0.0.0-stage placeholder. A publisher that prints 'published' while the
-  // registry serves a placeholder produces a CLI that cannot install its own
-  // dependency, which is exactly what happened.
-  assert.match(publish, /STAGED — a maintainer has to approve these/);
-  assert.match(publish, /npm stage approve/);
+  // 0.0.0-stage placeholder. The publisher reports what the registry says, but it
+  // no longer fails the run: npm has already failed the publish step loudly if it
+  // rejected anything, and verify-published installs the package for real.
+  assert.match(publish, /Still catching up/);
+  assert.match(publish, /verify-published decides/);
 });
 
 test('internal dependency ranges pin the minor, not the patch', async () => {
@@ -490,11 +490,12 @@ test('the publisher waits for the registry before calling a release staged', asy
   // successful release as staged: npm had not finished processing it
   assert.match(publish, /attempt < 15/, 'the version check must retry long enough for 18 packages');
   assert.match(publish, /`\$\{name\}@\$\{version\}`/, 'the check must ask for the exact version, not parse a list');
-  assert.match(publish, /0\.0\.0-stage/, 'only the placeholder means staged');
-  // a version the index has not caught up on is not a staged release, and must
-  // not fail the run: sandbox@0.12.8 published fine and was reported as staged
-  assert.match(publish, /index lag, not a failure/);
-  assert.match(publish, /needsApproval/, 'only an approval requirement fails the run');
+  // a version the index has not caught up on is not a staged release and must not
+  // fail the run: four releases were reported failed while npm served them
+  assert.match(publish, /lag, not a failure/);
+  // the post-publish check may not fail a release: npm already fails loudly on a
+  // rejected publish, and this line has been wrong four times
+  assert.equal(/process\.exitCode = 2/.test(publish), false, 'the post-check must not fail a release');
   // a re-run of the same commit makes npm's transparency log answer 409
   assert.match(publish, /TLOG_CREATE_ENTRY_ERROR|equivalent entry already exists/);
   assert.match(publish, /isLive\(/, 'an already-published version is not an error');

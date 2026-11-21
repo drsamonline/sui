@@ -2,6 +2,14 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.28 — 2026-11-21
+
+### Fixed
+
+- **The post-publish check failed a release for the fourth time while npm served it.** `core@0.12.27` was live and the job reported "staged as 0.0.0-stage, needs approval". The check now stops inferring: it asks for the exact version, reports an unindexed one as lag, and never fails the run. A publish npm actually rejected has already failed the step above in npm's own words, and `verify-published.mjs` installs the package for real right after — that is the authority.
+
+Four releases were marked failed by this line while users could install them. A check that cannot distinguish "not yet" from "never" is worse than no check.
+
 ## 0.12.27 — 2026-11-21
 
 ### Fixed

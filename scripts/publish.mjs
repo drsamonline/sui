@@ -205,10 +205,20 @@ console.log('');
 // publish as staged — a false alarm from the check that exists to prevent false
 // confidence.
 const staged = [];
+/**
+ * Did this version reach the registry?
+ *
+ * This check has now lied four times in the alarming direction — calling a live
+ * package "staged, needs approval" while npm served it. The cause is always the
+ * same: it inferred a state from a list that lags, and inference without evidence
+ * is how a release gets marked failed when it succeeded.
+ *
+ * So it stops inferring. It asks for the exact version, and if the registry has not
+ * indexed it yet it says so and moves on: `verify-published.mjs` runs next, waits for
+ * the tarballs and installs the package for real. That is the authority. A publish
+ * npm actually rejected has already failed the step above, with npm's own words.
+ */
 const verifyOne = (name, version) => {
-  // Ask for the exact version. Parsing the version list produced a false "needs
-  // approval" three times: the index lags, and a list read mid-update can show
-  // the 0.0.0-stage placeholder without the version that is actually live.
   for (let attempt = 0; attempt < 15; attempt++) {
     try {
       const live = execFileSync('npm', ['view', `${name}@${version}`, 'version'], {
@@ -221,19 +231,7 @@ const verifyOne = (name, version) => {
     }
     execFileSync('sleep', [String(3 + attempt * 2)]);
   }
-
-  // Only now is it worth asking why: a placeholder means a maintainer must approve.
-  try {
-    const versions = JSON.parse(
-      execFileSync('npm', ['view', name, 'versions', '--json'], { encoding: 'utf8', stdio: 'pipe' }),
-    );
-    if (versions.includes('0.0.0-stage') && !versions.includes(version)) {
-      return `${name}: staged as 0.0.0-stage, needs approval`;
-    }
-    return `${name}: published, but the registry still reports ${versions[versions.length - 1]} (index lag, not a failure)`;
-  } catch {
-    return `${name}: not visible after 150s`;
-  }
+  return `${name}@${version} is not indexed yet — lag, not a failure (verify-published decides)`;
 };
 
 for (const dir of ORDER) {
@@ -243,21 +241,15 @@ for (const dir of ORDER) {
   if (problem) staged.push(problem);
 }
 
-const needsApproval = staged.filter((line) => line.includes('needs approval'));
-if (staged.length && !needsApproval.length) {
-  console.log('  Published. The registry index is still catching up on:');
+if (staged.length) {
+  // Never exit non-zero here. npm has already failed this step loudly if it rejected
+  // a publish, in its own words; a staged first release prints its own notice; and
+  // verify-published.mjs installs the package for real right after. This line is
+  // information, and four releases were marked failed by treating it as a verdict.
+  console.log('  Published. Still catching up:');
   for (const line of staged) console.log(`    ${line}`);
+  console.log('  verify-published decides whether a stranger can install it.');
   process.exitCode = 0;
-} else if (needsApproval.length) {
-  console.log('  STAGED — a maintainer has to approve these:');
-  for (const line of staged) console.log(`    ${line}`);
-  console.log('');
-  console.log('  npm stages the first release of a new package: it publishes a public');
-  console.log('  0.0.0-stage placeholder and holds the real version until approval, which');
-  console.log('  requires 2FA. Approve at npmjs.com → the package → Staged Packages, or:');
-  console.log('    npm stage list');
-  console.log('    npm stage approve <id>');
-  process.exitCode = 2;
 } else {
-  console.log('  published.');
+  console.log('  published, and every package is indexed.');
 }

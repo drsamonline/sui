@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/verify",
-  "version": "0.12.27",
+  "version": "0.12.28",
   "description": "Reference-free confidence scoring and fail-closed escalation (B3.4).",
   "type": "module",
   "license": "MIT",
