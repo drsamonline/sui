@@ -99,8 +99,11 @@ In **PowerShell** use `.\sui.ps1` instead of `.\sui.cmd` — both work. If Power
 
 ```powershell
 npm link
-sui doctor
+sui init      # writes a config and proves the route
+sui doctor    # then tests every combo against your key
 ```
+
+`init` first, always: `doctor` needs a config to test, and a config is what `init` writes.
 
 ---
 

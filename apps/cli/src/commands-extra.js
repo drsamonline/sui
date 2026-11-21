@@ -186,7 +186,7 @@ function cataloguePaths() {
   return candidates;
 }
 
-function loadCatalogue() {
+export function loadCatalogue() {
   const seedPath = cataloguePaths().find((candidate) => existsSync(candidate));
   const generatedPath = join(ROOT, 'packages', 'catalog', 'generated.json');
   const entries = [];

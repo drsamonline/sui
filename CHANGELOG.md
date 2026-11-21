@@ -2,6 +2,15 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.25 — 2026-11-21
+
+### Fixed
+
+- **`sui doctor` refused to run without a config.** It is the health check and the most natural first command; answering "No sui config found" and nothing else turned it into a dead end. It now reports what it can see — node version, whether a key is present in this window, how many catalogue entries exist, and where a config *would* live — then names `init` as the command that creates one.
+- The docs told people to run `doctor` before anything had written a config: `docs/WINDOWS.md` and `docs/MIGRATION.md` now lead with `init`, because `doctor` needs a config to test.
+
+A test runs `doctor` in an empty directory and fails if it goes back to refusing.
+
 ## 0.12.24 — 2026-11-21
 
 ### Fixed

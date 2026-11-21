@@ -77,7 +77,7 @@ Read those statuses literally:
 1. `npx sui migrate ./old.json` — read the preview. Check the "not recognised" line.
 2. Fill in the env vars the notes named, in `.env`.
 3. `npx sui migrate ./old.json --apply` — read the smoke test.
-4. `npx sui doctor` — every combo, one real turn each.
+4. `npx @drsamonline/cli doctor` — every combo, one real turn each, once a config exists (`init` writes one).
 5. Point one tool at `http://127.0.0.1:8787/v1` and use it for a day before moving the rest.
 6. `npx sui cost` — confirm the numbers look like your old bill, or better.
 

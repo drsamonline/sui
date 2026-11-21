@@ -21,7 +21,7 @@ import { auditConfig, defaultConfigPath, hashApiKey, normalizeConfig, providerHa
 import { runInit } from './onboarding.js';
 import { detectTools, writeToolConfig } from './tools.js';
 import { applyImport, diffImport, readMigrationSource, smokeTest } from './migrate.js';
-import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdFreeBudget, cmdKits, cmdLocal, cmdMcp, cmdProbe, cmdRecipe, cmdRedteam, cmdSandbox, cmdSavings, cmdTenants, cmdTokens, cmdVault, writeExport } from './commands-extra.js';
+import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdFreeBudget, cmdKits, cmdLocal, cmdMcp, cmdProbe, cmdRecipe, cmdRedteam, cmdSandbox, cmdSavings, cmdTenants, cmdTokens, cmdVault, loadCatalogue, writeExport } from './commands-extra.js';
 import { kitStatus } from '@drsamonline/kits';
 import { ConfigError } from '@drsamonline/core';
 
@@ -280,6 +280,44 @@ async function cmdUp(flags) {
 }
 
 async function cmdDoctor(flags) {
+  // `doctor` is the health check, so a missing config is something it should
+  // diagnose rather than something it should refuse to look at. Refusing turned the
+  // most natural first command into a dead end: "no config found" and nothing else.
+  // defaultConfigPath() answers null when nothing exists; the useful thing to print
+  // is where a config *would* go, not the word "null".
+  const configPath = flags.config ?? defaultConfigPath() ?? join(suiHome(process.env), 'sui.config.json');
+  if (!existsSync(configPath)) {
+    const keys = ['GROQ_API_KEY', 'GEMINI_API_KEY', 'MISTRAL_API_KEY', 'CEREBRAS_API_KEY', 'OPENROUTER_API_KEY'].filter(
+      (name) => process.env[name],
+    );
+    const catalogue = (() => {
+      try {
+        return loadCatalogue().length;
+      } catch {
+        return 0;
+      }
+    })();
+
+    console.log('');
+    console.log('sui doctor — what this machine has');
+    console.log('');
+    console.log(table(
+      ['check', 'result'],
+      [
+        ['node', process.version],
+        ['config', `none — a config would live at ${configPath}`],
+        ['provider keys in this window', keys.length ? keys.join(', ') : 'none'],
+        ['catalogue', `${catalogue} entries`],
+      ],
+    ));
+    console.log('');
+    console.log('  Everything above is fine — there is simply no config yet.');
+    console.log(`  Create one, which also proves the route:  ${RUN_AS} init`);
+    console.log('  Then this command will test every combo against your key.');
+    console.log('');
+    return;
+  }
+
   const gateway = await createGateway({ configPath: flags.config, ledgerFile: null });
   const { config, router } = gateway;
   const combos = flags.combo ? [String(flags.combo)] : Object.keys(config.combos);

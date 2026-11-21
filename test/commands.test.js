@@ -248,3 +248,27 @@ test('probe --json emits pure JSON too, even when nothing answers', async () => 
     assert.ok(r.reasons.length > 0, `${r.provider} failed without a reason`);
   }
 });
+
+test('doctor diagnoses a missing config instead of refusing to look', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  // `doctor` is the health check, and the most natural first command. Refusing with
+  // "no config found" and nothing else turned it into a dead end.
+  const home = mkdtempSync(join(tmpdir(), 'sui-doctor-'));
+  const out = execFileSync(process.execPath, [join(process.cwd(), 'apps/cli/bin/sui.js'), 'doctor'], {
+    cwd: home,
+    encoding: 'utf8',
+    env: { ...process.env, SUI_HOME: home, SUI_CONFIG: '' },
+    timeout: 90_000,
+  });
+
+  assert.match(out, /what this machine has/, 'it reports what it can see');
+  assert.match(out, /node\s+v\d+/, 'the node version');
+  assert.match(out, /catalogue\s+\d+ entries/, 'the catalogue count');
+  assert.match(out, /would live at/, 'it names where a config would go, not "null"');
+  assert.match(out, /init/, 'and the command that fixes it');
+  assert.equal(/No sui config found/.test(out), false, 'a diagnosis, not a refusal');
+});
