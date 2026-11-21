@@ -230,12 +230,14 @@ await check('every package has a tarball, not just a version in the metadata', a
   // for the last package published. A check that calls that a failure reports a
   // broken release every time; a check that waits reports the ones that never
   // arrive. Same reason the version check retries.
-  const waitFor = (url, attempts = 10) => {
+  // redteam's tarball has taken over three minutes to appear twice, and cli depends
+  // on it — which is exactly how 'npm install -g' failed for the first person to try.
+  const waitFor = (url, attempts = 20) => {
     for (let attempt = 0; attempt < attempts; attempt++) {
       const code = statusOf(url);
       if (code === '200') return code;
       if (code === '404' && attempt < attempts - 1) {
-        execFileSync('sleep', [String(15)]);
+        execFileSync('sleep', [String(20)]);
         continue;
       }
       return code;

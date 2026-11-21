@@ -2,6 +2,13 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.30 — 2026-11-21
+
+### Fixed
+
+- **The tarball wait was too short for one package.** `redteam`'s tarball has twice taken over three minutes to appear, and `cli` depends on it — which is how `npm install -g` failed for the first person to try. The wait is 20 × 20 s now.
+- `docs/WINDOWS.md` names that failure in its troubleshooting table, because it looks like a broken setup and is not: npm lists a version a few minutes before its tarball is downloadable.
+
 ## 0.12.29 — 2026-11-21
 
 ### Fixed
