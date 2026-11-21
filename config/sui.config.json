@@ -86,8 +86,8 @@
   "models": {
     "groq-fast": {
       "provider": "groq",
-      "model": "llama-3.1-8b-instant",
-      "label": "Fast and free (Groq Llama 3.1 8B)",
+      "model": "openai/gpt-oss-20b",
+      "label": "GPT-OSS 20B (Groq)",
       "costPer1kIn": 5e-05,
       "costPer1kOut": 8e-05,
       "quality": 2,
@@ -96,8 +96,8 @@
     },
     "groq-70b": {
       "provider": "groq",
-      "model": "llama-3.3-70b-versatile",
-      "label": "Fast and strong (Groq Llama 3.3 70B)",
+      "model": "openai/gpt-oss-120b",
+      "label": "GPT-OSS 120B (Groq)",
       "costPer1kIn": 0.00059,
       "costPer1kOut": 0.00079,
       "quality": 4,

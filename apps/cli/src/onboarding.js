@@ -161,7 +161,7 @@ export async function runInit(opts = {}) {
     roundTrip = { ok: false, combo, error: /** @type {any} */ (err).message, ms: Date.now() - started };
     out(`  failed: ${roundTrip.error}`);
     out('');
-    out('Nothing was marked ready. Fix the problem above and run `${runAs()} init` again.');
+    out(`Nothing was marked ready. Fix the problem above and run \`${runAs()} init\` again.`);
     return { ok: false, configPath, config, roundTrip, tools };
   }
 

@@ -151,7 +151,26 @@ export function createAdapter(providerId, provider, env = process.env) {
     try {
       return await build(key)(req, opts);
     } catch (err) {
-      const isAuth = /** @type {any} */ (err)?.status === 401;
+      const status = /** @type {any} */ (err)?.status;
+
+      // A retired model id is the most common failure in this whole system: Groq
+      // shut down llama-3.3-70b-versatile in August 2026 and every catalogue that
+      // still named it started answering "that model does not exist". Ask the
+      // provider what it has now, retry once, and say what changed — a hardcoded
+      // model list in a config file cannot keep up, and the provider can.
+      if (status === 404 && req?.model && !opts._rediscovered) {
+        const discovered = await discoverModel(providerId, provider, key, env);
+        if (discovered && discovered !== req.model) {
+          const retried = await build(key)({ ...req, model: discovered }, { ...opts, _rediscovered: true });
+          if (retried && typeof retried === 'object') {
+            retried.modelSwitchedFrom = req.model;
+            retried.model = discovered;
+          }
+          return retried;
+        }
+      }
+
+      const isAuth = status === 401;
       if (!isAuth || !provider.oauth) throw err;
       await refreshAccessToken({ providerId, provider, env });
       return await build(cachedToken(providerId))(req, opts);
@@ -488,10 +507,42 @@ export function parseRetryAfter(headers, detail = '') {
   return 0;
 }
 
+/**
+ * What does this provider actually serve right now?
+ *
+ * `/models` is part of the OpenAI-compatible surface every provider here speaks, so
+ * one call answers it for all of them. The pick is deliberately dull: the first id
+ * that does not look like an embedding, audio or guard model, preferring a chat
+ * model over anything else. It is a recovery path, not a ranking.
+ */
+export async function discoverModel(providerId, provider, key, env = process.env) {
+  const baseUrl = String(provider.baseUrl ?? '').replace(/\/$/, '');
+  if (!baseUrl) return null;
+  const headers = { accept: 'application/json' };
+  const auth = key ?? (provider.apiKeyEnv ? env[provider.apiKeyEnv] : undefined);
+  if (auth) headers.authorization = `Bearer ${auth}`;
+
+  try {
+    const res = await fetch(`${baseUrl}/models`, { headers, signal: AbortSignal.timeout(provider.timeoutMs ?? 10_000) });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const ids = (body?.data ?? body?.models ?? []).map((m) => m?.id ?? m?.name).filter(Boolean);
+    if (!ids.length) return null;
+
+    const skip = /embed|whisper|tts|audio|guard|rerank|moderation|image|vision-only|dall|sdxl/i;
+    const usable = ids.filter((id) => !skip.test(id));
+    return usable[0] ?? ids[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function explainHttpError(providerId, status, detail) {
   const name = displayName(providerId);
-  if (status === 401 || status === 403) return `${name} rejected the API key.`;
-  if (status === 404) return `${name} says that model does not exist.`;
+  if (status === 401 || status === 403) {
+    return `${name} rejected the API key. Check it was copied whole and is for the right product (Groq: console.groq.com/keys, Gemini: aistudio.google.com/apikey), or unset it to use another provider.`;
+  }
+  if (status === 404) return `${name} does not serve that model any more — providers retire model ids, and the id in the config is stale.`;
   if (status === 429) return `${name} is rate-limiting requests right now.`;
   if (status === 402) return `${name} says the account is out of credit.`;
   if (status >= 500) return `${name} is having trouble on their side (HTTP ${status}).`;

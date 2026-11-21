@@ -2,6 +2,19 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.29 — 2026-11-21
+
+### Fixed
+
+- **The seed named two models Groq shut down on 16 August 2026.** `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` were retired; every first run answered "Groq says that model does not exist". They are `openai/gpt-oss-120b` and `openai/gpt-oss-20b` now, per Groq's own deprecation notice.
+- **A retired model id is recovered instead of failing.** When a provider answers 404, the adapter asks that provider's `/models` endpoint, picks a chat model, retries once, and reports what it switched to (`modelSwitchedFrom`). A hardcoded model id in a config file cannot keep up with a provider's deprecation schedule; the provider can.
+- **A rejected key now says what to do** — which page to copy the key from, and that unsetting it is a valid option — instead of only that it was rejected.
+- **`${runAs()} init` printed literally** in the failure message, because the string was not a template literal.
+
+### Note
+
+The Groq failure was ours. The Gemini failure is not: the key is sent correctly (`x-goog-api-key`, a valid model id), so a 401 from Google means the key itself was rejected — expired, restricted, or from a different product.
+
 ## 0.12.28 — 2026-11-21
 
 ### Fixed
