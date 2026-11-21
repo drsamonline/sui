@@ -2,6 +2,15 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.24 — 2026-11-21
+
+### Fixed
+
+- **`sui catalog` reported zero entries from an npm install.** The CLI read the catalogue from a repository-relative path, so everyone who installed the package saw an empty table — and `sui probe --write`, the command that turns catalogue entries into routes, had nothing to probe. The catalogue now ships inside `@drsamonline/catalog` and the CLI resolves it from either place.
+- `verify-published.mjs` checks it: an install that reports zero entries fails the run.
+
+This is the fourth bug of the same shape — a path, a version, a command or a data file that resolves inside this repository and not from a tarball — and the only one that would have made the documented first-run steps do nothing.
+
 ## 0.12.23 — 2026-11-19
 
 Audit pass. Five metadata gaps across 19 packages, one of them a licence violation.

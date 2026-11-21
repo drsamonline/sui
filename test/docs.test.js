@@ -626,6 +626,15 @@ test('every published package is findable and legally complete', async () => {
     assert.ok(existsSync(join(process.cwd(), dir, 'LICENSE')), `${pkg.name} ships no LICENSE file`);
     assert.ok((pkg.files ?? []).includes('LICENSE'), `${pkg.name} does not include LICENSE in files`);
 
+    // a data file a command reads must travel with the package that reads it, or
+    // the command reports an empty result to everyone who installed it
+    if (pkg.name === '@drsamonline/catalog') {
+      for (const data of ['seed.json', 'sources.json']) {
+        assert.ok((pkg.files ?? []).includes(data), `@drsamonline/catalog does not ship ${data}`);
+        assert.ok(pkg.exports?.[`./${data}`], `@drsamonline/catalog does not export ${data}`);
+      }
+    }
+
     // npm warns when it has to clean a bin path
     for (const [name, target] of Object.entries(pkg.bin ?? {})) {
       assert.equal(String(target).startsWith('./'), false, `${pkg.name} bin "${name}" starts with ./`);

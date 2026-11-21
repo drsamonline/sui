@@ -167,11 +167,30 @@ function readVerified() {
   return [];
 }
 
+/**
+ * Where the catalogue lives.
+ *
+ * From this repository it is packages/catalog/seed.json. From an npm install there
+ * is no repository: the file travels inside @drsamonline/catalog, and reading it
+ * from a repo-relative path reported "0 catalogue entries" — so `sui probe --write`
+ * had nothing to probe and `sui catalog` showed an empty table to every user who
+ * installed the package.
+ */
+function cataloguePaths() {
+  const candidates = [join(ROOT, 'packages', 'catalog', 'seed.json')];
+  try {
+    candidates.push(fileURLToPath(import.meta.resolve('@drsamonline/catalog/seed.json')));
+  } catch {
+    /* older installs may not export it */
+  }
+  return candidates;
+}
+
 function loadCatalogue() {
-  const seedPath = join(ROOT, 'packages', 'catalog', 'seed.json');
+  const seedPath = cataloguePaths().find((candidate) => existsSync(candidate));
   const generatedPath = join(ROOT, 'packages', 'catalog', 'generated.json');
   const entries = [];
-  if (existsSync(seedPath)) entries.push(...loadSeed(seedPath));
+  if (seedPath) entries.push(...loadSeed(seedPath));
   if (existsSync(generatedPath)) entries.push(...loadSeed(generatedPath));
   return dedupeEntries(applyVerified(entries, readVerified()));
 }

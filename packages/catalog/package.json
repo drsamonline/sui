@@ -1,19 +1,24 @@
 {
   "name": "@drsamonline/catalog",
-  "version": "0.12.23",
+  "version": "0.12.24",
   "description": "Provider catalog: schema, dedupe, ToS policy, scoring.",
   "type": "module",
   "license": "MIT",
   "main": "./src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./src/*": "./src/*"
+    "./src/*": "./src/*",
+    "./seed.json": "./seed.json",
+    "./sources.json": "./sources.json",
+    "./package.json": "./package.json"
   },
   "files": [
     "src",
     "web",
     "bin",
-    "LICENSE"
+    "LICENSE",
+    "seed.json",
+    "sources.json"
   ],
   "repository": {
     "type": "git",

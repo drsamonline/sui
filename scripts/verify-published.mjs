@@ -134,6 +134,15 @@ await check('the dashboard is the real page, not a placeholder', async () => {
   }
 });
 
+await check('the catalogue travels with the package', () => {
+  // It did not: `sui catalog` reported "0 catalogue entries" from an install, so
+  // probe had nothing to probe and the table every user saw was empty.
+  const out = run(['catalog']);
+  const count = /(\d+) catalogue entries/.exec(out)?.[1];
+  if (!count || count === '0') throw new Error(`sui catalog reported ${count ?? 'no'} entries from an install`);
+  return `${count} entries`;
+});
+
 await check('streams a response, the way a coding tool asks for one', async () => {
   const { spawn } = await import('node:child_process');
   const home = join(dir, '.sui-home');

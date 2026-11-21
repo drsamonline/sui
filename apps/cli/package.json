@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/cli",
-  "version": "0.12.23",
+  "version": "0.12.24",
   "description": "The `sui` command line.",
   "type": "module",
   "license": "MIT",
