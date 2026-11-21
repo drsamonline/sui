@@ -1037,11 +1037,18 @@ function renderComboSelect(combos, pool) {
 
   select.innerHTML = combos.map((c) => {
     const anyReady = c.targets.some((t) => available.has(t));
-    return `<option value="${c.id}" ${anyReady ? '' : 'disabled'}>${c.label}${anyReady ? '' : ' — nothing available'}</option>`;
+    return `<option value="${c.id}">${c.label}${anyReady ? '' : ' — nothing available yet'}</option>`;
   }).join('');
 
+  // Restore the last combo only if it still exists; otherwise take the first one that
+  // can actually answer, so a saved choice cannot leave the page pointing at a combo
+  // with no provider.
+  const ready = combos.filter((c) => c.targets.some((t) => available.has(t)));
   if (selectedCombo && combos.some((c) => c.id === selectedCombo)) select.value = selectedCombo;
-  else selectedCombo = combos[0]?.id ?? null;
+  else {
+    selectedCombo = (ready[0] ?? combos[0])?.id ?? null;
+    if (selectedCombo) select.value = selectedCombo;
+  }
 
   select.onchange = () => {
     selectedCombo = select.value;
@@ -1088,9 +1095,20 @@ function addMessage(who, text, chip) {
 
 async function send() {
   // B8.7: tell assistive tech the answer is arriving, then that it has arrived
-  threadEl?.setAttribute('aria-busy', 'true');
+  thread?.setAttribute('aria-busy', 'true');
   const text = $('#prompt').value.trim();
-  if (!text || !selectedCombo) return;
+  // A button that does nothing is indistinguishable from a broken page. Say why.
+  if (!text) {
+    thread?.setAttribute('aria-busy', 'false');
+    $('#prompt').focus();
+    addMessage('sui', 'Type a message first — then Send. Nothing has been sent yet.');
+    return;
+  }
+  if (!selectedCombo) {
+    thread?.setAttribute('aria-busy', 'false');
+    addMessage('sui', 'No model is selected. Pick one from the list above the box.');
+    return;
+  }
   const button = $('#send');
   button.disabled = true;
   $('#prompt').value = '';
@@ -1178,7 +1196,7 @@ async function send() {
     bubble.classList.remove('skeleton');
     bubble.textContent = 'The connection dropped mid-answer. Nothing was retried, because part of the reply had already arrived.';
   } finally {
-    threadEl?.setAttribute('aria-busy', 'false');
+    thread?.setAttribute('aria-busy', 'false');
     button.disabled = false;
     $('#prompt').focus();
   }

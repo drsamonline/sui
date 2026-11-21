@@ -12,7 +12,7 @@
  * care which format the other end speaks.
  */
 
-import { ProviderError } from '@drsamonline/core';
+import { ProviderError, pickChatModel } from '@drsamonline/core';
 
 /**
  * @typedef {{
@@ -543,9 +543,7 @@ export async function discoverModel(providerId, provider, key, env = process.env
     const ids = (body?.data ?? body?.models ?? []).map((m) => m?.id ?? m?.name).filter(Boolean);
     if (!ids.length) return null;
 
-    const skip = /embed|whisper|tts|audio|guard|rerank|moderation|image|vision-only|dall|sdxl/i;
-    const usable = ids.filter((id) => !skip.test(id));
-    return usable[0] ?? ids[0] ?? null;
+    return pickChatModel(ids);
   } catch {
     return null;
   }

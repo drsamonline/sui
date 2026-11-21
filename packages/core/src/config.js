@@ -732,3 +732,22 @@ export function sanitiseKey(raw) {
   key = key.replace(/^Bearer\s+/i, '').trim();
   return key.length ? key : undefined;
 }
+
+/**
+ * Pick a model that can hold a conversation.
+ *
+ * A provider's `/models` endpoint lists everything it serves: text-to-speech,
+ * embeddings, guard models, image generators. Taking the first id put Groq's
+ * Arabic TTS voice in front of a chat probe, which answered "that model does not
+ * exist" for a model that exists and is simply not a chat model.
+ *
+ * @param {string[]} ids
+ * @returns {string|null}
+ */
+export function pickChatModel(ids) {
+  const skip = /embed|whisper|tts|audio|speech|guard|rerank|moderation|image|dall|sdxl|stable-diffusion|orpheus/i;
+  const usable = (ids ?? []).filter((id) => typeof id === 'string' && id.length > 0 && !skip.test(id));
+  // a chat model usually says so in its name
+  const named = usable.find((id) => /chat|instruct|gpt|llama|qwen|mistral|gemma|deepseek|claude|gemini|glm|kimi|phi/i.test(id));
+  return named ?? usable[0] ?? null;
+}

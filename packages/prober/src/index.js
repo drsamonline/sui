@@ -18,6 +18,7 @@
  */
 
 import { poolKey } from '@drsamonline/catalog';
+import { pickChatModel } from '@drsamonline/core';
 
 /** Bump when a fixture changes, so probe history stays comparable. */
 /**
@@ -374,7 +375,11 @@ async function probeTools({ fetchImpl, base, headers, entry, timeoutMs }) {
  */
 function probeModel(entry, discovered = []) {
   if (entry.probe_model) return entry.probe_model;
-  if (discovered.length) return discovered[0];
+  if (discovered.length) {
+    // a provider's /models lists TTS, embedding and guard models too: taking the
+    // first id put Groq's Arabic TTS voice in front of a chat probe
+    return pickChatModel(discovered) ?? discovered[0];
+  }
   const family = entry.model_family;
   if (family && !/compatible|mixed|unknown/i.test(family)) return family;
   return 'default';

@@ -121,6 +121,30 @@ const probe = await page.evaluate(() => ({
   bodyText: document.body.innerText.slice(0, 200),
 }));
 
+// ---- the Send button has to do something ---------------------------------
+// It did not: send() threw ReferenceError on its first line (threadEl was never
+// defined), so a click did nothing at all and looked like a dead page. Nothing in
+// this script clicked it, which is why it shipped.
+{
+  const before = await page.evaluate(() => document.querySelector('#thread')?.innerText.length ?? 0);
+
+  await page.click('#send');
+  await new Promise((r) => setTimeout(r, 300));
+  const emptyClick = await page.evaluate(() => document.querySelector('#thread')?.innerText ?? '');
+  if (!/Type a message first/.test(emptyClick)) problems.push('clicking Send with an empty box said nothing');
+
+  await page.type('#prompt', 'hello from the smoke test');
+  await page.click('#send');
+  await new Promise((r) => setTimeout(r, 1200));
+  const after = await page.evaluate(() => ({
+    text: document.querySelector('#thread')?.innerText ?? '',
+    length: document.querySelector('#thread')?.innerText.length ?? 0,
+  }));
+  if (after.length <= before) problems.push('clicking Send with a prompt produced no answer in the thread');
+  if (!/hello from the smoke test/i.test(after.text)) problems.push('the answer did not echo the prompt');
+  console.log(`  send button              ${after.length > before ? 'answered' : 'DEAD'}`);
+}
+
 await browser.close();
 await gateway.close();
 

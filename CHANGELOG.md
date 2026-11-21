@@ -2,6 +2,20 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.34 — 2026-11-21
+
+### Fixed
+
+- **The Send button on the dashboard did nothing.** `send()` threw `ReferenceError: threadEl is not defined` on its first line — the variable is called `thread` — so every click died before sending a request. The answer appears in the conversation thread above the box, which is why there was nowhere to look.
+- **A click with an empty box said nothing.** It now says "Type a message first — then Send."
+- **Every combo could render as `disabled`**, which leaves a select that cannot be used and a page that looks broken. An unavailable combo is labelled "— nothing available yet" and remains clickable; the gateway answers with the reason.
+- **The probe picked a text-to-speech model.** Groq's `/models` lists `canopylabs/orpheus-arabic-saudi` first, so the chat probe asked for a TTS voice and reported "that model does not exist" — for a model that exists and is simply not a chat model. `pickChatModel` (shared by the adapter and the prober) skips embeddings, audio, guard and image models.
+- `doctor` now says when a combo names a provider whose key has been removed since the config was written, and gives the one command that rewrites it.
+
+### Added
+
+- The dashboard smoke test **clicks Send** — with an empty box and with a prompt — and fails if nothing appears. Nothing in it clicked the button before, which is why a dead button shipped.
+
 ## 0.12.33 — 2026-11-21
 
 ### Fixed
