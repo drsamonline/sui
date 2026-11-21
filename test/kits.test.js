@@ -65,3 +65,27 @@ test('search-kit ranks a query and returns the item', () => {
 test('an unknown kit says which kits exist', () => {
   assert.throws(() => loadKit('not-a-kit'), /Known kits:/);
 });
+
+test('the vendored kits travel with the package', async () => {
+  const { readFileSync, existsSync, readdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+
+  // They were read from vendor/kits at the repository root, so an npm install loaded
+  // none of the seven: "0/7 loaded — broken: crypto-kit, ml-kit, …".
+  const source = join(process.cwd(), 'vendor', 'kits');
+  const shipped = join(process.cwd(), 'packages', 'kits', 'vendor', 'kits');
+  assert.ok(existsSync(shipped), 'packages/kits/vendor/kits must exist — run node scripts/bundle-dashboard.mjs');
+
+  for (const name of readdirSync(source)) {
+    if (!name.endsWith('.js') && !name.endsWith('.json')) continue;
+    assert.ok(existsSync(join(shipped, name)), `${name} is missing from the packaged kits`);
+    assert.equal(
+      readFileSync(join(shipped, name), 'utf8'),
+      readFileSync(join(source, name), 'utf8'),
+      `${name} has drifted from vendor/kits`,
+    );
+  }
+
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'packages', 'kits', 'package.json'), 'utf8'));
+  assert.ok((pkg.files ?? []).includes('vendor'), '@drsamonline/kits must list vendor/ in files');
+});

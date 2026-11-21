@@ -126,3 +126,29 @@ test('doctor shows what it can see about a key without printing the key', async 
   assert.equal(doctor.includes('gsk_secret_value_123456'), false, 'the key itself must never be printed');
   assert.ok(out.includes('Config written'));
 });
+
+test('a reasoning model that answers with reasoning and no content is not an empty turn', async () => {
+  const { createAdapter } = await import('../packages/providers/src/index.js');
+  const http = await import('node:http');
+
+  // Groq's gpt-oss models answer with the thinking in `reasoning` and leave
+  // `content` empty when the token budget runs out. Reading only `content` reported
+  // "empty turn" for a request that had been answered.
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      choices: [{ message: { role: 'assistant', content: '', reasoning_content: 'ready' }, finish_reason: 'length' }],
+      usage: { prompt_tokens: 10, completion_tokens: 16 },
+    }));
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+
+  try {
+    const adapter = createAdapter('groq', { type: 'openai', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'k', timeoutMs: 5000 });
+    const result = await adapter.chat({ model: 'openai/gpt-oss-120b', messages: [{ role: 'user', content: 'hi' }] });
+    assert.equal(result.text, 'ready', 'the reasoning is the answer when content is empty');
+  } finally {
+    server.close();
+  }
+});

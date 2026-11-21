@@ -13,7 +13,7 @@
  * publish workflow runs it before packing.
  */
 
-import { copyFileSync, mkdirSync, readFileSync, statSync, existsSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +38,19 @@ const templateTo = join(ROOT, 'apps', 'cli', 'config', 'sui.config.json');
 mkdirSync(dirname(templateTo), { recursive: true });
 copyFileSync(templateFrom, templateTo);
 console.log(`  bundled apps/cli/config/sui.config.json · ${statSync(templateTo).size} bytes`);
+
+// The seven vendored kits had the same problem: read from vendor/kits at the
+// repository root, so an install loaded none of them.
+const kitsFrom = join(ROOT, 'vendor', 'kits');
+const kitsTo = join(ROOT, 'packages', 'kits', 'vendor', 'kits');
+mkdirSync(kitsTo, { recursive: true });
+let kitCount = 0;
+for (const name of readdirSync(kitsFrom)) {
+  if (!name.endsWith('.js') && !name.endsWith('.json')) continue;
+  copyFileSync(join(kitsFrom, name), join(kitsTo, name));
+  kitCount++;
+}
+console.log(`  bundled packages/kits/vendor/kits · ${kitCount} files`);
 
 const bytes = statSync(to).size;
 const same = readFileSync(from, 'utf8') === readFileSync(to, 'utf8');

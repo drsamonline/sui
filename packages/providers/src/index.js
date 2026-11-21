@@ -215,9 +215,19 @@ async function openaiChat(providerId, provider, apiKey, req, opts = {}) {
 
   const json = await res.json();
   const choice = json.choices?.[0];
-  const text = choice?.message?.content ?? '';
+  const message = choice?.message ?? {};
+
+  // A reasoning model answers with its thinking in `reasoning` and leaves `content`
+  // empty when it runs out of tokens — which is exactly what Groq's gpt-oss models
+  // do at max_tokens: 16. Reading only `content` reported "empty turn" for a request
+  // that had been answered, and the answer was sitting in the response.
+  const rawText = message.content ?? '';
+  const content = typeof rawText === 'string' ? rawText : flattenParts(rawText);
+  const reasoning = message.reasoning_content ?? message.reasoning ?? '';
+  const text = content || (typeof reasoning === 'string' ? reasoning : '');
+
   return {
-    text: typeof text === 'string' ? text : flattenParts(text),
+    text,
     usage: {
       prompt_tokens: json.usage?.prompt_tokens ?? estimateMessages(req.messages),
       completion_tokens: json.usage?.completion_tokens ?? estimateText(text),

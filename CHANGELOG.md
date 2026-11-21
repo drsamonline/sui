@@ -2,6 +2,14 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.32 — 2026-11-21
+
+### Fixed
+
+- **A reasoning model that answered was reported as an empty turn.** Groq's `gpt-oss` models put their thinking in `reasoning` and leave `content` empty when the token budget runs out; the adapter read only `content`, so a real answer looked like a blank one and the router retried and then failed the combo. The adapter falls back to the reasoning text.
+- **`doctor` asked for 16 tokens.** A reasoning model spends 16 tokens thinking and returns nothing, so the health check failed every reasoning model on the market. It asks for 64.
+- **None of the seven vendored kits loaded from an install.** They were read from `vendor/kits` at the repository root, so `sui doctor` reported `0/7 loaded — broken: crypto-kit, ml-kit, …` for every user who installed the package. They travel inside `@drsamonline/kits` now, and a test fails if the shipped copy drifts.
+
 ## 0.12.31 — 2026-11-21
 
 ### Fixed

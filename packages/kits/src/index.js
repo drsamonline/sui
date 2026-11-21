@@ -19,7 +19,17 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const KITS_DIR = join(HERE, '..', '..', '..', 'vendor', 'kits');
+/**
+ * Where the vendored kits live.
+ *
+ * Inside this repository they are vendor/kits at the root. From an npm install there
+ * is no repository: they travel inside this package, and reading them from a
+ * repo-relative path loaded none of the seven — `sui doctor` reported "0/7 loaded,
+ * broken: crypto-kit, ml-kit, …" for every user who installed it.
+ */
+const KITS_DIR = [join(HERE, '..', 'vendor', 'kits'), join(HERE, '..', '..', '..', 'vendor', 'kits')].find((candidate) =>
+  existsSync(candidate),
+) ?? join(HERE, '..', 'vendor', 'kits');
 
 /** file name -> the global the kit attaches to */
 export const KIT_GLOBALS = {
