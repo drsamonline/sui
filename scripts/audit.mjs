@@ -33,7 +33,11 @@ const files = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })
   .filter(Boolean)
   .filter((f) => /\.(js|mjs|json|md|html|toml|yml)$/.test(f) && !f.startsWith('vendor/kits/app-endpoints'));
 
-const source = files.filter((f) => /\.(js|mjs)$/.test(f) && !f.startsWith('vendor/'));
+// vendored kits are loaded by name at runtime (`kits.load('crypto-kit')`), so the
+// copy inside the package has no importer and is not dead — it is shipped data
+const source = files.filter(
+  (f) => /\.(js|mjs)$/.test(f) && !f.startsWith('vendor/') && !f.includes('/vendor/kits/'),
+);
 const read = (f) => readFileSync(join(ROOT, f), 'utf8');
 
 /** @type {Array<{check: string, ok: boolean, detail: string}>} */

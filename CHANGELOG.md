@@ -2,6 +2,12 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.33 — 2026-11-21
+
+### Fixed
+
+- The audit's dead-module check counted the vendored kit copies inside `@drsamonline/kits` as unreachable, because they are loaded by name at runtime (`kits.load('crypto-kit')`) and never imported. It excludes `/vendor/kits/` now. The 0.12.32 publish stopped there.
+
 ## 0.12.32 — 2026-11-21
 
 ### Fixed
