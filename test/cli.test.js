@@ -15,6 +15,8 @@ test('a registry install reports its own version and a command that exists', asy
   mkdirSync(pkgDir, { recursive: true });
   cpSync(join(process.cwd(), 'apps', 'cli', 'src'), join(pkgDir, 'src'), { recursive: true });
   cpSync(join(process.cwd(), 'apps', 'cli', 'bin'), join(pkgDir, 'bin'), { recursive: true });
+  // the eval harness ships in the package too; without it the CLI cannot even load
+  cpSync(join(process.cwd(), 'apps', 'cli', 'evals'), join(pkgDir, 'evals'), { recursive: true });
   const manifest = JSON.parse(readFileSync(join(process.cwd(), 'apps', 'cli', 'package.json'), 'utf8'));
   writeFileSync(join(pkgDir, 'package.json'), JSON.stringify(manifest, null, 2));
 

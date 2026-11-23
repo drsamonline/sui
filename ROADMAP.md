@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-23 · `0.12.36` · 597 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-23 · `0.12.37` · 621 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
@@ -30,6 +30,8 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | Streaming, dashboard, languages, catalogue, kits — from the tarball | same |
 | End to end on a real machine: install → init → doctor → probe → reply | owner's Windows box, 2026-11-23 |
 | p95 inside the 15 ms budget | `npm run soak` |
+| Answer quality measurable from the tarball, not just a checkout | `sui eval --self-test` |
+| The health check scriptable, and the sweep bounded | `sui doctor --json`, `sui probe --concurrency 8` |
 | Windows without an npm account | `docs/WINDOWS.md` |
 | Legal docs reviewed and signed off | `docs/legal/LEGAL-INDEX.md` |
 
@@ -37,10 +39,8 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 
 | # | What | Why it matters | Effort |
 |---|---|---|---|
-| 1 | **`sui eval` as a command** | eval exists only in the repository, so an install cannot measure answer quality — the one gap where the product cannot prove its own claims | 1 release |
-| 2 | **Probe concurrency** | 41 entries × 8 s is five minutes serial; ~40 s in parallel | small |
-| 3 | `sui doctor --json` | the health check has no machine-readable output, so it cannot be scripted | small |
-| 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once | small |
+| 1 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once | small |
+| 2 | `--json` on `catalog`, `free-budget` and `cost` already exist — a single `--json` contract across every command | two commands now keep it; the rest are ad hoc | small |
 
 ## Medium
 
@@ -67,6 +67,9 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | A quality score without an eval run | the harness self-test is labelled as one for exactly this reason |
 | **More languages** | **dropped by the owner.** Six stand; the boundary is in `docs/LANGUAGES.md` and a test keeps it stated |
 | **Legal review** | **signed off by the owner, 2026-11-23** |
+| **`sui eval` as a command** | shipped 0.12.37 — the harness and the golden set travel in the CLI package, and `verify-published` runs it from the tarball |
+| **Probe concurrency** | shipped 0.12.37 — bounded at 8 by default, `--concurrency N`, and a hard deadline so a blackholed socket cannot hang a sweep |
+| **`sui doctor --json`** | shipped 0.12.37 — stdout is the document, exit 1 when no combo answered |
 
 ## Needs a human, in this order
 

@@ -1,10 +1,11 @@
 {
   "mode": "real",
-  "ranAt": "2026-11-23T09:10:17.143Z",
+  "ranAt": "2026-11-23T09:49:21.955Z",
   "combo": "chat-default",
   "passRate": 0.42,
   "passed": 21,
   "total": 50,
+  "answered": 50,
   "byCategory": {
     "coding": {
       "pass": 2,
@@ -200,6 +201,5 @@
       "reason": "none of: 7"
     }
   ],
-  "note": "Real run against combo \"chat-default\".",
-  "generatedAt": "2026-11-23T09:10:17.143Z"
+  "note": "Real run against combo \"chat-default\"."
 }

@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.36`.
+Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.37`.
 
 ## What this is
 
@@ -14,15 +14,16 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.36`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 597, no network, no keys |
+| Version | `0.12.37`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 621, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | green on Node 20 and 22 |
 | Catalogue | 41 entries, each with a recorded source |
 | Verified routes | **1** — Groq, on the owner's machine (0 from CI: no provider egress) |
 | Languages | en, hi, gu, mr, ta, te |
-| Last commit | `d445b3f` |
+| Answer quality | measurable from the tarball: `sui eval --self-test` (56 grader checks), `sui eval` for a real combo |
+| Last commit | `49cb4b4` before 0.12.37 |
 
 Proof it works end to end, from the owner's Windows machine:
 
@@ -37,7 +38,7 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 597 tests
+npm test               # 621 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH
@@ -64,8 +65,11 @@ The tag triggers `.github/workflows/publish.yml`: bundle → tests → audit →
 | `apps/dashboard/web/dashboard.html` | `GET /` served "Dashboard file missing" |
 | `config/sui.config.json` | first run found the user's key and then ignored it, wiring a demo provider |
 | `vendor/kits/*` | `Vendor kits: 0/7 loaded` |
+| `apps/cli/evals/*` | `sui eval` was not a command at all; the harness lived only in the repo |
 
 `scripts/bundle-dashboard.mjs` copies all of them into their packages, `scripts/verify-published.mjs` installs the real tarball and uses it the way the README says to, and tests fail if a shipped copy drifts from its source. **Any new data file a command reads must be added to a package's `files` and resolved from either location.**
+
+The eval harness is the worked example: the engine, `golden.jsonl` and `fixtures/self-test.json` live in `apps/cli/evals/`, the CLI package's `files` names `evals`, `evalPaths()` resolves them relative to the engine (so the same path in a checkout and in a tarball), and three things check it — a test asserting there is no second copy in the repo, a test that runs `npm pack --dry-run` and looks for the files, and a `verify-published` check that runs `sui eval --self-test` from the installed tarball.
 
 ## Bugs found by running, not reading
 
@@ -89,6 +93,11 @@ Do not reintroduce any of these. Each has a test.
 | crash message pointed at `github.com/your-org/sui` | placeholder URL |
 | no package shipped a LICENSE file | MIT requires the notice in every copy |
 | `--port 0` printed `0` | the bound port was thrown away |
+| an eval run where nothing answered reported `0%` and exit 0 | the exit-2 contract was in the header comment, never in the code — 0/50 there measures the network |
+| `sui probe` never finished on a network that drops packets | `AbortSignal.timeout` does not interrupt a DNS lookup, so `timed()` waited on a fetch that never settled; each level now has its own hard deadline |
+| `--concurrency -1` ran the sweep one entry at a time | a value starting with `-` is parsed as a bare flag, and `Number(true)` is 1 |
+| the dashboard showed `0%` for a run that measured nothing | `passRate ?? 0` turns "no rate" into the worst rate |
+| `/api/evals` said "no eval has been run here" after one was | it read only the checkout's copy, not the user's home |
 
 ## Sandbox facts
 
@@ -96,6 +105,7 @@ Do not reintroduce any of these. Each has a test.
 |---|---|
 | Node | 20.20.2 here; CI covers 22 |
 | Provider egress | **blocked** — a probe from here always writes 0 |
+| DNS here | blackholed, not refused: a lookup hangs ~20 s, and Node cannot cancel `getaddrinfo`, so a probe process prints its results and then takes ~20 s to exit. Results are complete before that. |
 | `github.io` from bash | blocked; `web_get_contents` works |
 | `fetch` to loopback | aborts instantly — use `node:http` |
 | `fetch` through the proxy | ignores `HTTPS_PROXY` — use `curl` |
@@ -110,11 +120,10 @@ Do not reintroduce any of these. Each has a test.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | **`sui eval` as a command** | eval exists only in the repo. The one gap where the product cannot prove its own answer quality from an install |
-| 2 | **Probe concurrency** | 41 entries × 8 s is 5 minutes serial; ~40 s in parallel |
-| 3 | `doctor --json` | nothing is scriptable yet |
-| 4 | More catalogue providers | 41 → hundreds is a grind; each needs a source in `sources.json` |
-| 5 | Per-provider dashboard page | the weather card is a list; a provider's page would carry its probe history |
+| 1 | More catalogue providers | 41 → hundreds is a grind; each needs a source in `sources.json` |
+| 2 | Per-provider dashboard page | the weather card is a list; a provider's page would carry its probe history |
+| 3 | One `--json` contract everywhere | `probe`, `eval` and `doctor` agree; `catalog`, `free-budget` and `cost` predate it |
+| 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
 
 ### Needs the owner
 
@@ -137,6 +146,7 @@ Do not reintroduce any of these. Each has a test.
 
 ### Closed
 
+- **`sui eval` as a command** (0.12.37), **probe concurrency** (0.12.37), **`doctor --json`** (0.12.37)
 - Legal: LICENSE (MIT), NOTICE, OWNER_GRANT, DISCLAIMER, SECURITY — **reviewed and signed off by the owner, 2026-11-23**
 - Translation: **dropped** by the owner; 6 languages stand and the boundary is documented in `docs/LANGUAGES.md`
 

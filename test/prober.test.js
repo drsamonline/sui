@@ -510,3 +510,146 @@ test('a reasoning model that answers with reasoning is ready, not an empty compl
     server.close();
   }
 });
+
+/* ------------------------------------------- a sweep is bounded, not a flood */
+
+/**
+ * 41 entries × an 8-second timeout is the sweep's worst case. Serial that is five
+ * minutes; unbounded it is one burst of 41 handshakes from a single IP, which is
+ * what a free tier answers with 429 — and a 429 was being recorded as "not
+ * suitable", so a working provider got demoted for being asked too eagerly.
+ */
+function entriesFor(n) {
+  return Array.from({ length: n }, (_, i) => ({
+    provider: `p${String(i).padStart(2, '0')}`,
+    base_url: `https://p${i}.example.invalid/v1`,
+    models: ['m'],
+    capabilities: ['chat'],
+  }));
+}
+
+function countingFetch(delayMs, onTick = () => {}) {
+  const state = { inFlight: 0, peak: 0 };
+  const fetchImpl = async () => {
+    state.inFlight += 1;
+    state.peak = Math.max(state.peak, state.inFlight);
+    onTick(state.inFlight);
+    await new Promise((r) => setTimeout(r, delayMs));
+    state.inFlight -= 1;
+    throw new Error('unreachable');
+  };
+  return { fetchImpl, state };
+}
+
+test('a sweep keeps at most `concurrency` entries in flight', async () => {
+  const { fetchImpl, state } = countingFetch(40);
+  const prober = new Prober({ entries: entriesFor(20), fetchImpl, timeoutMs: 500, concurrency: 4 });
+  await prober.runOnce();
+  assert.ok(state.peak <= 4, `peak in flight was ${state.peak}, above the bound of 4`);
+  assert.ok(state.peak >= 2, 'the pool must actually overlap work, not fall back to serial');
+});
+
+test('concurrency 1 is the old one-at-a-time behaviour, for when a provider asks', async () => {
+  const { fetchImpl, state } = countingFetch(5);
+  const prober = new Prober({ entries: entriesFor(6), fetchImpl, timeoutMs: 500, concurrency: 1 });
+  await prober.runOnce();
+  assert.equal(state.peak, 1);
+});
+
+test('a bounded sweep is far faster than serial, and still reports every entry', async () => {
+  const { fetchImpl } = countingFetch(50);
+  const entries = entriesFor(20);
+  const started = Date.now();
+  const prober = new Prober({ entries, fetchImpl, timeoutMs: 500, concurrency: 4 });
+  const results = await prober.runOnce();
+  const elapsed = Date.now() - started;
+
+  assert.equal(results.length, 20, 'every entry is still probed and reported');
+  // serial would be 20 × 50ms = 1000ms; four at a time is ~250ms. A generous
+  // ceiling, because a busy CI runner is not a benchmark machine.
+  assert.ok(elapsed < 700, `a bounded sweep took ${elapsed}ms, which is close to serial`);
+});
+
+test('results keep the catalogue order, whatever order they finished in', async () => {
+  // the first entry is the slowest, so a pool that returned results as they
+  // arrived would put it last and shuffle the table between runs
+  const entries = entriesFor(8);
+  let call = 0;
+  const fetchImpl = async () => {
+    const index = call++;
+    await new Promise((r) => setTimeout(r, index === 0 ? 80 : 5));
+    throw new Error('unreachable');
+  };
+  const prober = new Prober({ entries, fetchImpl, timeoutMs: 500, concurrency: 4 });
+  const results = await prober.runOnce();
+  assert.deepEqual(
+    results.map((r) => r.provider),
+    entries.map((e) => e.provider),
+  );
+});
+
+test('the default bound is a number, and the CLI and the prober cannot disagree', async () => {
+  const { DEFAULT_PROBE_CONCURRENCY } = await import('@drsamonline/prober');
+  assert.ok(Number.isInteger(DEFAULT_PROBE_CONCURRENCY) && DEFAULT_PROBE_CONCURRENCY >= 2);
+  const prober = new Prober({ entries: entriesFor(1) });
+  assert.equal(prober.concurrency, DEFAULT_PROBE_CONCURRENCY);
+});
+
+test('a bounded sweep still verifies a healthy upstream', async () => {
+  const fake = await startFake();
+  try {
+    const entries = Array.from({ length: 5 }, (_, i) => ({
+      ...entryFor(fake.url),
+      provider: `fake-${i}`,
+      base_url: fake.url,
+      pool_key: `fake-${i}`,
+    }));
+    // loopback is opt-in, like everywhere else: this fake upstream is on this machine
+    const prober = new Prober({ entries, timeoutMs: 4000, concurrency: 2, allowLocal: true });
+    const results = await prober.runOnce();
+    assert.equal(results.filter((r) => r.ok).length, 5, 'bounded concurrency must not change what a probe concludes');
+  } finally {
+    await fake.close();
+  }
+});
+
+test('sui probe refuses a concurrency that is not a whole number of at least one', async () => {
+  const { run: cli } = await import('@drsamonline/cli/src/cli.js');
+  const { ConfigError } = await import('@drsamonline/core');
+  for (const bad of ['0', '2.5', 'lots']) {
+    await assert.rejects(() => cli(['probe', '--concurrency', bad]), ConfigError, `--concurrency ${bad} must be refused`);
+  }
+  // a value starting with "-" is read as another flag; it must not silently
+  // become "true" and then run the whole sweep one entry at a time
+  await assert.rejects(() => cli(['probe', '--concurrency', '-1']), ConfigError, 'a bare --concurrency must be refused');
+  await assert.rejects(() => cli(['probe', '--concurrency=-1']), ConfigError, 'a negative bound must be refused');
+});
+
+test('a socket that never answers cannot hang a sweep', async () => {
+  // AbortSignal.timeout does not interrupt a DNS lookup, so a network that drops
+  // packets leaves the fetch pending for ever. `sui probe --timeout 2000` was
+  // measured running for over five minutes here for exactly this reason.
+  const fetchImpl = () => new Promise(() => {});
+  const started = Date.now();
+  const result = await probeTarget(entryFor('https://blackhole.example/v1'), { fetchImpl, timeoutMs: 100 });
+  const elapsed = Date.now() - started;
+
+  assert.equal(result.ok, false);
+  assert.match(result.levels.liveness.note, /timed out/);
+  assert.ok(elapsed < 2000, `a probe with a 100ms timeout took ${elapsed}ms`);
+});
+
+test('a sweep of 41 blackholed endpoints finishes in bounded time', async () => {
+  const fetchImpl = () => new Promise(() => {});
+  const entries = entriesFor(41);
+  const started = Date.now();
+  const prober = new Prober({ entries, fetchImpl, timeoutMs: 50, concurrency: 8 });
+  const results = await prober.runOnce();
+  const elapsed = Date.now() - started;
+
+  assert.equal(results.length, 41);
+  assert.ok(results.every((r) => !r.ok), 'a blackhole is not a verified route');
+  // 41 entries, 50ms each, eight at a time: about six waves. Serial with no
+  // deadline at all was unbounded, which is the bug this replaces.
+  assert.ok(elapsed < 5000, `41 blackholed endpoints took ${elapsed}ms`);
+});

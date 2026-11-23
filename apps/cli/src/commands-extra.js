@@ -16,7 +16,7 @@ import { applyVerified, freeBudget, formatTokens } from '@drsamonline/catalog';
 import { dedupeEntries, loadSeed, summarise } from '@drsamonline/catalog';
 import { loadKit, kitStatus } from '@drsamonline/kits';
 import { createVault } from '@drsamonline/vault';
-import { Prober, PROBE_FIXTURE_VERSION } from '@drsamonline/prober';
+import { DEFAULT_PROBE_CONCURRENCY, Prober, PROBE_FIXTURE_VERSION } from '@drsamonline/prober';
 import { explainPlan } from '@drsamonline/router';
 import { createGateway } from '@drsamonline/gateway';
 import { TRANSFORMS, runSelfTest } from '@drsamonline/redteam';
@@ -1083,9 +1083,23 @@ export async function cmdProbe(flags, args) {
 
   // In --json mode stdout is the document: a preamble on stdout makes the output
   // unparseable, which is how a CI step discovers it before a user does.
+  // A sweep is bounded, not serial: `--concurrency 1` is the old one-at-a-time
+  // behaviour, and the default keeps enough in flight to finish in seconds while
+  // staying under the burst a free tier will answer without a 429.
+  // `--concurrency -1` reaches the parser as a bare flag (the value starts with
+  // "-"), which would quietly become 1 and then a whole sweep would run one at a
+  // time. A flag that takes a number must refuse to be a boolean.
+  if (flags.concurrency === true) {
+    throw new ConfigError('--concurrency needs a number, e.g. --concurrency 8 (or --concurrency=4 for a negative-looking value).');
+  }
+  const concurrency = flags.concurrency == null ? DEFAULT_PROBE_CONCURRENCY : Number(flags.concurrency);
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new ConfigError(`--concurrency must be a whole number of at least 1, not "${flags.concurrency}".`);
+  }
+
   const say = flags.json ? (...a) => console.error(...a) : (...a) => console.log(...a);
   say('');
-  say(`Probing ${probeable.length} of ${selected.length} entries (fixtures v${PROBE_FIXTURE_VERSION})`);
+  say(`Probing ${probeable.length} of ${selected.length} entries (fixtures v${PROBE_FIXTURE_VERSION}, ${concurrency} at a time)`);
   if (identities.length) {
     say(`${identities.length} have no base_url yet — an identity is not an endpoint, so they are not probed.`);
   }
@@ -1098,6 +1112,7 @@ export async function cmdProbe(flags, args) {
   const prober = new Prober({
     entries: probeable,
     timeoutMs: Number(flags.timeout ?? 8000),
+    concurrency,
     allowLocal: args.length > 0,
   });
   const results = await prober.runOnce();

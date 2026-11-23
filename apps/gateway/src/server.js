@@ -21,7 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RunRegistry } from '@drsamonline/guardrails';
 import { createModelPlaneClient, createPlaneGuard, describePlane } from './planes.js';
-import { autoCombo, checkToggle, direction, normaliseLocale, sanitizeConfig, STRINGS, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary } from '@drsamonline/core';
+import { autoCombo, checkToggle, direction, normaliseLocale, sanitizeConfig, STRINGS, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary, suiHome } from '@drsamonline/core';
 import { SuiError } from '@drsamonline/core';
 import { explainPlan } from '@drsamonline/router';
 import { PRESETS, compress as compressText } from '@drsamonline/compression';
@@ -319,13 +319,20 @@ export function createSuiServer(deps) {
         });
       }
       if (req.method === 'GET' && path === '/api/evals') {
-        const reportPath =
-          process.env.SUI_EVAL_REPORT ??
-          join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'evals', 'last-report.json');
-        if (!existsSync(reportPath)) {
+        // `sui eval` writes its report to the user's home from an install and to
+        // the checkout's committed artifact in a clone. Reading only the second
+        // path meant the dashboard of an installed gateway always said "no eval
+        // has been run here yet", however many times the user ran one.
+        const candidates = [
+          process.env.SUI_EVAL_REPORT,
+          join(suiHome(process.env), 'eval-last-report.json'),
+          join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'evals', 'last-report.json'),
+        ].filter(Boolean);
+        const reportPath = candidates.find((candidate) => existsSync(candidate));
+        if (!reportPath) {
           return sendJson(res, 200, {
             available: false,
-            message: 'No eval has been run here yet. Run `npm run eval` or `npm run eval:self`.',
+            message: 'No eval has been run here yet. Run `sui eval` (or `sui eval --self-test` to check the graders).',
           });
         }
         try {

@@ -4,7 +4,7 @@ Every claim in the README is a measurement, and a measurement without its sample
 
 ## The eval pass rate
 
-`npm run eval` runs 50 prompts against a real combo, one deterministic grader each.
+`sui eval` runs 50 prompts against a real combo, one deterministic grader each. It ships in the CLI package, so it measures the same thing from a registry install as from a checkout (`npm run eval` still works and runs the same engine).
 
 ```
 pass rate 86% (43/50) · 95% CI 74–93%
@@ -22,11 +22,13 @@ Per-category rates matter more than the aggregate, because the aggregate is domi
 | safety, long_context | 4 | indicative |
 | tools, math | 2 | indicative only |
 
+**A run where nothing answered has no pass rate.** If every request failed, `sui eval` exits 2 and reports `passRate: null` with the first error, because 0/50 in that case measures the network. The dashboard shows the note instead of a percentage, and there is no `0%` anywhere to be misread.
+
 **What a pass rate is not:** it is not a measure of answer quality. Each grader checks one property — that the answer contains `setTimeout`, that the JSON parses with two keys, that a request was refused. A model can pass all fifty and still be unhelpful, and fail ten while being right in a way the regex did not anticipate.
 
 ## The regression gate
 
-`evals/baseline.json` holds the ids that passed when you recorded the baseline. A prompt that passed then and fails now fails the build (invariant I10).
+`sui eval --update-baseline` records the ids that passed. In a checkout the baseline is `evals/baseline.json`; from an install it is `eval-baseline.json` in your Sui home, because a baseline is a record of what *this* machine measured. A prompt that passed then and fails now fails the build (invariant I10).
 
 With fifty prompts, a single regression is inside sampling noise. The gate still fails on it, deliberately: a prompt that used to pass must not stop passing, and the message says when the drop is one prompt rather than several, so nobody reads noise as a trend.
 

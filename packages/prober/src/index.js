@@ -94,6 +94,40 @@ export const FIXTURES = {
 const DEFAULT_TIMEOUT_MS = 8000;
 
 /**
+ * How many entries a sweep keeps in flight at once.
+ *
+ * The sweep used to be an unbounded `Promise.all`, which is fast and wrong: 41
+ * simultaneous handshakes from one IP is what a provider's rate limiter answers
+ * with 429, and a 429 is recorded as "not suitable", so a working provider gets
+ * demoted for being asked too eagerly. Eight is the number of providers a free
+ * tier typically allows a burst from without complaint, and it still finishes a
+ * 41-entry sweep in a few seconds rather than the minutes a serial loop took.
+ */
+export const DEFAULT_PROBE_CONCURRENCY = 8;
+
+/**
+ * Run `fn` over `items` with at most `limit` in flight, keeping the input order.
+ *
+ * Order matters: `sui probe` prints one row per catalogue entry and the state map
+ * is built from these results, so a pool that returned results as they finished
+ * would shuffle the table between runs.
+ */
+async function mapPool(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const index = next++;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index], index);
+    }
+  };
+  const width = Math.max(1, Math.min(Number(limit) || DEFAULT_PROBE_CONCURRENCY, items.length));
+  await Promise.all(Array.from({ length: width }, worker));
+  return results;
+}
+
+/**
  * Probe one catalogue entry.
  *
  * @param {any} entry a normalised catalogue entry
@@ -182,7 +216,7 @@ export async function probeTarget(entry, opts = {}) {
       models: discoveredModels.length,
       note: res.ok ? `answered /models (${discoveredModels.length} model(s))` : `HTTP ${res.status}`,
     };
-  });
+  }, timeoutMs + 250);
 
   // ---- readiness ----------------------------------------------------------
   // If liveness did not even reach the host, readiness cannot tell us anything
@@ -229,7 +263,7 @@ export async function probeTarget(entry, opts = {}) {
     sample = content || (typeof reasoning === 'string' ? reasoning : '');
     const ok = typeof sample === 'string' && sample.trim().length > 0;
     return { ok, status: res.status, note: ok ? 'returned text' : 'empty completion' };
-  });
+  }, timeoutMs + 250);
 
   if (!levels.readiness.ok) reasons.push(`readiness: ${levels.readiness.note}`);
 
@@ -330,7 +364,7 @@ async function probeStreaming({ fetchImpl, base, headers, entry, timeoutMs, mode
       frames,
       deltas,
     };
-  });
+  }, timeoutMs + 250);
 }
 
 /** A JSON request has to come back as JSON, not as a promise to be JSON. */
@@ -353,7 +387,7 @@ async function probeJson({ fetchImpl, base, headers, entry, timeoutMs, model }) 
     } catch {
       return { ok: false, status: res.status, note: 'returned text that is not JSON' };
     }
-  });
+  }, timeoutMs + 250);
 }
 
 /**
@@ -374,7 +408,7 @@ async function probeTools({ fetchImpl, base, headers, entry, timeoutMs, model })
     const message = json?.choices?.[0]?.message;
     const ok = Boolean(message && (Array.isArray(message.tool_calls) || typeof message.content === 'string'));
     return { ok, status: res.status, note: ok ? 'tool schema accepted' : 'response had neither tool_calls nor content' };
-  });
+  }, timeoutMs + 250);
 }
 
 /**
@@ -397,10 +431,38 @@ function probeModel(entry, discovered = []) {
   return 'default';
 }
 
-async function timed(fn) {
+/**
+ * Race a promise against a hard deadline.
+ *
+ * `AbortSignal.timeout` does not interrupt a DNS lookup, so a network that drops
+ * packets instead of refusing them leaves the fetch pending past its own timeout.
+ * Measured here: `sui probe --timeout 2000` against a blocked network ran for more
+ * than five minutes because every entry's liveness call never settled. The abort
+ * is still what normally fires — this is the backstop for the case where it cannot.
+ */
+function withDeadline(promise, deadlineMs) {
+  if (!deadlineMs) return promise;
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`no answer in ${deadlineMs} ms`);
+      err.name = 'TimeoutError';
+      reject(err);
+    }, deadlineMs);
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Time a level, and never let it outlive its timeout.
+ *
+ * @param {() => Promise<any>} fn
+ * @param {number} [deadlineMs] a hard ceiling, slightly above the fetch's own timeout
+ */
+async function timed(fn, deadlineMs) {
   const t0 = performance.now();
   try {
-    const result = await fn();
+    const result = await withDeadline(fn(), deadlineMs);
     return { ...result, ms: Math.round(performance.now() - t0) };
   } catch (err) {
     const e = /** @type {any} */ (err);
@@ -453,11 +515,12 @@ export class Prober {
    * @param {{
    *   entries: any[], intervalMs?: number, failuresBeforeDisable?: number,
    *   fetchImpl?: typeof fetch, timeoutMs?: number, now?: () => number,
-   *   onResult?: (result: any, state: any) => void
+   *   concurrency?: number, onResult?: (result: any, state: any) => void
    * }} opts
    */
   constructor(opts) {
     this.entries = opts.entries ?? [];
+    this.concurrency = Number(opts.concurrency ?? DEFAULT_PROBE_CONCURRENCY) || DEFAULT_PROBE_CONCURRENCY;
     this.intervalMs = opts.intervalMs ?? 3600_000;
     this.failuresBeforeDisable = opts.failuresBeforeDisable ?? 3;
     this.fetchImpl = opts.fetchImpl ?? globalThis.fetch;
@@ -487,11 +550,11 @@ export class Prober {
     this.runs = 0;
   }
 
-  /** Probe everything once, in parallel, and fold the results into state. */
+  /** Probe everything once, `concurrency` at a time, and fold the results into state. */
   async runOnce() {
     this.runs += 1;
-    const results = await Promise.all(
-      this.entries.map((entry) => probeTarget(entry, { fetchImpl: this.fetchImpl, timeoutMs: this.timeoutMs, now: this.now, allowLocal: this.allowLocal })),
+    const results = await mapPool(this.entries, this.concurrency, (entry) =>
+      probeTarget(entry, { fetchImpl: this.fetchImpl, timeoutMs: this.timeoutMs, now: this.now, allowLocal: this.allowLocal }),
     );
 
     for (const result of results) {

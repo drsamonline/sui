@@ -292,7 +292,7 @@ B7.3 budget alerts: 75, 90 and 100 percent of the daily and per-provider caps, f
 
 ## GET /api/evals
 
-The last eval run on this machine, read from `evals/last-report.json`.
+The last eval run on this machine. `sui eval` writes it to `eval-last-report.json` in the Sui home (or wherever `SUI_EVAL_REPORT` points); a checkout's committed `evals/last-report.json` is read as a fallback.
 
 ```json
 { "available": true,
@@ -302,6 +302,8 @@ The last eval run on this machine, read from `evals/last-report.json`.
 ```
 
 `available: false` with a message when no eval has been run. A `self-test` report proves the graders grade; only a `real` report says anything about a model.
+
+A run in which every request failed is stored with `mode: "not-meaningful"` and `passRate: null` — no rate is reported, because there is nothing to measure.
 
 ## GET /api/canary
 

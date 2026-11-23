@@ -1,10 +1,10 @@
 {
   "name": "sui",
-  "version": "0.12.36",
+  "version": "0.12.37",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Sui \u2014 verification-first, privacy-aware free-tier AI gateway. Free tiers, verified before use.",
+  "description": "Sui — verification-first, privacy-aware free-tier AI gateway. Free tiers, verified before use.",
   "engines": {
     "node": ">=20"
   },

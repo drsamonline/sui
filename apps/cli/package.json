@@ -1,17 +1,19 @@
 {
   "name": "@drsamonline/cli",
-  "version": "0.12.36",
+  "version": "0.12.37",
   "description": "The `sui` command line.",
   "type": "module",
   "license": "MIT",
   "main": "./src/index.js",
   "exports": {
     ".": "./src/cli.js",
-    "./src/*": "./src/*"
+    "./src/*": "./src/*",
+    "./evals/*": "./evals/*"
   },
   "files": [
     "bin",
     "src",
+    "evals",
     "LICENSE",
     "config"
   ],

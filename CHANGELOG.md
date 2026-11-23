@@ -2,6 +2,38 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.37 — 2026-11-23
+
+### Added
+
+- **`sui eval` — answer quality, measurable from the artefact a user installs.** The harness existed only as `evals/run.mjs` in the repository, so the one claim this product makes about its own answers could not be checked by anyone who installed it. The engine, the 50-prompt golden set and the self-test fixtures now ship inside `@drsamonline/cli`; `npm run eval` runs the same code, so there is no second copy to drift. `--self-test` proves the graders grade with no model, no network and no config; `--combo`, `--limit`, `--update-baseline`, `--report` and `--json` do the rest.
+- **A run where nothing answered exits 2 and reports no pass rate.** The header always said that; the code did not do it. Every request failing produced `pass rate 0%` and exit 0 — a number that measures the network, printed as if it measured a model. The report is now `mode: "not-meaningful"` with `passRate: null`, the dashboard shows the reason instead of a percentage, and the exit code is 2.
+- **`sui doctor --json`.** The health check printed a table and nothing else, so nothing could be scripted against it. Stdout is now the document — node, config path, keys by length and state (never by value), every combo with its result, kits, vault, the invariants it checked, and `warnings`. Exit 1 when a config exists and no combo answered.
+- **`sui probe --concurrency N`.** A sweep is bounded at 8 by default instead of firing all 41 at once: 41 simultaneous handshakes from one IP is what a free tier answers with 429, and a 429 was being recorded as "not suitable", so a working provider was demoted for being asked too eagerly.
+
+### Fixed
+
+- **A probe against a network that drops packets never finished.** `AbortSignal.timeout` does not interrupt a DNS lookup, so every level's `timed()` waited on a fetch that never settled: measured here, `sui probe --timeout 2000` produced no output for more than five minutes. Each level now has a hard deadline of its own, and 41 blackholed endpoints report in seconds.
+- **`--concurrency -1` was read as a bare flag**, which quietly became `1` and ran the whole sweep one entry at a time. A flag that takes a number refuses to be a boolean.
+- **The dashboard's eval card showed `0%` for a run that measured nothing**, because `passRate ?? 0` turns "no rate" into the worst possible rate.
+- **`/api/evals` only read the checkout's copy**, so an installed gateway said "no eval has been run here yet" however many times you ran one. It reads `SUI_EVAL_REPORT`, then the Sui home, then the repository copy.
+
+### Known gaps
+
+- No eval baseline is recorded at this version, because that needs one working provider key and provider egress.
+- The 1 verified route is still Groq, verified on the owner's Windows machine — CI has no provider egress, so the suite proves the harness, not the route.
+- `sui eval` against a blackholed network still takes ~20 s to exit after printing: the pending DNS lookups hold the process open, and Node cannot cancel `getaddrinfo`. The results are complete before that wait.
+- `--json` is a consistent contract on `probe`, `eval` and `doctor`; `catalog`, `free-budget` and `cost` predate it and differ in shape.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 621 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs `sui eval --self-test`, `sui doctor --json`, the catalogue, the dashboard and a stream |
+
 ## 0.12.36 — 2026-11-23
 
 ### Fixed

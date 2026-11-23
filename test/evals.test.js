@@ -34,14 +34,15 @@ import { join, dirname } from 'node:path';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { grade, GRADER_TYPES } from '../evals/graders.js';
+// the harness ships inside the CLI package, so this is the copy an install runs
+import { grade, GRADER_TYPES, loadGolden } from '../apps/cli/evals/index.js';
 import { readFileSync } from 'node:fs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 
 test('I10: the golden set has 50 prompts, each with a known grader type', () => {
-  const golden = readFileSync(join(ROOT, 'evals', 'golden.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const golden = loadGolden();
   assert.equal(golden.length, 50);
   for (const item of golden) {
     assert.ok(item.id && item.category && item.prompt, `incomplete item: ${JSON.stringify(item).slice(0, 60)}`);
@@ -130,7 +131,7 @@ test('per-category rates are shown, so the aggregate cannot hide a category', as
 test('the Wilson interval behaves', async () => {
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
-  const source = readFileSync(join(process.cwd(), 'evals', 'run.mjs'), 'utf8');
+  const source = readFileSync(join(process.cwd(), 'apps', 'cli', 'evals', 'index.js'), 'utf8');
   assert.match(source, /function wilson\(/);
   // a proportion of 0 or 1 must not produce a zero-width interval at n=50
   assert.match(source, /Math\.max\(0, centre - spread\)/);

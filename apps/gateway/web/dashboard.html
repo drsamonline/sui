@@ -765,12 +765,25 @@ async function loadEval() {
       return;
     }
     const r = json.report;
-    const pct = Math.round((r.passRate ?? 0) * 100);
+    // A null pass rate is not 0%. A run in which every request failed measures
+    // the network, and printing "0%" there is a number nobody should act on.
+    const pct = r.passRate == null ? null : Math.round(r.passRate * 100);
     // A self-test proves the graders grade. It says nothing about answer quality,
     // so the heading must not imply it did.
     const title = document.querySelector('#eval-h');
     if (title) title.textContent = r.mode === 'self-test' ? 'Harness self-test' : 'Answer quality';
-    when.textContent = r.mode === 'self-test' ? 'graders checked, no model called' : `combo ${r.combo ?? '—'}`;
+    when.textContent =
+      r.mode === 'self-test'
+        ? 'graders checked, no model called'
+        : r.mode === 'not-meaningful'
+          ? 'no route answered'
+          : r.mode === 'error'
+            ? 'the run could not start'
+            : `combo ${r.combo ?? '—'}`;
+    if (pct == null) {
+      body.innerHTML = `<p class="hint">${escapeHtml(r.note ?? r.error ?? 'No pass rate: this run measured nothing about a model.')}</p>`;
+      return;
+    }
     body.innerHTML = `
       <div class="row" style="display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3)">
         <span class="num" style="font-size: var(--fs-28); font-weight: 600">${pct}%</span>

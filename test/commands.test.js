@@ -300,3 +300,129 @@ test('the first run raises no deprecation warnings', async () => {
   assert.match(out, /Endpoint ready/);
   assert.equal(/DeprecationWarning|DEP\d{4}/.test(out), false, 'the first run warned about a deprecated call');
 });
+
+/* ------------------------------------------------ doctor as a JSON document */
+
+/**
+ * `doctor` printed a table and nothing else, so nothing could be scripted against
+ * it: a health check you cannot wire into a cron job or a CI step is a health
+ * check somebody has to remember to read.
+ */
+async function doctorJson(args, env = {}, cwd = undefined) {
+  const { execFileSync } = await import('node:child_process');
+  const { join } = await import('node:path');
+  try {
+    const stdout = execFileSync(process.execPath, [join(process.cwd(), 'apps/cli/bin/sui.js'), 'doctor', '--json', ...args], {
+      // a directory with no config in it: `doctor` looks in the working directory
+      // first, and this repository has one
+      cwd: cwd ?? env.SUI_HOME ?? process.cwd(),
+      encoding: 'utf8',
+      timeout: 90_000,
+      env: { ...process.env, ...env },
+    });
+    return { json: JSON.parse(stdout), code: 0, stdout };
+  } catch (err) {
+    return { json: JSON.parse(String(err?.stdout ?? '{}')), code: err?.status ?? 1, stdout: String(err?.stdout ?? '') };
+  }
+}
+
+test('doctor --json puts one parseable document on stdout', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'sui-doctor-json-'));
+  const { json, code, stdout } = await doctorJson([], { SUI_HOME: home, SUI_CONFIG: '' }, home);
+
+  // the whole of stdout must be the document, or a script cannot read it
+  assert.doesNotThrow(() => JSON.parse(stdout));
+  assert.equal(code, 0, 'a machine with no config is not broken');
+  assert.equal(json.command, 'doctor');
+  assert.equal(json.configFound, false);
+  assert.equal(json.ok, false, 'nothing has answered, so it is not healthy');
+  assert.match(json.note, /would live at/, 'it names where a config would go');
+  assert.ok(json.catalogue > 0, 'the catalogue count travels with the diagnosis');
+  assert.match(json.node, /^v\d+/);
+  assert.ok(json.warnings.some((w) => /no config yet/.test(w)));
+});
+
+test('doctor --json reports each combo, and exits 1 when none answered', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-doctor-json-'));
+  const failing = join(dir, 'fail.config.json');
+  writeFileSync(
+    failing,
+    JSON.stringify({
+      server: { host: '127.0.0.1', port: 0 },
+      providers: { mock: { type: 'mock', mock: { failWith: 'simulated outage' } } },
+      models: { 'mock-1': { provider: 'mock', model: 'mock-1', costPer1kIn: 0, costPer1kOut: 0, quality: 3 } },
+      combos: { 'chat-default': { label: 'Everyday chat', strategy: 'fallback', targets: ['mock-1'] } },
+      budgets: { dailyUsd: 5 },
+      guardrails: { logPrompts: false },
+      paidTiers: { enabled: false },
+      apiKeys: [],
+    }),
+  );
+
+  const { json, code } = await doctorJson(['--config', failing], { SUI_HOME: join(dir, '.sui') }, dir);
+  assert.equal(json.configFound, true);
+  assert.equal(json.ok, false);
+  assert.equal(code, 1, 'a config whose every route fails is a failure');
+  assert.equal(json.combos.length, 1);
+  assert.equal(json.combos[0].combo, 'chat-default');
+  assert.equal(json.combos[0].ok, false);
+  assert.match(json.combos[0].error, /simulated outage/);
+  assert.ok(json.warnings.some((w) => /no combo answered/.test(w)));
+});
+
+test('doctor --json answers healthy, with the invariants it checked, when a route works', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-doctor-json-'));
+  const config = join(dir, 'sui.config.json');
+  writeFileSync(
+    config,
+    JSON.stringify({
+      server: { host: '127.0.0.1', port: 0 },
+      providers: { mock: { type: 'mock', mock: { delayMs: 1 } } },
+      models: { 'mock-1': { provider: 'mock', model: 'mock-1', costPer1kIn: 0, costPer1kOut: 0, quality: 3 } },
+      combos: { 'chat-default': { label: 'Everyday chat', strategy: 'fallback', targets: ['mock-1'] } },
+      budgets: { dailyUsd: 5 },
+      guardrails: { logPrompts: false },
+      paidTiers: { enabled: false },
+      apiKeys: [],
+    }),
+  );
+
+  const { json, code } = await doctorJson(['--config', config], { SUI_HOME: join(dir, '.sui') }, dir);
+  assert.equal(code, 0);
+  assert.equal(json.ok, true);
+  assert.equal(json.combos[0].ok, true);
+  assert.equal(json.combos[0].provider, 'mock');
+  assert.ok(json.combos[0].latencyMs >= 0);
+  assert.ok(json.invariants.length > 0, 'the invariants it can check without a request belong in the document');
+  assert.ok(json.invariants.every((i) => typeof i.id === 'string' && typeof i.ok === 'boolean'));
+  assert.equal(json.kits.loaded, json.kits.total, 'a broken kit must show up here, not only in the table');
+});
+
+test('doctor --json reports a key by length and state, never by value', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-doctor-json-'));
+  const config = join(dir, 'sui.config.json');
+  writeFileSync(
+    config,
+    JSON.stringify({
+      server: { host: '127.0.0.1', port: 0 },
+      // loopback, refused instantly: this test is about the key's shape, not a provider
+      providers: { groq: { type: 'openai', baseUrl: 'http://127.0.0.1:1/v1', apiKeyEnv: 'GROQ_API_KEY' } },
+      models: { 'g-1': { provider: 'groq', model: 'g-1', costPer1kIn: 0, costPer1kOut: 0, quality: 3 } },
+      combos: { 'chat-default': { label: 'Everyday chat', strategy: 'fallback', targets: ['g-1'] } },
+      budgets: { dailyUsd: 5 },
+      guardrails: { logPrompts: false },
+      paidTiers: { enabled: false },
+      apiKeys: [],
+    }),
+  );
+
+  const secret = 'gsk_doctor_json_secret_value_123456';
+  const { json, stdout } = await doctorJson(['--config', config], { SUI_HOME: join(dir, '.sui'), GROQ_API_KEY: ` ${secret} ` }, dir);
+
+  assert.equal(stdout.includes(secret), false, 'the key itself must never be printed');
+  const row = json.keys.find((k) => k.env === 'GROQ_API_KEY');
+  assert.ok(row, 'the key must be reported');
+  assert.equal(row.present, true);
+  assert.equal(typeof row.length, 'number');
+  assert.match(row.state, /spaces or quotes/, 'a key with a trailing space is the bug this reports');
+});

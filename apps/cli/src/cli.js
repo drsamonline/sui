@@ -24,6 +24,9 @@ import { applyImport, diffImport, readMigrationSource, smokeTest } from './migra
 import { cmdBudget, cmdCatalog, cmdCompress, cmdConfig, cmdExplain, cmdFreeBudget, cmdKits, cmdLocal, cmdMcp, cmdProbe, cmdRecipe, cmdRedteam, cmdSandbox, cmdSavings, cmdTenants, cmdTokens, cmdVault, loadCatalogue, writeExport } from './commands-extra.js';
 import { kitStatus } from '@drsamonline/kits';
 import { ConfigError } from '@drsamonline/core';
+// the eval harness ships in this package (apps/cli/evals), so an install can
+// measure answer quality — the one claim that used to need a git checkout
+import { runEval } from '../evals/index.js';
 
 // One source of truth for the version: the package manifest.
 const HERE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -92,6 +95,8 @@ export async function run(argv = process.argv.slice(2)) {
       return cmdCatalog(flags, args);
     case 'probe':
       return cmdProbe(flags, args);
+    case 'eval':
+      return cmdEval(flags);
     case 'compress':
       return cmdCompress(flags, args);
     case 'budget':
@@ -310,66 +315,94 @@ function credentialRows(config) {
   return rows;
 }
 
+/**
+ * The provider keys a first run looks for. Named once, so the no-config path and
+ * the JSON document cannot disagree about what was checked.
+ */
+const DOCTOR_KEY_ENV = ['GROQ_API_KEY', 'GEMINI_API_KEY', 'MISTRAL_API_KEY', 'CEREBRAS_API_KEY', 'OPENROUTER_API_KEY'];
+
 async function cmdDoctor(flags) {
+  const report = await collectDoctor(flags);
+
+  if (flags.json) {
+    // stdout is the document: a preamble on stdout makes the output unparseable,
+    // which is how a CI step discovers it before a user does. `doctor` printed a
+    // table and nothing else, so nothing could be scripted against it.
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    renderDoctor(report);
+  }
+  if (report.exitCode) process.exitCode = report.exitCode;
+}
+
+/**
+ * Everything `doctor` can see, as data.
+ *
+ * Two callers: a person reading the table, and a script reading `--json`. They
+ * must not be able to disagree, so the table is rendered from this object rather
+ * than computed alongside it.
+ *
+ * `ok` answers one question — did a combo answer? A machine with no config yet is
+ * not broken, so it exits 0 and says so; a machine with a config whose every route
+ * fails exits 1.
+ */
+async function collectDoctor(flags) {
+  const configPath = flags.config ?? defaultConfigPath() ?? join(suiHome(process.env), 'sui.config.json');
+
+  /** @type {any} */
+  const report = {
+    command: 'doctor',
+    ranAt: new Date().toISOString(),
+    ok: false,
+    node: process.version,
+    platform: `${process.platform}-${process.arch}`,
+    configPath,
+    configFound: false,
+    keys: [],
+    catalogue: 0,
+    combos: [],
+    models: { withCredentials: 0, total: 0 },
+    kits: { loaded: 0, total: 0, broken: [] },
+    vault: null,
+    invariants: [],
+    warnings: [],
+    exitCode: 0,
+  };
+
+  try {
+    report.catalogue = loadCatalogue().length;
+  } catch {
+    report.catalogue = 0;
+  }
+
   // `doctor` is the health check, so a missing config is something it should
   // diagnose rather than something it should refuse to look at. Refusing turned the
   // most natural first command into a dead end: "no config found" and nothing else.
-  // defaultConfigPath() answers null when nothing exists; the useful thing to print
-  // is where a config *would* go, not the word "null".
-  const configPath = flags.config ?? defaultConfigPath() ?? join(suiHome(process.env), 'sui.config.json');
   if (!existsSync(configPath)) {
-    const keys = ['GROQ_API_KEY', 'GEMINI_API_KEY', 'MISTRAL_API_KEY', 'CEREBRAS_API_KEY', 'OPENROUTER_API_KEY'].filter(
-      (name) => process.env[name],
-    );
-    const catalogue = (() => {
-      try {
-        return loadCatalogue().length;
-      } catch {
-        return 0;
-      }
-    })();
-
-    console.log('');
-    console.log('sui doctor — what this machine has');
-    console.log('');
-    console.log(table(
-      ['check', 'result'],
-      [
-        ['node', process.version],
-        ['config', `none — a config would live at ${configPath}`],
-        ['provider keys in this window', keys.length ? keys.join(', ') : 'none'],
-        ['catalogue', `${catalogue} entries`],
-      ],
-    ));
-    console.log('');
-    console.log('  Everything above is fine — there is simply no config yet.');
-    console.log(`  Create one, which also proves the route:  ${RUN_AS} init`);
-    console.log('  Then this command will test every combo against your key.');
-    console.log('');
-    return;
+    report.keys = DOCTOR_KEY_ENV.filter((name) => process.env[name]).map((name) => ({
+      env: name,
+      present: true,
+      length: sanitiseKey(process.env[name])?.length ?? 0,
+      provider: null,
+      state: 'found in this window',
+    }));
+    report.warnings.push('no config yet — nothing has been routed, so there is nothing to test');
+    report.note = `a config would live at ${configPath}; create one with \`${RUN_AS} init\``;
+    return report;
   }
+
+  report.configFound = true;
 
   const gateway = await createGateway({ configPath: flags.config, ledgerFile: null });
   const { config, router } = gateway;
   const combos = flags.combo ? [String(flags.combo)] : Object.keys(config.combos);
 
-  console.log('');
-  console.log('sui doctor — one real turn per combo');
-  console.log('');
+  // one shape for both paths: a number of characters and a state, never the value
+  report.keys = credentialRows(config).map(([env, length, provider, state]) => {
+    const present = length !== 'not set';
+    return { env, provider, state, present, length: present ? Number(/(\d+)/.exec(String(length))?.[1] ?? 0) : 0 };
+  });
 
-  const creds = credentialRows(config);
-  if (creds.length) {
-    console.log(table(['key', 'length', 'provider', 'state'], creds));
-    const suspect = creds.filter((row) => row[3] && row[3] !== 'clean');
-    for (const row of suspect) {
-      console.log(`  ${row[0]}: ${row[3]} — a key with a space or a quote in it is rejected by every provider`);
-    }
-    if (creds.every((row) => row[1] === 'not set')) console.log('  no provider keys are set in this window');
-    console.log('');
-  }
-
-  const rows = [];
-  let anyOk = false;
   for (const combo of combos) {
     const started = Date.now();
     try {
@@ -380,46 +413,148 @@ async function cmdDoctor(flags) {
         // reply was the model's own thinking, which reads oddly in the table.
         body: { messages: [{ role: 'user', content: 'Reply with the single word: ready' }], max_tokens: 256 },
       });
-      anyOk = true;
-      rows.push([
+      report.combos.push({
         combo,
-        'ok',
-        res.meta.modelId,
-        res.meta.provider,
-        `${res.meta.latencyMs} ms`,
-        `${res.usage.prompt_tokens}+${res.usage.completion_tokens} tok`,
-        `$${res.meta.costUsd.toFixed(6)}`,
-      ]);
+        ok: true,
+        modelId: res.meta.modelId,
+        provider: res.meta.provider,
+        latencyMs: res.meta.latencyMs,
+        tokens: { prompt: res.usage.prompt_tokens, completion: res.usage.completion_tokens },
+        costUsd: Number(res.meta.costUsd.toFixed(6)),
+        error: null,
+      });
     } catch (err) {
-      const message = /** @type {any} */ (err).message ?? String(err);
-      rows.push([combo, 'failed', '—', '—', `${Date.now() - started} ms`, '—', message.slice(0, 80)]);
+      report.combos.push({
+        combo,
+        ok: false,
+        modelId: null,
+        provider: null,
+        latencyMs: Date.now() - started,
+        tokens: null,
+        costUsd: null,
+        error: String(/** @type {any} */ (err).message ?? err).slice(0, 200),
+      });
     }
   }
+  report.ok = report.combos.some((c) => c.ok);
 
-  console.log(table(['combo', 'result', 'answered by', 'provider', 'latency', 'tokens', 'cost'], rows));
-
-  const healthy = Object.entries(config.models).filter(([, m]) =>
-    providerHasCredentials(config.providers[/** @type {any} */ (m).provider], config.env),
-  ).length;
-  console.log('');
-  console.log(`${healthy} of ${Object.keys(config.models).length} models have credentials.`);
+  report.models = {
+    withCredentials: Object.values(config.models).filter((m) =>
+      providerHasCredentials(config.providers[/** @type {any} */ (m).provider], config.env),
+    ).length,
+    total: Object.keys(config.models).length,
+  };
 
   const kits = kitStatus();
-  const kitsBroken = kits.filter((k) => !k.loaded);
-  console.log('');
-  console.log(`Vendored kits: ${kits.length - kitsBroken.length}/${kits.length} loaded${kitsBroken.length ? ` — broken: ${kitsBroken.map((k) => k.name).join(', ')}` : ''}`);
-  console.log(`Paid vault:    ${config.vault?.reason ?? 'not opened'}`);
+  report.kits = {
+    loaded: kits.length - kits.filter((k) => !k.loaded).length,
+    total: kits.length,
+    broken: kits.filter((k) => !k.loaded).map((k) => k.name),
+  };
 
-  const audit = auditConfig(config);
-  const failing = audit.filter((a) => !a.ok);
+  report.vault = config.vault?.reason ?? 'not opened';
+  report.invariants = auditConfig(config).map((a) => ({ id: a.id, ok: Boolean(a.ok), detail: a.detail }));
+
+  const failing = report.invariants.filter((a) => !a.ok);
+  if (failing.length) report.warnings.push(`${failing.length} invariant warning(s) — see docs/ARCHITECTURE.md and \`${RUN_AS} invariants\``);
+  if (report.keys.some((k) => k.state && k.state !== 'clean' && k.state !== 'found in this window')) {
+    report.warnings.push('a key has a space or a quote in it, which every provider rejects');
+  }
+  if (!report.ok) {
+    report.warnings.push('no combo answered — that is the thing to fix before anything else');
+    report.exitCode = 1;
+  }
+  return report;
+}
+
+/** The table a person reads. Every number in it comes from `collectDoctor`. */
+function renderDoctor(report) {
+  if (!report.configFound) {
+    console.log('');
+    console.log('sui doctor — what this machine has');
+    console.log('');
+    console.log(
+      table(
+        ['check', 'result'],
+        [
+          ['node', report.node],
+          ['config', `none — a config would live at ${report.configPath}`],
+          ['provider keys in this window', report.keys.length ? report.keys.map((k) => k.env).join(', ') : 'none'],
+          ['catalogue', `${report.catalogue} entries`],
+        ],
+      ),
+    );
+    console.log('');
+    console.log('  Everything above is fine — there is simply no config yet.');
+    console.log(`  Create one, which also proves the route:  ${RUN_AS} init`);
+    console.log('  Then this command will test every combo against your key.');
+    console.log('');
+    return;
+  }
+
+  console.log('');
+  console.log('sui doctor — one real turn per combo');
+  console.log('');
+
+  if (report.keys.length) {
+    console.log(
+      table(
+        ['key', 'length', 'provider', 'state'],
+        report.keys.map((k) => [k.env, k.present ? `${k.length} chars` : 'not set', k.provider, k.state]),
+      ),
+    );
+    for (const row of report.keys.filter((k) => k.state && k.state !== 'clean')) {
+      console.log(`  ${row.env}: ${row.state} — a key with a space or a quote in it is rejected by every provider`);
+    }
+    if (report.keys.every((k) => !k.present)) console.log('  no provider keys are set in this window');
+    console.log('');
+  }
+
+  console.log(
+    table(
+      ['combo', 'result', 'answered by', 'provider', 'latency', 'tokens', 'cost'],
+      report.combos.map((c) => [
+        c.combo,
+        c.ok ? 'ok' : 'failed',
+        c.modelId ?? '—',
+        c.provider ?? '—',
+        `${c.latencyMs} ms`,
+        c.tokens ? `${c.tokens.prompt}+${c.tokens.completion} tok` : '—',
+        c.costUsd == null ? '—' : `$${c.costUsd.toFixed(6)}`,
+      ]),
+    ),
+  );
+
+  console.log('');
+  console.log(`${report.models.withCredentials} of ${report.models.total} models have credentials.`);
+  console.log('');
+  console.log(
+    `Vendored kits: ${report.kits.loaded}/${report.kits.total} loaded${report.kits.broken.length ? ` — broken: ${report.kits.broken.join(', ')}` : ''}`,
+  );
+  console.log(`Paid vault:    ${report.vault}`);
+
   console.log('');
   console.log('Invariants that can be checked without sending a request');
-  for (const a of audit) console.log(`  ${a.ok ? 'ok  ' : 'WARN'}  ${a.id}  ${a.detail}`);
+  for (const a of report.invariants) console.log(`  ${a.ok ? 'ok  ' : 'WARN'}  ${a.id}  ${a.detail}`);
+  const failing = report.invariants.filter((a) => !a.ok);
   if (failing.length) console.log(`\n${failing.length} invariant warning(s) — see docs/ARCHITECTURE.md and \`${RUN_AS} invariants\`.`);
-  if (!anyOk) {
-    console.log('No combo answered. That is the thing to fix before anything else.');
-    process.exitCode = 1;
-  }
+  if (!report.ok) console.log('No combo answered. That is the thing to fix before anything else.');
+}
+
+async function cmdEval(flags) {
+  // The harness that backs the product's own claim, as a command rather than a
+  // repository script: an install that cannot measure answer quality cannot check
+  // the one thing this gateway says about itself.
+  const code = await runEval({
+    selfTest: flags['self-test'] === true,
+    json: flags.json === true,
+    combo: flags.combo ? String(flags.combo) : undefined,
+    limit: flags.limit,
+    config: flags.config ? String(flags.config) : undefined,
+    updateBaseline: flags['update-baseline'] === true,
+    report: flags.report ? String(flags.report) : undefined,
+  });
+  if (code) process.exitCode = code;
 }
 
 async function cmdModels(flags) {
@@ -720,7 +855,9 @@ sui ${VERSION} — ${t('app.tagline')}
   ${RUN_AS} free-budget    verified free headroom per month, and what is only a claim
   ${RUN_AS} lang            the languages this build speaks   (SUI_LANG=hi, gu, mr, ta, te)
                           (alias: languages)
-  ${RUN_AS} probe [name]   liveness, readiness and suitability checks (B2.3)
+  ${RUN_AS} probe [name]   liveness, readiness and suitability checks (B2.3)   --json  --write  --concurrency N
+  ${RUN_AS} eval             answer quality: 50 prompts, one deterministic grader each
+                          --self-test  --combo <name>  --limit N  --json  --update-baseline  --report <file>
   ${RUN_AS} compress <file|-> [--preset lite|standard|aggressive|ultra] [--text "…"]
   ${RUN_AS} budget         which preset the remaining quota would choose
   ${RUN_AS} savings        what cache hits and compression did not spend   --all
@@ -745,7 +882,7 @@ Docs:                     docs/ARCHITECTURE.md, docs/ROUTING.md, docs/MIGRATION.
 /* ------------------------------------------------------------------- helpers */
 
 /** Flags that take a value, so `--config ./x.json` works as well as `--config=./x.json`. */
-const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout', 'by', 'transport', 'wall', 'heap', 'file', 'role', 'model-plane']);
+const VALUE_FLAGS = new Set(['config', 'port', 'set', 'only', 'from', 'combo', 'env', 'export', 'provider', 'key', 'q', 'preset', 'text', 'out', 'fraction', 'timeout', 'by', 'transport', 'wall', 'heap', 'file', 'role', 'model-plane', 'limit', 'report', 'concurrency']);
 
 function parse(argv) {
   const args = [];

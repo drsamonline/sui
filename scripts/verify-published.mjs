@@ -143,6 +143,28 @@ await check('the catalogue travels with the package', () => {
   return `${count} entries`;
 });
 
+await check('answer quality can be measured from the install', () => {
+  // `sui eval` existed only as `evals/run.mjs` in the repository, so the one claim
+  // this product makes about answer quality could not be checked from the artefact
+  // a user installs. The golden set and the fixtures have to be in the tarball for
+  // this to work at all, which is the bug class this script exists for.
+  const home = join(dir, '.sui-home-eval');
+  const out = run(['eval', '--self-test', '--json'], { SUI_HOME: home, SUI_EVAL_REPORT: join(home, 'report.json') });
+  const report = JSON.parse(out);
+  if (report.mode !== 'self-test') throw new Error(`mode was "${report.mode}"`);
+  if (!report.total || report.passed !== report.total) throw new Error(`passed ${report.passed}/${report.total}`);
+  return `${report.passed}/${report.total} grader checks`;
+});
+
+await check('doctor answers a script, not only a person', () => {
+  const out = run(['doctor', '--json'], { SUI_HOME: join(dir, '.sui-home') });
+  const json = JSON.parse(out);
+  if (json.command !== 'doctor') throw new Error('stdout was not a doctor document');
+  if (!json.configFound) throw new Error('the config `sui init --demo` wrote was not found');
+  if (!json.ok) throw new Error('the demo route did not answer');
+  return `${json.combos.length} combo(s) checked, ${json.invariants.length} invariant(s)`;
+});
+
 await check('streams a response, the way a coding tool asks for one', async () => {
   const { spawn } = await import('node:child_process');
   const home = join(dir, '.sui-home');
