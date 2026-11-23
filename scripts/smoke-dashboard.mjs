@@ -11,10 +11,12 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dedupeEntries, loadSeed, poolKey } from '@drsamonline/catalog';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CHROME = process.env.CHROME_PATH ?? '/usr/local/bin/chromium';
@@ -98,7 +100,29 @@ const base = {
 };
 
 const config = base;
-const gateway = await createGateway({ configObject: config, ledgerFile: null, startWorkers: true });
+
+// A durable probe history, so the provider detail has real samples to draw: the
+// worker writes these to disk, and they are the only part that survives a restart.
+const catalogueDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'catalog');
+const catalogueEntries = dedupeEntries(loadSeed(join(catalogueDir, 'seed.json')));
+const historyTarget = [...catalogueEntries].sort((a, b) => a.provider.localeCompare(b.provider))[0];
+const historyFile = join(tmpdir(), `sui-smoke-history-${process.pid}.jsonl`);
+writeFileSync(
+  historyFile,
+  [0, 1, 2, 3]
+    .map((i) =>
+      JSON.stringify({
+        ts: Date.now() - (4 - i) * 60000,
+        modelId: poolKey(historyTarget),
+        ok: i !== 2,
+        latencyMs: 280 + i * 45,
+        state: i === 2 ? 'open' : 'closed',
+      }),
+    )
+    .join('\n') + '\n',
+);
+
+const gateway = await createGateway({ configObject: config, ledgerFile: null, startWorkers: true, historyFile });
 await new Promise((resolve) => gateway.server.listen(0, '127.0.0.1', resolve));
 const { port } = gateway.server.address();
 
@@ -199,11 +223,15 @@ const probe = await page.evaluate(() => ({
   const note = await page.evaluate(() => document.querySelector('#providers-note')?.innerText ?? '');
   if (!/awaiting a probe/.test(note)) problems.push('the providers card did not say how many entries await a probe');
 
-  await page.click('button[data-provider]');
+  await page.click(`button[data-provider="${historyTarget.provider}"]`);
   await new Promise((r) => setTimeout(r, 200));
   const detail = await page.evaluate(() => document.querySelector('#providers-body tr.provider-detail')?.innerText.replace(/\s+/g, ' ') ?? '');
   if (!detail) problems.push('clicking Details opened nothing');
   else if (!/identity with an endpoint|route|nothing to probe/i.test(detail)) problems.push('the provider detail did not say whether it is a route');
+
+  if (!/sample\(s\) over the last|No durable probe history/.test(detail)) problems.push('the provider detail said nothing about durable history');
+  else if (!/4 sample\(s\)/.test(detail)) problems.push('the seeded probe history did not reach the provider detail');
+  else console.log('  provider history         drawn from the history file');
 
   // Probing from the page is a network action, so it is off unless asked for, and
   // the page has to say which of the two it is.

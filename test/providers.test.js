@@ -52,7 +52,7 @@ test('/api/providers lists the catalogue, and says which entries are routes', as
     // nothing in this document may be a credential: pin the shape rather than
     // grep for words, because `auth: "key"` is a field, not a secret
     const allowed = new Set([
-      'provider', 'label', 'state', 'baseUrl', 'auth', 'tos', 'capabilities', 'catalogueModels',
+      'provider', 'poolKey', 'label', 'state', 'baseUrl', 'auth', 'tos', 'capabilities', 'catalogueModels',
       'verifiedAt', 'probeModel', 'probe', 'configuredModels', 'combos',
     ]);
     for (const p of json.providers) {
@@ -65,6 +65,22 @@ test('/api/providers lists the catalogue, and says which entries are routes', as
       json.summary.total,
       'every entry is in exactly one state',
     );
+  } finally {
+    await gw.close();
+  }
+});
+
+test('every provider carries the pool key its durable history is filed under', async () => {
+  // The prober writes history rows under the pool key, not the provider name, so
+  // without this the page could list a provider and never find its samples.
+  const { gw, base } = await bootProviders();
+  try {
+    const json = await (await fetch(`${base}/api/providers`)).json();
+    for (const p of json.providers) {
+      assert.equal(typeof p.poolKey, 'string', `${p.provider} has no pool key`);
+      assert.ok(p.poolKey.includes('|'), 'a pool key is host/path|family');
+      assert.ok(p.poolKey.includes(p.provider) || p.baseUrl?.includes(p.poolKey.split('|')[0].split('/')[0]), `${p.provider}: the key must be derivable from the entry`);
+    }
   } finally {
     await gw.close();
   }

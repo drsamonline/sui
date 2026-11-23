@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/vault",
-  "version": "0.12.42",
+  "version": "0.12.43",
   "description": "Paid-credential vault: AES-256-GCM sealed at rest, opened only when the paid gate is on.",
   "type": "module",
   "license": "MIT",

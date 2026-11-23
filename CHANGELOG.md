@@ -2,6 +2,33 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.43 — 2026-11-23
+
+### Added
+
+- **A provider's durable probe history, drawn in its detail row.** The snapshot above it is what this *process* has seen and dies with the process; `/api/history` is what the worker wrote to disk, so it is the only part that survives a restart. One bar per bucket, height by p50 latency, colour by whether the bucket was clean, with the sample count and uptime beside it.
+- `GET /api/providers` carries `poolKey`, because the prober files its history under the pool key rather than the provider name — without it the page could list a provider and never find its samples.
+
+### Fixed
+
+- The smoke test clicked "the first provider" and would have broken the moment the catalogue order changed; it now names the provider it seeded history for.
+
+### Known gaps
+
+- History is drawn, not zoomed: 24 buckets over 24 hours is what `/api/history` defaults to, and there is no control to change the window. The endpoint takes `hours` and `buckets`; the page does not offer them yet.
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer arrives (0.12.42's gap, unchanged).
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 638 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios; the seeded history is required to appear in the detail row |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.42 — 2026-11-23
 
 ### Added

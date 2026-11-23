@@ -635,6 +635,11 @@ function render() {
   loadEval();
   loadTenants();
   loadProviders();
+  loadHistory().then(() => {
+    // the detail row reads the cache, so a refresh after history lands keeps it fresh
+    const open = document.querySelector('#providers-body tr.provider-detail');
+    if (open) open.remove();
+  });
   renderProbes(state.probes ?? []);
   renderTraces(promptUsage);
   renderRecent(metrics.recent);
@@ -1067,6 +1072,50 @@ document.addEventListener('submit', (event) => {
  */
 let providersCache = [];
 let providersProbeEnabled = false;
+/** Durable probe history, by pool key: what survives a restart, unlike the snapshot. */
+let historyCache = new Map();
+
+async function loadHistory() {
+  try {
+    const res = await fetch('/api/history?hours=24&buckets=24');
+    const json = await res.json();
+    if (!json.enabled) return;
+    historyCache = new Map((json.series ?? []).map((s) => [s.modelId, s]));
+  } catch {
+    // history is a nice-to-have on this page: the snapshot above it is the live view
+  }
+}
+
+/**
+ * A provider's durable record, drawn rather than described.
+ *
+ * The snapshot in the row above is what this *process* has seen; this is what the
+ * worker wrote to disk, so it is the only part that survives a restart. Bars are
+ * one per bucket, height by p50 latency, colour by whether the bucket was clean.
+ */
+function historyBlock(p) {
+  const series = historyCache.get(p.poolKey);
+  if (!series || !series.samples) return '<p class="hint" style="margin: 0">No durable probe history for this provider yet.</p>';
+
+  const points = series.points ?? [];
+  const width = 6;
+  const gap = 2;
+  const height = 22;
+  const ceiling = Math.max(200, ...points.filter((x) => x.samples).map((x) => x.p50 ?? 0));
+  const bars = points
+    .map((point, index) => {
+      if (!point.samples) return '';
+      const barHeight = Math.max(3, Math.round(((point.p50 ?? 0) / ceiling) * height));
+      return `<rect x="${index * (width + gap)}" y="${height - barHeight}" width="${width}" height="${barHeight}" fill="var(--${point.ok ? 'accent' : 'bad'})" opacity="${point.ok ? '0.85' : '0.6'}"></rect>`;
+    })
+    .join('');
+  const uptime = series.uptime == null ? '—' : `${Math.round(series.uptime * 100)}%`;
+  return `
+    <p class="hint" style="margin: 0; display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap">
+      <svg width="${points.length * (width + gap)}" height="${height}" role="img" aria-label="Probe latency, ${series.samples} sample(s), uptime ${uptime}">${bars}</svg>
+      <span>${num(series.samples)} sample(s) over the last ${series.hours}h · uptime ${uptime}</span>
+    </p>`;
+}
 
 async function loadProviders() {
   const body = document.querySelector('#providers-body');
@@ -1146,6 +1195,7 @@ function openProviderDetail(name) {
         ${p.tos ? ` · tos ${escapeHtml(p.tos)}` : ''}
       </p>
       ${p.combos?.length ? `<p class="hint" style="margin: 0 0 var(--space-2)">Reachable through ${p.combos.map(escapeHtml).join(', ')}</p>` : ''}
+      ${historyBlock(p)}
       ${p.probe ? `<p class="hint" style="margin: 0 0 var(--space-2)">Probe: ${escapeHtml(p.probe.weather ?? p.probe.status ?? 'unknown')} · ${p.probe.failures ?? 0} consecutive failure(s)${history ? ` · ${escapeHtml(history)}` : ''}</p>` : '<p class="hint" style="margin: 0 0 var(--space-2)">No probe has run against it in this process.</p>'}
       <p style="margin: 0; display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap">
         ${providersProbeEnabled && p.baseUrl

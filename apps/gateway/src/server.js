@@ -23,7 +23,7 @@ import { RunRegistry } from '@drsamonline/guardrails';
 import { createModelPlaneClient, createPlaneGuard, describePlane } from './planes.js';
 import { autoCombo, checkToggle, direction, normaliseLocale, sanitizeConfig, STRINGS, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary, suiHome } from '@drsamonline/core';
 import { SuiError } from '@drsamonline/core';
-import { applyVerified, readVerifiedOverlay } from '@drsamonline/catalog';
+import { applyVerified, poolKey, readVerifiedOverlay } from '@drsamonline/catalog';
 import { probeTarget } from '@drsamonline/prober';
 import { loadCatalogue } from './workers.js';
 import { explainPlan } from '@drsamonline/router';
@@ -966,6 +966,9 @@ function providerReport(config, workers) {
 
     return {
       provider: entry.provider,
+      // the prober writes its history under the pool key, so the page needs it to
+      // find this provider's durable samples
+      poolKey: poolKey(entry),
       label: entry.label ?? entry.provider,
       // three states, and "identity" is the honest one for an entry with no
       // endpoint: it is a name we know about, not a route we can call
