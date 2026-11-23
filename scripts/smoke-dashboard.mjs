@@ -161,6 +161,23 @@ const probe = await page.evaluate(() => ({
     if (!rows.some((r) => /chat-default/.test(r))) problems.push('the tenant panel did not show the pinned model');
     if (!rows.some((r) => /60\/min/.test(r))) problems.push('the tenant panel did not show the rate limit');
     console.log(`  tenants panel            ${rows.length} key(s), pin and rate shown`);
+
+    // The one write on the page. It is a form, not a stepper, and it has to say
+    // what the change means: the API applies it in memory, and a cap that silently
+    // reverts on restart is worse than no control.
+    await page.click('button[data-cap="team-a"]');
+    await page.click('#cap-team-a', { clickCount: 3 });
+    await page.type('#cap-team-a', '3.5');
+    await page.click('form.tenant-form button[type="submit"]');
+    await new Promise((r) => setTimeout(r, 700));
+    const changed = await page.evaluate(() => ({
+      table: document.querySelector('#tenants-body')?.innerText.replace(/\s+/g, ' ') ?? '',
+      msg: document.querySelector('#tenants-msg')?.innerText ?? '',
+    }));
+    if (!/\$3\.5/.test(changed.table)) problems.push('the new cap did not reach the table');
+    if (!/cap .*→/.test(changed.msg)) problems.push('the page did not say what the cap changed from and to');
+    if (!/sui\.config\.json/.test(changed.msg)) problems.push('the page did not say the change is in memory only');
+    console.log('  cap change               applied through the page, and explained');
   } else if (!/No API keys are configured/.test(rows.join(' '))) {
     problems.push('the tenant panel did not explain that no keys are configured');
   }

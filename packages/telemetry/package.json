@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/telemetry",
-  "version": "0.12.39",
+  "version": "0.12.40",
   "description": "Ledger, cache, aggregates, CSV.",
   "type": "module",
   "license": "MIT",

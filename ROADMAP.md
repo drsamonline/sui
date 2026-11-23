@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-23 · `0.12.39` · 630 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-23 · `0.12.40` · 633 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
@@ -46,8 +46,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 
 | # | What | Why | Effort |
 |---|---|---|---|
-| 5 | Per-provider dashboard page | there is one verified route and no probe history on this machine, so the page renders mostly empty until somebody runs `sui probe` on a networked box |
-| 6 | A cap control on the tenant panel | `PATCH /api/tenants/<name>` is curl-only. A control that can raise a cap is a write, and it needs its own confirmation design before it belongs on a page | medium |
+| 5 | Per-provider dashboard page | there is one verified route and no probe history on this machine, so the page renders mostly empty until somebody runs `sui probe` on a networked box | medium |
 | 7 | Pool-deduped budget for every catalogue entry | 37 of 41 entries have no published budget recorded | data entry |
 
 ## Large — a decision, not a task
@@ -72,6 +71,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | **`sui doctor --json`** | shipped 0.12.37 — stdout is the document, exit 1 when no combo answered |
 | **One `--json` contract everywhere** | shipped 0.12.38 — sixteen commands, checked as a contract by `test/cli-json.test.js` and documented field by field |
 | **Tenant console shows the pin and the rate** | shipped 0.12.39 — the panel names the cause of each refusal, and `--tenants` in the dashboard smoke test runs a keyed gateway |
+| **A cap control on the tenant panel** | shipped 0.12.40 — a form that states the current cap and says the change is in memory; writes off loopback now need the admin token |
 
 ## Needs a human, in this order
 

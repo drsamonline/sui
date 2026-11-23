@@ -228,3 +228,78 @@ test('/api/tenants reports the pin and the rate a refusal would cite', async () 
   assert.equal(JSON.stringify(json).includes('sk-a'), false, 'and never the key itself');
   await gw.close();
 });
+
+/* ------------------------------- a cap can be raised, but not by anybody */
+
+test('a cap can be changed from a loopback gateway without an admin token', async () => {
+  const config = testConfig();
+  config.apiKeys = [{ name: 'team-a', key_hash: hashApiKey('sk-a'), dailyUsd: 2 }];
+  const { gw, base } = await bootTenants(config);
+
+  try {
+    const res = await fetch(`${base}/api/tenants/team-a`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ dailyUsd: 3.5 }),
+    });
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.deepEqual(json.changed.dailyUsd, { from: 2, to: 3.5 });
+    assert.equal(json.tenant.dailyUsd, 3.5);
+    assert.match(json.note, /in memory/, 'the answer must say the change is not persisted');
+  } finally {
+    await gw.close();
+  }
+});
+
+test('a gateway on the network refuses a cap change with no admin token', async () => {
+  // A console that can raise a cap is a console that can spend your money. Bound
+  // to 0.0.0.0 with no token, anyone who can reach the port could raise their own
+  // limit — so the write is refused and names the fix. Reading stays open: the
+  // console holds no prompt text.
+  const config = testConfig();
+  config.server = { ...config.server, host: '0.0.0.0' };
+  config.apiKeys = [{ name: 'team-a', key_hash: hashApiKey('sk-a'), dailyUsd: 2 }];
+  const { gw, base } = await bootTenants(config);
+
+  try {
+    const read = await fetch(`${base}/api/tenants`);
+    assert.equal(read.status, 200, 'reading the console from the network is allowed');
+
+    const res = await fetch(`${base}/api/tenants/team-a`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ dailyUsd: 500 }),
+    });
+    assert.equal(res.status, 403);
+    const json = await res.json();
+    assert.equal(json.error.type, 'admin_required', 'the error carries its code in `type`');
+    assert.match(json.error.message, /SUI_ADMIN_TOKEN/, 'the refusal names the fix');
+  } finally {
+    // an assertion that throws must not leave a listener open: the file then
+    // hangs until the runner kills it, and the failure reads as a timeout
+    await gw.close();
+  }
+});
+
+test('and the same gateway accepts the change once the admin token is set', async () => {
+  const config = testConfig();
+  config.server = { ...config.server, host: '0.0.0.0' };
+  config.apiKeys = [{ name: 'team-a', key_hash: hashApiKey('sk-a'), dailyUsd: 2 }];
+  const previous = process.env.SUI_ADMIN_TOKEN;
+  process.env.SUI_ADMIN_TOKEN = 'admin-token-for-this-test';
+  const { gw, base } = await bootTenants(config);
+  try {
+    const res = await fetch(`${base}/api/tenants/team-a`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', 'x-sui-admin': 'admin-token-for-this-test' },
+      body: JSON.stringify({ dailyUsd: 4 }),
+    });
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).tenant.dailyUsd, 4);
+  } finally {
+    await gw.close();
+    if (previous === undefined) delete process.env.SUI_ADMIN_TOKEN;
+    else process.env.SUI_ADMIN_TOKEN = previous;
+  }
+});

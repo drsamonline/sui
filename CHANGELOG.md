@@ -2,6 +2,34 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.40 — 2026-11-23
+
+### Added
+
+- **A cap can be changed from the tenant panel**, which is the one write on the dashboard. It is a form, not a stepper: it states the current cap, takes the new one by hand, and says afterwards that the change is **in memory for this process** with the config file named — a cap that silently reverts on restart is worse than no control.
+- A refresh no longer wipes the form. The panel reloads every 15 seconds, and a half-typed cap used to vanish mid-keystroke.
+
+### Fixed
+
+- **A cap could be raised by anyone who could reach a gateway bound to the network.** With no `SUI_ADMIN_TOKEN`, every tenant route was open, so on a `0.0.0.0` bind any caller could PATCH their own limit — the code's own comment says a console that can raise a cap is a console that can spend your money. Writes now need the admin token unless the gateway is bound to loopback. Reading the console stays open: it holds spend, limits and names, never prompt text or a key.
+- Two tests in `test/tenants.test.js` left a listener open when an assertion threw, so the file hung until the runner killed it and a real failure read as a timeout.
+
+### Known gaps
+
+- The panel edits the daily cap only. `rpm` is accepted by the API and is not on the page: it throttles rather than spends, and the rarer action did not earn a second input.
+- The change is in memory. Writing it back to `sui.config.json` would mean the dashboard editing its own config, which is a bigger decision than a cap.
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 633 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios, and the cap control is clicked through in `--tenants` |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.39 — 2026-11-23
 
 ### Added

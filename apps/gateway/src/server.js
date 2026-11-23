@@ -353,7 +353,7 @@ export function createSuiServer(deps) {
       // token when one is configured, because a console that can raise a cap is
       // a console that can spend your money.
       if (path === '/api/tenants' || path.startsWith('/api/tenants/')) {
-        requireAdmin(req, configRef);
+        requireAdmin(req, configRef, { write: req.method === 'PATCH' });
         const tenants = tenantSnapshot({ config: configRef, ledger, limiter });
 
         if (req.method === 'GET' && path === '/api/tenants') {
@@ -888,9 +888,25 @@ function sinceParam(url) {
  * The console is admin surface: when SUI_ADMIN_TOKEN is set, every write and the
  * tenant list need it. Without one, it is loopback-only like the rest of /api.
  */
-function requireAdmin(req, config) {
+function requireAdmin(req, config, opts = {}) {
   const expected = config.env?.SUI_ADMIN_TOKEN ?? process.env.SUI_ADMIN_TOKEN;
-  if (!expected) return;
+  if (!expected) {
+    // Reading the console from a gateway on the network is fine — it holds no
+    // prompt text. *Changing* a cap is not: on a bind like 0.0.0.0 anyone who can
+    // reach the port could raise their own limit, and a console that can raise a
+    // cap is a console that can spend your money. Loopback stays open, because
+    // there the only caller is the person at the keyboard.
+    const host = String(config.server?.host ?? '127.0.0.1');
+    const loopback = ['127.0.0.1', 'localhost', '::1'].includes(host);
+    if (opts.write && !loopback) {
+      throw new SuiError(
+        `Refusing to change a tenant on a gateway bound to ${host} with no admin token: anyone who can reach this port could raise a cap. ` +
+          `Set SUI_ADMIN_TOKEN on the gateway and send it as x-sui-admin, or bind 127.0.0.1.`,
+        { code: 'admin_required', status: 403 },
+      );
+    }
+    return;
+  }
   const presented = String(req.headers['x-sui-admin'] ?? req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
   if (presented !== expected) {
     throw new SuiError('This endpoint needs the admin token (SUI_ADMIN_TOKEN).', { code: 'admin_required', status: 403 });

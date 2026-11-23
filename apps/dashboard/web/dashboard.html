@@ -445,15 +445,17 @@
         <span class="hint" id="tenants-note">what each key may do</span>
       </header>
       <div class="body" style="padding: 0">
+        <p class="hint" id="tenants-msg" style="padding: var(--space-3) var(--space-4) 0" hidden></p>
         <div class="scroll">
           <table>
             <thead>
               <tr>
                 <th scope="col">Key</th><th scope="col">Today</th><th scope="col">Rate</th>
                 <th scope="col">Pinned to</th><th scope="col">May reach</th><th scope="col" class="num">Last seen</th>
+                <th scope="col"><span class="sr-only">Change</span></th>
               </tr>
             </thead>
-            <tbody id="tenants-body"><tr><td colspan="6"><div class="skeleton line"></div></td></tr></tbody>
+            <tbody id="tenants-body"><tr><td colspan="7"><div class="skeleton line"></div></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -826,11 +828,19 @@ async function loadEval() {
  * request is refused — the pin and the rate — were only readable in the config
  * file. A gateway that refuses a request must be able to say why, on the page.
  */
-async function loadTenants() {
+let tenantsEditing = false;
+/** The last thing a cap change said, kept across the 15s refresh. */
+let tenantsMessage = null;
+
+async function loadTenants({ force = false } = {}) {
   const body = document.querySelector('#tenants-body');
   const note = document.querySelector('#tenants-note');
   if (!body) return;
-  const empty = (text) => `<tr><td colspan="6" class="hint" style="padding: var(--space-4)">${text}</td></tr>`;
+  // A refresh must not wipe a form somebody is typing in. The page reloads this
+  // panel every 15 seconds; without the guard, half-typed input vanished.
+  if (tenantsEditing && !force) return;
+  renderTenantMessage();
+  const empty = (text) => `<tr><td colspan="7" class="hint" style="padding: var(--space-4)">${text}</td></tr>`;
   try {
     const res = await fetch('/api/tenants');
     if (res.status === 403) {
@@ -854,6 +864,7 @@ async function loadTenants() {
         <td>${t.forcedModel ? `<span class="mono">${escapeHtml(t.forcedModel)}</span>` : '<span class="hint">the caller chooses</span>'}</td>
         <td>${reachCell(t)}</td>
         <td class="num">${t.lastSeenAt ? new Date(t.lastSeenAt).toLocaleTimeString('en-IN', { hour12: false }) : '—'}</td>
+        <td><button class="small" type="button" data-cap="${escapeHtml(t.name)}">Change cap</button></td>
       </tr>`).join('');
   } catch {
     body.innerHTML = empty('Could not reach the gateway.');
@@ -875,6 +886,109 @@ function reachCell(t) {
   if (!parts.length) return '<span class="hint">everything</span>';
   return `<span class="mono">${escapeHtml(parts.join(' · '))}</span>`;
 }
+
+function renderTenantMessage() {
+  const el = document.querySelector('#tenants-msg');
+  if (!el) return;
+  el.hidden = !tenantsMessage;
+  el.textContent = tenantsMessage?.text ?? '';
+  el.dataset.state = tenantsMessage?.state ?? '';
+}
+
+/**
+ * The one write on this page, and the reason it is not a stepper.
+ *
+ * A cap is money, so the control states the current value, takes the new one by
+ * hand, and says what the change means before it is made. The API applies it in
+ * memory for this process; the page says so afterwards, because a cap that
+ * silently reverts on restart is worse than no control at all.
+ */
+function openCapForm(name, currentUsd) {
+  const tbody = document.querySelector('#tenants-body');
+  const row = [...tbody.querySelectorAll('tr')].find((tr) => tr.querySelector(`button[data-cap="${name}"]`));
+  if (!row) return;
+  document.querySelectorAll('#tenants-body tr.tenant-edit').forEach((tr) => tr.remove());
+
+  const form = document.createElement('tr');
+  form.className = 'tenant-edit';
+  form.innerHTML = `
+    <td colspan="7">
+      <form class="tenant-form" data-tenant="${escapeHtml(name)}" style="display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap">
+        <label for="cap-${escapeHtml(name)}" class="hint">Today's cap for <strong>${escapeHtml(name)}</strong>:
+          ${currentUsd == null ? 'uncapped' : money(currentUsd)}.
+          Enter a new daily cap in dollars (empty = uncapped).</label>
+        <input id="cap-${escapeHtml(name)}" name="cap" type="number" min="0" step="0.5" value="${currentUsd == null ? '' : currentUsd}" style="width:8rem" />
+        <button class="small" type="submit">Set cap</button>
+        <button class="small" type="button" data-cancel>Cancel</button>
+        <span class="hint" data-error></span>
+      </form>
+    </td>`;
+  row.after(form);
+  tenantsEditing = true;
+  form.querySelector('input')?.focus();
+}
+
+async function submitCap(form) {
+  const name = form.dataset.tenant;
+  const raw = form.querySelector('input[name="cap"]').value.trim();
+  const error = form.querySelector('[data-error]');
+  const value = raw === '' ? null : Number(raw);
+
+  if (value !== null && (!Number.isFinite(value) || value < 0)) {
+    error.textContent = 'A cap is a number of dollars, or empty for uncapped.';
+    return;
+  }
+
+  const res = await fetch(`/api/tenants/${encodeURIComponent(name)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ dailyUsd: value }),
+  }).catch(() => null);
+
+  if (!res || !res.ok) {
+    const json = await res?.json().catch(() => null);
+    error.textContent = json?.error?.message ?? 'The gateway did not answer.';
+    return;
+  }
+
+  const json = await res.json();
+  const from = json.changed?.dailyUsd?.from;
+  const to = json.changed?.dailyUsd?.to;
+  tenantsMessage = {
+    state: 'ok',
+    text: `${name}: cap ${from == null ? 'uncapped' : money(from)} → ${to == null ? 'uncapped' : money(to)}. ${json.note ?? ''}`.trim(),
+  };
+  tenantsEditing = false;
+  await loadTenants({ force: true });
+}
+
+document.addEventListener('click', (event) => {
+  const change = event.target.closest?.('button[data-cap]');
+  if (change) {
+    const name = change.dataset.cap;
+    const row = change.closest('tr');
+    // the cap cell is the second one; read the number out of what is rendered
+    const cell = row?.children?.[1]?.innerText ?? '';
+    const match = /of \$([\d.]+)/.exec(cell);
+    openCapForm(name, match ? Number(match[1]) : null);
+    return;
+  }
+  if (event.target.closest?.('button[data-cancel]')) {
+    document.querySelectorAll('#tenants-body tr.tenant-edit').forEach((tr) => tr.remove());
+    tenantsEditing = false;
+    return;
+  }
+});
+
+document.addEventListener('submit', (event) => {
+  const form = event.target.closest?.('form.tenant-form');
+  if (!form) return;
+  event.preventDefault();
+  submitCap(form).catch(() => {
+    const error = form.querySelector('[data-error]');
+    if (error) error.textContent = 'Could not reach the gateway.';
+  });
+});
 
 function renderSavings(totals) {
   const el = $('#savings');

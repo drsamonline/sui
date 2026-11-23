@@ -245,7 +245,15 @@ The tenant console: what each key has spent today, what is left, how fast it is 
 
 An uncapped tenant reports `dailyUsd: null` and `pct: null` — not 0%. These four are exactly what a refusal cites: `403 forced_model` names `forcedModel`, `403 forbidden_model` names `allowedCombos`, `429 rate_limited` names `rateLimit.rpm`, and `429 key_budget_reached` names `dailyUsd`. The dashboard's Tenants panel and `sui tenants` render the same fields.
 
-`PATCH /api/tenants/<name>` with `{"dailyUsd": 5}` or `{"rpm": 120}` changes a limit **in memory for this process** and says so in `note`; edit `sui.config.json` to make it permanent. If `SUI_ADMIN_TOKEN` is set, every tenant route needs `x-sui-admin: <token>` (or a bearer token).
+`PATCH /api/tenants/<name>` with `{"dailyUsd": 5}` or `{"rpm": 120}` changes a limit **in memory for this process** and says so in `note`; edit `sui.config.json` to make it permanent. It answers with `{ tenant, changed, note }`, where `changed` names the old and new value.
+
+| Who may write | |
+|---|---|
+| loopback bind (`127.0.0.1`, `localhost`, `::1`), no token | allowed — the only caller is the person at the keyboard |
+| any other bind, no token | **refused, 403 `admin_required`** — anyone who can reach the port could raise a cap |
+| any bind, `SUI_ADMIN_TOKEN` set | needs `x-sui-admin: <token>` (or a bearer token) on every tenant route |
+
+Reading the console is never gated by the bind: it holds spend, limits and names, never prompt text or a key. The dashboard's Tenants panel uses this endpoint for its "Change cap" control, which states the current cap, takes the new one by hand, and says afterwards that the change is in memory only.
 
 ## Attribution (B7.1)
 
