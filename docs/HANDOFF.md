@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.43`.
+Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.44`.
 
 ## What this is
 
@@ -14,8 +14,8 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.43`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 638, no network, no keys |
+| Version | `0.12.44`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 642, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | **green on every job** (test 20, test 22, eval, soak, dashboard, migration) at `fe67660` |
@@ -40,7 +40,7 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 638 tests
+npm test               # 642 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH
@@ -125,7 +125,6 @@ Do not reintroduce any of these. Each has a test.
 | # | Item | Why |
 |---|---|---|
 | 1 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once; only the "what shipped" half is generatable |
-| 2 | A time window on the provider history | `/api/history` takes `hours` and `buckets`; the page draws the 24h default and offers no control |
 | 3 | More catalogue providers | 41 → hundreds needs LLM-specific sources; the vendored `app-endpoints` set is public-apis (2,214 general APIs), not providers, so it cannot be grown offline |
 | 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
 | 5 | `--json` on the last four narrating commands | `init`, `mcp`, `tools --set`, `config get` — each describes a process, so each needs a shape decided first |
@@ -158,6 +157,7 @@ Do not reintroduce any of these. Each has a test.
 - **The catalogue on the dashboard** (0.12.41) — `GET /api/providers`, and the install bug that kept the prober from running
 - **A probe from the page** (0.12.42) — `dashboard.allowProbe`, one endpoint per request, reports but never promotes
 - **Per-provider probe history** (0.12.43) — the durable file, drawn in the detail row; the snapshot above it dies with the process
+- **`--json` on the whole CLI** (0.12.44) — `init`, `config get`, `tools --set`; `mcp` refuses with a reason
 - **A sweep from the page** — refused, and stated as refused: one click must not become forty outbound requests
 - Legal: LICENSE (MIT), NOTICE, OWNER_GRANT, DISCLAIMER, SECURITY — **reviewed and signed off by the owner, 2026-11-23**
 - Translation: **dropped** by the owner; 6 languages stand and the boundary is documented in `docs/LANGUAGES.md`

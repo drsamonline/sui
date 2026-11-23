@@ -43,9 +43,9 @@ function mockConfig(dir) {
 }
 
 /** Run a command and return its stdout, stderr and exit code — never throw. */
-function runJson(argv, env) {
+function runJson(argv, env, cwd = ROOT) {
   try {
-    const stdout = execFileSync(process.execPath, [BIN, ...argv], { cwd: ROOT, encoding: 'utf8', timeout: 120_000, env: { ...process.env, ...env } });
+    const stdout = execFileSync(process.execPath, [BIN, ...argv], { cwd, encoding: 'utf8', timeout: 120_000, env: { ...process.env, ...env } });
     return { stdout, stderr: '', code: 0 };
   } catch (err) {
     return { stdout: String(err?.stdout ?? ''), stderr: String(err?.stderr ?? ''), code: err?.status ?? 1 };
@@ -112,4 +112,58 @@ test('--json does not change the exit code the human path would have used', () =
   const doc = JSON.parse(withJson.stdout);
   assert.equal(doc.ok, doc.failures === 0, 'the document must agree with itself');
   assert.equal(withJson.code, doc.ok ? 0 : 1, 'the exit code must follow the document');
+});
+
+/* -------------------- the commands that narrate, and the one that cannot */
+
+test('config get answers a script, and distinguishes missing from null', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-cli-json-'));
+  const config = mockConfig(dir);
+
+  const present = runJson(['config', 'get', 'budgets.dailyUsd', '--config', config, '--json'], {});
+  const doc = JSON.parse(present.stdout);
+  assert.equal(doc.command, 'config');
+  assert.equal(doc.found, true);
+  assert.equal(doc.value, 5);
+
+  const missing = runJson(['config', 'get', 'budgets.nope', '--config', config, '--json'], {});
+  const gone = JSON.parse(missing.stdout);
+  assert.equal(gone.found, false, 'a missing key must be a field, not a bare null');
+  assert.equal(gone.value, null);
+  assert.equal(missing.code, 1, 'and the exit code still says it was not found');
+});
+
+test('tools --set answers a script, and a dry run says it wrote nothing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-cli-json-'));
+  const config = mockConfig(dir);
+  const { stdout } = runJson(['tools', '--set', 'env', '--config', config, '--dry-run', '--json'], {});
+  const doc = JSON.parse(stdout);
+  assert.equal(doc.command, 'tools');
+  assert.equal(doc.action, 'set');
+  assert.equal(doc.tool, 'env');
+  assert.equal(doc.dryRun, true);
+  assert.equal(doc.written, false, 'a dry run must not claim a write');
+});
+
+test('init answers a script, with the round trip that proves it worked', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-cli-json-'));
+  const { stdout, code } = runJson(['init', '--demo', '--no-serve', '--json'], { SUI_HOME: join(dir, '.sui'), SUI_QUIET: '1' }, dir);
+  assert.equal(code, 0);
+  const doc = JSON.parse(stdout);
+  assert.equal(doc.command, 'init');
+  assert.equal(doc.ok, true);
+  assert.ok(doc.configPath.endsWith('sui.config.json'));
+  assert.equal(doc.demo, true);
+  assert.ok(doc.roundTrip, 'onboarding without a round trip is not onboarding (I7)');
+  assert.equal(typeof doc.roundTrip.modelId, 'string');
+});
+
+test('sui mcp refuses --json, and says why rather than printing nothing', () => {
+  // On stdio, stdout is the protocol channel; a document there corrupts the
+  // stream. Over http the command never finishes, so there is no result to
+  // describe. Refusing is the honest answer.
+  const { stderr, code } = runJson(['mcp', '--json'], {});
+  assert.equal(code, 1);
+  assert.match(stderr, /stdout is the protocol channel/);
+  assert.match(stderr, /sui models --json/, 'the refusal names the command that can answer');
 });

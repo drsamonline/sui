@@ -1052,6 +1052,18 @@ document.addEventListener('click', (event) => {
   }
 });
 
+document.addEventListener('change', async (event) => {
+  const select = event.target.closest?.('select[data-history-hours]');
+  if (!select) return;
+  const hours = Number(select.value);
+  // one bar per bucket: finer over an hour, coarser over a day
+  historyWindow = { hours, buckets: hours === 1 ? 12 : 24 };
+  const name = select.dataset.historyProvider;
+  await loadHistory();
+  document.querySelectorAll('#providers-body tr.provider-detail').forEach((tr) => tr.remove());
+  openProviderDetail(name);
+});
+
 document.addEventListener('submit', (event) => {
   const form = event.target.closest?.('form.tenant-form');
   if (!form) return;
@@ -1074,10 +1086,12 @@ let providersCache = [];
 let providersProbeEnabled = false;
 /** Durable probe history, by pool key: what survives a restart, unlike the snapshot. */
 let historyCache = new Map();
+/** The window the history is drawn over. `/api/history` takes both numbers. */
+let historyWindow = { hours: 24, buckets: 24 };
 
 async function loadHistory() {
   try {
-    const res = await fetch('/api/history?hours=24&buckets=24');
+    const res = await fetch(`/api/history?hours=${historyWindow.hours}&buckets=${historyWindow.buckets}`);
     const json = await res.json();
     if (!json.enabled) return;
     historyCache = new Map((json.series ?? []).map((s) => [s.modelId, s]));
@@ -1110,10 +1124,15 @@ function historyBlock(p) {
     })
     .join('');
   const uptime = series.uptime == null ? '—' : `${Math.round(series.uptime * 100)}%`;
+  const option = (hours) => `<option value="${hours}"${historyWindow.hours === hours ? ' selected' : ''}>last ${hours}h</option>`;
   return `
     <p class="hint" style="margin: 0; display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap">
       <svg width="${points.length * (width + gap)}" height="${height}" role="img" aria-label="Probe latency, ${series.samples} sample(s), uptime ${uptime}">${bars}</svg>
       <span>${num(series.samples)} sample(s) over the last ${series.hours}h · uptime ${uptime}</span>
+      <label for="hist-${escapeHtml(p.provider)}" class="sr-only">History window for ${escapeHtml(p.provider)}</label>
+      <select id="hist-${escapeHtml(p.provider)}" data-history-hours="${historyWindow.hours}" data-history-provider="${escapeHtml(p.provider)}" style="width:auto">
+        ${option(1)}${option(6)}${option(24)}
+      </select>
     </p>`;
 }
 

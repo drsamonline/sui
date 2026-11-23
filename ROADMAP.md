@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-23 · `0.12.43` · 638 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-23 · `0.12.44` · 642 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
@@ -39,8 +39,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 
 | # | What | Why it matters | Effort |
 |---|---|---|---|
-| 1 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once | small |
-| 2 | `--json` on the four commands that still narrate: `init`, `mcp`, `tools --set`, `config get` | the rest of the CLI keeps the contract now; these four print prose because they describe a process, not a result | small |
+| 1 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once; only the "what shipped" half is generatable | small |
 
 ## Medium
 
@@ -72,6 +71,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | **Tenant console shows the pin and the rate** | shipped 0.12.39 — the panel names the cause of each refusal, and `--tenants` in the dashboard smoke test runs a keyed gateway |
 | **A cap control on the tenant panel** | shipped 0.12.40 — a form that states the current cap and says the change is in memory; writes off loopback now need the admin token |
 | **Per-provider view on the dashboard** | shipped 0.12.41 as a catalogue view rather than a history page — `GET /api/providers` plus a detail row per entry, because the gap was that the page could not show the catalogue at all |
+| **`--json` on the whole CLI** | shipped 0.12.44 — `init`, `config get` and `tools --set` answer a script; `mcp` refuses with a reason |
 | **A probe from the page** | shipped 0.12.42 — one endpoint per request, off by default, admin token off loopback, and it reports rather than promotes |
 | **A sweep from the page** | refused: forty endpoints from one click is a sweep, and a sweep belongs where its cost is visible. The page probes one endpoint at a time, on purpose |
 

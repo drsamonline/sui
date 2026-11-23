@@ -2,6 +2,30 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.44 — 2026-11-23
+
+### Added
+
+- **The last three narrating commands answer a script.** `sui init --json` emits the config path, the endpoint and the round trip that proves onboarding worked (I7), with the narration moved to stderr so stdout is one object; `sui config get --json` reports `found` as a field, because "not set" and "set to null" are different answers and a bare `null` cannot say which; `sui tools --set --json` reports `written: false` on a dry run.
+- **`sui mcp` refuses `--json`, and says why.** On stdio, stdout *is* the protocol channel and a document there corrupts the stream; over http the command does not finish, so there is no result to describe. The refusal names `sui models --json`, which answers the same question.
+- **A window control on the provider history.** `/api/history` always took `hours` and `buckets`; the page drew the 24-hour default and offered no way to change it. Last 1h, 6h or 24h now, with the bar width following the window.
+
+### Known gaps
+
+- `sui init --json` still runs the interactive prompt when stdin is a TTY. A provisioning script should pass `--yes`.
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer (0.12.42's gap, unchanged).
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 642 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios; the history window is changed and the same provider redrawn |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.43 — 2026-11-23
 
 ### Added

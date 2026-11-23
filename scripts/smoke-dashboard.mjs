@@ -233,6 +233,21 @@ const probe = await page.evaluate(() => ({
   else if (!/4 sample\(s\)/.test(detail)) problems.push('the seeded probe history did not reach the provider detail');
   else console.log('  provider history         drawn from the history file');
 
+  // the window is a control, and changing it must redraw the same provider
+  const select = await page.$('select[data-history-hours]');
+  if (!select) problems.push('the history block offered no window control');
+  else {
+    await page.select('select[data-history-hours]', '1');
+    await new Promise((r) => setTimeout(r, 400));
+    const after = await page.evaluate(() => ({
+      detail: document.querySelector('#providers-body tr.provider-detail')?.innerText.replace(/\s+/g, ' ') ?? '',
+      hours: document.querySelector('select[data-history-hours]')?.value ?? '',
+    }));
+    if (after.hours !== '1') problems.push('the window control did not stay on the chosen window');
+    if (!/last 1h/.test(after.detail)) problems.push('the detail did not redraw for the chosen window');
+    else console.log('  history window           redraws the same provider');
+  }
+
   // Probing from the page is a network action, so it is off unless asked for, and
   // the page has to say which of the two it is.
   const probeButton = await page.evaluate(() => Boolean(document.querySelector('button[data-probe]')));

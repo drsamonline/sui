@@ -157,11 +157,15 @@ export async function run(argv = process.argv.slice(2)) {
 async function cmdInit(flags) {
   const interactive = Boolean(stdin.isTTY) && !flags.yes;
   const prompt = interactive ? makePrompt() : null;
+  const json = flags.json === true;
   try {
     const result = await runInit({
       cwd: process.cwd(),
       env: loadEnvFile(process.env.SUI_ENV_FILE ?? '.env', { ...process.env }),
       interactive,
+      // in --json mode stdout is the document, so the narration goes to stderr:
+      // a provisioning script reads one object, not a transcript
+      out: json ? (...args) => console.error(...args) : undefined,
       force: Boolean(flags.force),
       demo: Boolean(flags.demo),
       port: flags.port ? Number(flags.port) : undefined,
@@ -169,6 +173,20 @@ async function cmdInit(flags) {
     });
     if (!result.ok) {
       process.exitCode = 1;
+      if (json) emitJson('init', { ok: false, note: 'Onboarding did not finish, so no config was written.' });
+      return;
+    }
+    if (json) {
+      // The round trip is the point of onboarding (I7), so it belongs in the
+      // document: a script can check that a model actually answered.
+      emitJson('init', {
+        ok: Boolean(result.roundTrip),
+        configPath: result.configPath,
+        endpoint: result.endpoint ?? null,
+        demo: Boolean(result.demo),
+        roundTrip: result.roundTrip ?? null,
+        tools: (result.tools ?? []).filter((t) => t.detected).map((t) => t.id),
+      });
       return;
     }
     if (flags['no-serve'] || !interactive) {
@@ -668,6 +686,20 @@ async function cmdTools(flags, args) {
       apiKey: config.apiKeys?.[0]?.key ?? 'sui-local',
       dryRun: Boolean(flags['dry-run']),
     });
+    if (flags.json) {
+      emitJson('tools', {
+        action: 'set',
+        tool: want,
+        ok: Boolean(result.ok),
+        written: Boolean(result.ok && result.path && !flags['dry-run']),
+        dryRun: Boolean(flags['dry-run']),
+        path: result.path ?? null,
+        message: result.message,
+        snippet: result.snippet ?? null,
+      });
+      if (!result.ok) process.exitCode = 1;
+      return;
+    }
     console.log(result.message);
     if (result.snippet) console.log(result.snippet);
     if (!result.ok) process.exitCode = 1;

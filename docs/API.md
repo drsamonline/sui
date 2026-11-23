@@ -527,4 +527,9 @@ that are null most of the time. What is identical is the transport.
 | `sui vault status\|list --json` | `command`, `action`, `exists`, `path`, `passphrase` (source only), `gateOpen`, `providers[]` — never a key |
 | `sui lang --json` | the locales this build speaks |
 
+`sui init --json` | `command`, `ok`, `configPath`, `endpoint`, `demo`, `roundTrip` (the turn that proves onboarding worked), `tools[]`
+| `sui config get <path> --json` | `command`, `action`, `path`, `found`, `value` — `found` separates "not set" from "set to null"
+| `sui tools --set <tool> --json` | `command`, `action`, `tool`, `ok`, `written`, `dryRun`, `path`, `message`, `snippet`
+| `sui mcp` | **no `--json`**, and the refusal says why: on stdio, stdout is the protocol channel; over http it never finishes. `sui models --json` answers the same question
+
 `sui config show` prints JSON without a flag, because the config *is* the document.

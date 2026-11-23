@@ -351,6 +351,13 @@ export function cmdConfig(flags, args) {
   if (sub === 'get') {
     if (!dotted) throw new ConfigError('Usage: sui config get <path>   e.g. sui config get budgets.dailyUsd');
     const value = getPath(raw, dotted);
+    if (flags.json) {
+      // `found` is the field a script branches on: a missing key and a key set to
+      // null are different answers, and a bare `null` cannot say which
+      emitJson('config', { action: 'get', path: dotted, found: value !== undefined, value: value === undefined ? null : value });
+      if (value === undefined) process.exitCode = 1;
+      return;
+    }
     if (value === undefined) {
       console.log(`${dotted} is not set.`);
       process.exitCode = 1;
@@ -895,6 +902,15 @@ export async function cmdRecipe(flags, args) {
  * serve the same tools, so an agent does not need to know which one you chose.
  */
 export async function cmdMcp(flags) {
+  if (flags.json) {
+    // Refused rather than half-implemented: on stdio, stdout *is* the protocol
+    // channel and a document there corrupts the stream; over http the command
+    // never finishes, so there is no result to describe.
+    throw new ConfigError(
+      '`sui mcp` has no --json: on stdio, stdout is the protocol channel, and over http it does not finish. ' +
+        'For the same information as a document, use `sui models --json`, `sui doctor --json` or GET /api/status.',
+    );
+  }
   const gateway = await createGateway({ configPath: flags.config, ledgerFile: undefined });
   const transport = String(flags.transport ?? 'stdio');
   const server = createMcpServer({ gateway, version: VERSION });
