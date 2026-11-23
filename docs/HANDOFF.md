@@ -18,12 +18,14 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 | Tests | 623, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
-| CI | green on Node 20 and 22 |
+| CI | **green on every job** (test 20, test 22, eval, soak, dashboard, migration) at `fe67660` |
 | Catalogue | 41 entries, each with a recorded source |
 | Verified routes | **1** — Groq, on the owner's machine (0 from CI: no provider egress) |
+| Tarball | `node scripts/verify-published.mjs` green at `0.12.37`: 11 checks, including `sui eval --self-test` (56/56) and `doctor --json` from an install |
+| Tarball | `node scripts/verify-published.mjs` green at `0.12.37`: 11 checks, including `sui eval --self-test` (56/56) and `doctor --json` from an install |
 | Languages | en, hi, gu, mr, ta, te |
 | Answer quality | measurable from the tarball: `sui eval --self-test` (56 grader checks), `sui eval` for a real combo |
-| Last commit | `49cb4b4` before 0.12.37 |
+| Last commit | `fe67660` (`v0.12.37` tag at `edf8bf8`; the only later change is the smoke script, which ships in no package) |
 
 Proof it works end to end, from the owner's Windows machine:
 

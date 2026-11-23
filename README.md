@@ -95,7 +95,7 @@ Everything in the specification is built. What is left needs a networked machine
 - the 41 catalogue endpoints are seeded but **unverified** until you run `sui probe --write` on a machine with internet
 - no eval baseline is recorded, because that needs one working provider key
 - the 72-hour soak has not been run
-- nothing is published to npm
+- 19 packages are published under `@drsamonline/*`, at `0.12.37` — `npm i @drsamonline/cli` installs one and it runs
 
 Two things are deliberately absent: a **first-chunk clone** (two providers billed for one answer is a real cost for a fake latency win) and a **Go/Rust data plane** (ADR-0001's gate says p95 2.29 ms at 200 rps, seven times under budget).
 
