@@ -46,15 +46,15 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 
 | # | What | Why | Effort |
 |---|---|---|---|
-| 5 | Per-provider dashboard page | the weather card is a list; a provider's own page would carry its probe history | medium |
-| 6 | Pool-deduped budget for every catalogue entry | 37 of 41 entries have no published budget recorded | data entry |
-| 7 | `forcedModel` and rate limits in the tenant console | the API enforces both; the dashboard shows neither | medium |
+| 5 | **Tenant console shows `forcedModel` and per-key rate limits** | the API enforces both and the dashboard shows neither, so a tenant's real limit is only readable in the config file. Showing what is enforced is the point of this project | medium |
+| 6 | Per-provider dashboard page | **deliberately below 5**: there is one verified route and no probe history on this machine, so the page would render empty until somebody runs `sui probe` on a networked box | medium |
+| 7 | Pool-deduped budget for every catalogue entry | 37 of 41 entries have no published budget recorded | data entry |
 
 ## Large — a decision, not a task
 
 | # | What | The decision |
 |---|---|---|
-| 8 | Breadth: 41 → several hundred endpoints | a grind, and each needs a source. `sui free-budget` keeps reporting unverified until somebody probes |
+| 8 | Breadth: 41 → several hundred endpoints | a grind, and each needs an LLM-specific source. The vendored `app-endpoints` dataset is public-apis — 2,214 general APIs, not providers — so this cannot be grown offline. `sui free-budget` keeps reporting unverified until somebody probes |
 | 9 | A second data plane | the two-plane split exists; a hosted model plane does not |
 
 ## Closed

@@ -122,10 +122,11 @@ Do not reintroduce any of these. Each has a test.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | Per-provider dashboard page | the weather card is a list; a provider's page would carry its probe history. Needs a route, a view and a smoke case |
-| 2 | More catalogue providers | 41 → hundreds is a grind; each needs a source in `sources.json`, and none can be verified from this sandbox |
-| 3 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
-| 4 | `--json` on the last four narrating commands | `init`, `mcp`, `tools --set`, `config get` — each describes a process, so each needs a shape decided first |
+| 1 | Tenant console shows `forcedModel` and per-key rate limits | the API enforces both; the dashboard shows neither, so a tenant's real limit is only readable in the config file |
+| 2 | Per-provider dashboard page | worth little until there is probe history: 1 verified route, none from this machine. Build it when a networked run has produced history |
+| 3 | More catalogue providers | 41 → hundreds needs LLM-specific sources; the vendored `app-endpoints` set is public-apis (2,214 general APIs), not providers, so it cannot be grown offline |
+| 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
+| 5 | `--json` on the last four narrating commands | `init`, `mcp`, `tools --set`, `config get` — each describes a process, so each needs a shape decided first |
 
 ### Needs the owner
 
