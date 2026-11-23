@@ -1,0 +1,153 @@
+# Handoff
+
+Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.36`.
+
+## What this is
+
+Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licensed, zero runtime dependencies. One OpenAI-compatible endpoint in front of many providers, where **a route exists only after a probe proved it answers**. The alternative it is measured against is 9router / OmniRoute, which optimises for breadth and savings; this optimises for being able to prove what it did.
+
+- Repo: https://github.com/drsamonline/sui
+- Landing: https://drsamonline.github.io/sui/ (GitHub Pages only — Netlify was refused)
+- npm: https://www.npmjs.com/package/@drsamonline/cli
+
+## State, verified
+
+| | |
+|---|---|
+| Version | `0.12.36`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 597, no network, no keys |
+| Audit | 8/8 static checks |
+| ADR | 10/10 compliant |
+| CI | green on Node 20 and 22 |
+| Catalogue | 41 entries, each with a recorded source |
+| Verified routes | **1** — Groq, on the owner's machine (0 from CI: no provider egress) |
+| Languages | en, hi, gu, mr, ta, te |
+| Last commit | `d445b3f` |
+
+Proof it works end to end, from the owner's Windows machine:
+
+```
+sui init      → answered by groq-70b (groq) in 2455 ms
+sui doctor    → chat-default ok · cheap ok · coding ok
+sui probe --write → groq verified
+dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · verified
+```
+
+## Commands that must pass before anything ships
+
+```bash
+npm install            # after every pod restart
+npm test               # 597 tests
+npm run audit          # 8 static checks
+npm run adr:check      # 10 ADRs
+npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH
+node scripts/verify-published.mjs   # installs the real tarball and runs the flow
+```
+
+Release: bump every `package.json`, add a CHANGELOG entry, commit, then create the tag through the API (the App cannot push tags):
+
+```bash
+git push origin main
+sha=$(git rev-parse HEAD)
+gh api repos/drsamonline/sui/git/refs -X POST -f ref="refs/tags/vX.Y.Z" -f sha="$sha" --jq '.ref'
+```
+
+The tag triggers `.github/workflows/publish.yml`: bundle → tests → audit → publish → verify the published tarball.
+
+## The one rule this project keeps relearning
+
+**A file that resolves in this repository does not necessarily exist in a tarball.** Nine bugs of exactly this shape reached the user before it was caught:
+
+| Missing from the tarball | Symptom |
+|---|---|
+| `packages/catalog/seed.json` | `sui catalog` showed 0 entries, `probe` had nothing to probe |
+| `apps/dashboard/web/dashboard.html` | `GET /` served "Dashboard file missing" |
+| `config/sui.config.json` | first run found the user's key and then ignored it, wiring a demo provider |
+| `vendor/kits/*` | `Vendor kits: 0/7 loaded` |
+
+`scripts/bundle-dashboard.mjs` copies all of them into their packages, `scripts/verify-published.mjs` installs the real tarball and uses it the way the README says to, and tests fail if a shipped copy drifts from its source. **Any new data file a command reads must be added to a package's `files` and resolved from either location.**
+
+## Bugs found by running, not reading
+
+Do not reintroduce any of these. Each has a test.
+
+| Bug | Cause |
+|---|---|
+| `sui catalog` 0 entries from an install | repo-relative path |
+| dashboard 404s the page | repo-relative path |
+| keys found then ignored | repo-relative path to the config template |
+| kits 0/7 | repo-relative path |
+| dashboard Send did nothing | `send()` threw `ReferenceError: threadEl` — the variable is `thread` |
+| reasoning models read as "empty turn" | `content` is empty, the answer is in `reasoning` — fixed in the adapter **and** the prober (twice) |
+| `doctor` failed every reasoning model | asked for 16 tokens |
+| probe picked a TTS voice | took `/models[0]`, which was `canopylabs/orpheus-arabic-saudi` |
+| probe marked a working provider unsuitable | suitability asked for `modelFor(entry)` (a family name) not the proven model |
+| Groq model ids retired | `llama-3.3-70b-versatile` shut down 16 Aug 2026 → `openai/gpt-oss-120b` |
+| a key with a trailing space was sent as-is | `sanitiseKey` strips spaces, quotes and a `Bearer` prefix |
+| publish check failed live releases 4× | it inferred "staged" from a lagging list; it is advisory now |
+| `${runAs()} init` printed literally | missing backtick |
+| crash message pointed at `github.com/your-org/sui` | placeholder URL |
+| no package shipped a LICENSE file | MIT requires the notice in every copy |
+| `--port 0` printed `0` | the bound port was thrown away |
+
+## Sandbox facts
+
+| | |
+|---|---|
+| Node | 20.20.2 here; CI covers 22 |
+| Provider egress | **blocked** — a probe from here always writes 0 |
+| `github.io` from bash | blocked; `web_get_contents` works |
+| `fetch` to loopback | aborts instantly — use `node:http` |
+| `fetch` through the proxy | ignores `HTTPS_PROXY` — use `curl` |
+| `npm install` | must be re-run after every pod restart |
+| Chrome | `CHROME_PATH=/usr/local/bin/chromium`, `PUPPETEER_PATH=/usr/lib/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js` |
+| npm staging | the first release of a new package is held for 2FA approval |
+| npm index lag | up to ~3 min for a tarball after its version is listed |
+
+## What is left
+
+### Can be done alone, in this order
+
+| # | Item | Why |
+|---|---|---|
+| 1 | **`sui eval` as a command** | eval exists only in the repo. The one gap where the product cannot prove its own answer quality from an install |
+| 2 | **Probe concurrency** | 41 entries × 8 s is 5 minutes serial; ~40 s in parallel |
+| 3 | `doctor --json` | nothing is scriptable yet |
+| 4 | More catalogue providers | 41 → hundreds is a grind; each needs a source in `sources.json` |
+| 5 | Per-provider dashboard page | the weather card is a list; a provider's page would carry its probe history |
+
+### Needs the owner
+
+| # | Item | Command |
+|---|---|---|
+| 1 | Point an editor at it | `sui tools --set continue` |
+| 2 | Cap spending | `budgets.dailyUsd` in the config |
+| 3 | A second free key for redundancy | Cerebras or Mistral, then `sui probe --write` |
+| 4 | 72-hour soak | `sui soak --minutes 4320 --rps 20` |
+
+### Deliberately not built
+
+| Refused | Reason |
+|---|---|
+| MITM/TPROXY capture | intercepting TLS contradicts the privacy posture |
+| A headline token number | cannot be verified from the user's machine |
+| Credential masking on by default | changes what the model sees |
+| A quality score without an eval run | the harness self-test is labelled as one |
+| More languages | 6 is what was checked; 67 would be a claim this project cannot verify |
+
+### Closed
+
+- Legal: LICENSE (MIT), NOTICE, OWNER_GRANT, DISCLAIMER, SECURITY — **reviewed and signed off by the owner, 2026-11-23**
+- Translation: **dropped** by the owner; 6 languages stand and the boundary is documented in `docs/LANGUAGES.md`
+
+## Where the design lives
+
+| Question | File |
+|---|---|
+| Why is a route only a route after a probe? | `docs/ARCHITECTURE.md`, `docs/diagrams/sui-architecture.excalidraw` |
+| Every hard constraint | `packages/core/src/invariants.js` (19), `npm run audit` |
+| Decisions and their reasons | `docs/adr/` (12) |
+| How it compares to OmniRoute | `docs/COMPARISON.md` |
+| What is measured and how | `docs/MEASUREMENT.md` |
+| Windows, for someone who has never used a terminal | `docs/WINDOWS.md` |
+| Publishing | `docs/PUBLISHING.md` |

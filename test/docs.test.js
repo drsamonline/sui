@@ -659,7 +659,8 @@ test('the roadmap keeps the quick wins above the decisions', async () => {
   // and the human steps are last, because they are the ones nobody can do for you
   assert.ok(doc.indexOf('Needs a human') > doc.indexOf('What is deliberately not built'));
   // a roadmap that does not say what is unproven is a wish list
-  assert.match(doc, /0 verified/);
+  assert.match(doc, /\*\*\d+ verified\*\*/);
+  assert.match(doc, /unverified/);
 });
 
 test('no shipped message points at a placeholder url', async () => {
@@ -697,4 +698,22 @@ test('the first-run template travels with the CLI', async () => {
 
   const pkg = JSON.parse(readFileSync(join(process.cwd(), 'apps', 'cli', 'package.json'), 'utf8'));
   assert.ok((pkg.files ?? []).includes('config'), 'the CLI must list config/ in files');
+});
+
+test('the handoff document exists and states the things a new session needs', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const path = join(process.cwd(), 'docs', 'HANDOFF.md');
+  assert.ok(existsSync(path), 'a handoff is how work continues in a new session');
+
+  const doc = readFileSync(path, 'utf8');
+  // the commands that must pass, or the next session guesses
+  for (const cmd of ['npm test', 'npm run audit', 'npm run adr:check', 'scripts/verify-published.mjs']) {
+    assert.ok(doc.includes(cmd), `the handoff does not name "${cmd}"`);
+  }
+  // the one rule this project keeps relearning
+  assert.match(doc, /resolves in this repository does not necessarily exist in a tarball/i);
+  // and where it actually stands
+  assert.match(doc, /Verified routes \| \*\*\d+\*\*/);
+  assert.match(doc, /Deliberately not built/);
 });

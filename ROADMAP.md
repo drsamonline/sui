@@ -1,17 +1,17 @@
 # Roadmap
 
-Status is only `done` when a command proves it. Every row below names the command that would change it.
+Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-19 · `0.12.23` · 585 tests · audit 8/8 · ADR 10/10.
+Last audit: 2026-11-23 · `0.12.36` · 597 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
 | | Sui | The thing it is measured against |
 |---|---|---|
-| Catalogue | 41 endpoints, **0 verified** until you probe | 394 providers, 153 free |
-| Routing strategies | 5 (`fallback`, `weighted`, `cheapest`, `latency`, `quota-weighted`) + `auto` | 22 |
+| Catalogue | 41 endpoints, **1 verified** (Groq, on a machine with egress) | 394 providers, 153 free |
+| Routing strategies | 5 + `auto` | 22 |
 | Compression | 7 engines, inflation guard on | 12 |
-| Languages | 6 (en, hi, gu, mr, ta, te) | 67 |
+| Languages | 6 (en, hi, gu, mr, ta, te) — the boundary is documented and tested | 67 |
 | Runtime dependencies | **0** | many |
 | Proof a route works | **probe or nothing** | catalogue entry |
 | Pass rate | printed with its 95% interval | not published |
@@ -27,55 +27,52 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | Security: CORS same-origin, SSRF guard, open-relay refusal | `test/security.test.js` |
 | Malformed input: 10 cases, one contract | `test/robustness.test.js` |
 | The published tarball installs and runs | `node scripts/verify-published.mjs` |
-| Streaming, dashboard, languages, version — from the tarball | same |
+| Streaming, dashboard, languages, catalogue, kits — from the tarball | same |
+| End to end on a real machine: install → init → doctor → probe → reply | owner's Windows box, 2026-11-23 |
 | p95 inside the 15 ms budget | `npm run soak` |
 | Windows without an npm account | `docs/WINDOWS.md` |
+| Legal docs reviewed and signed off | `docs/legal/LEGAL-INDEX.md` |
 
-## Quick wins — small, real, done first
+## Quick wins — small, real, in order
 
 | # | What | Why it matters | Effort |
 |---|---|---|---|
-| 1 | **npm metadata: engines, keywords, bugs, LICENSE per package** | 19 packages had no `engines` (npm cannot warn a Node 18 user), no keywords (npm search found nothing), and **no LICENSE file in the tarball** — MIT requires the notice to travel with every copy. Shipped in 0.12.23. | done |
-| 2 | **Stale numbers in docs** | README and the landing page said 572 tests when there were 583; `docs/PUBLISHING.md` still showed `v0.12.0`. Shipped in 0.12.23. | done |
-| 3 | **`npm pkg fix` warnings** | npm was cleaning the `bin` path on every publish. Fixed in 0.12.23. | done |
-| 4 | Finish the translation: the four foot lines and the detail tables | the dashboard is translated at the top and English below the fold; `docs/LANGUAGES.md` says so, but it is still a mixed page | 1 release |
-| 5 | `sui doctor --json` | the one command every new user runs has no machine-readable output, so it cannot be scripted | small |
-| 6 | A `CHANGELOG` entry generator from commit subjects | the changelog is written by hand and has been wrong once | small |
+| 1 | **`sui eval` as a command** | eval exists only in the repository, so an install cannot measure answer quality — the one gap where the product cannot prove its own claims | 1 release |
+| 2 | **Probe concurrency** | 41 entries × 8 s is five minutes serial; ~40 s in parallel | small |
+| 3 | `sui doctor --json` | the health check has no machine-readable output, so it cannot be scripted | small |
+| 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once | small |
 
-## Medium — worth doing, not urgent
+## Medium
 
 | # | What | Why | Effort |
 |---|---|---|---|
-| 7 | Pool-deduped budget for every catalogue entry | `sui free-budget` reports 1.18B unverified from 4 pools; 37 entries have no published budget recorded | data entry |
-| 8 | `sui probe` concurrency | 41 endpoints at 8 s each is five minutes serial | small |
-| 9 | A dashboard page per provider | the weather card is a list; a provider's own page would carry its probe history | medium |
-| 10 | `forcedModel` and rate limits in the tenant console | the API enforces both; the dashboard shows neither | medium |
+| 5 | Per-provider dashboard page | the weather card is a list; a provider's own page would carry its probe history | medium |
+| 6 | Pool-deduped budget for every catalogue entry | 37 of 41 entries have no published budget recorded | data entry |
+| 7 | `forcedModel` and rate limits in the tenant console | the API enforces both; the dashboard shows neither | medium |
 
 ## Large — a decision, not a task
 
 | # | What | The decision |
 |---|---|---|
-| 11 | Breadth: 41 → several hundred endpoints | a grind, and each one needs a source. `sui free-budget` will keep reporting `0 verified` until somebody probes |
-| 12 | A second data plane | the two-plane split exists; a hosted model plane does not |
-| 13 | More languages | 6 → 22 is mechanical; 6 → 67 would be a claim this project cannot check |
+| 8 | Breadth: 41 → several hundred endpoints | a grind, and each needs a source. `sui free-budget` keeps reporting unverified until somebody probes |
+| 9 | A second data plane | the two-plane split exists; a hosted model plane does not |
 
-## What is deliberately not built
+## Closed
 
-| Refused | Reason |
+| Refused or finished | Reason |
 |---|---|
 | MITM/TPROXY capture | intercepting TLS contradicts the privacy posture |
 | A headline token number | cannot be verified from the user's machine |
 | Credential masking on by default | changes what the model sees |
 | A quality score without an eval run | the harness self-test is labelled as one for exactly this reason |
+| **More languages** | **dropped by the owner.** Six stand; the boundary is in `docs/LANGUAGES.md` and a test keeps it stated |
+| **Legal review** | **signed off by the owner, 2026-11-23** |
 
 ## Needs a human, in this order
 
 | # | Step | Command | Time |
 |---|---|---|---|
-| 1 | One free provider key | `console.groq.com` → API Keys | 2 min |
-| 2 | Prove the routes | `sui doctor` | 30 s |
-| 3 | Turn candidates into routes | `sui probe --write` | 2 min |
-| 4 | Record a quality baseline | `sui eval --update-baseline` | 2 min |
-| 5 | 72-hour soak (optional) | `sui soak --minutes 4320 --rps 20` | 3 days |
-
-Until step 3 runs, the honest report is: 41 catalogue entries, **0 verified**.
+| 1 | Point an editor at the endpoint | `sui tools --set continue` | 1 min |
+| 2 | Cap daily spending | edit `budgets.dailyUsd` | 1 min |
+| 3 | A second free key, for redundancy | Cerebras or Mistral → `sui probe --write` | 5 min |
+| 4 | 72-hour soak | `sui soak --minutes 4320 --rps 20` | 3 days |
