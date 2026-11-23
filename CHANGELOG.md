@@ -17,6 +17,9 @@ Every entry names what shipped and what it costs you to adopt. Nothing is listed
 - **`--concurrency -1` was read as a bare flag**, which quietly became `1` and ran the whole sweep one entry at a time. A flag that takes a number refuses to be a boolean.
 - **The dashboard's eval card showed `0%` for a run that measured nothing**, because `passRate ?? 0` turns "no rate" into the worst possible rate.
 - **`/api/evals` only read the checkout's copy**, so an installed gateway said "no eval has been run here yet" however many times you ran one. It reads `SUI_EVAL_REPORT`, then the Sui home, then the repository copy.
+- **The dashboard smoke test could never pass its two failing scenarios.** In `empty` and `degraded` the gateway is configured to fail, the test clicks Send, and the resulting 5xx was counted as a page problem — so the only scenarios that check "does the page say what broke" were red for their own correct behaviour. A 5xx on the chat endpoint is now tolerated in exactly those two scenarios, and the test additionally requires the page to *explain* it, so the tolerance cannot hide a silent failure.
+- **`ci.yml` would not parse.** A step name began with a backtick, which cannot start a YAML plain scalar: GitHub reported "this run likely failed because of a workflow file issue" and no step ran. A test now rejects a `name:` beginning with any character YAML reserves.
+- **The publisher refused this release.** Its guard against shipping test fixtures caught `evals/fixtures/self-test.json`, which is product data — `sui eval --self-test` grades those answers. The exception is one exact path, subtracted from the pattern, with a test pinning it.
 
 ### Known gaps
 

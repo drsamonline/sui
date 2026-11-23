@@ -142,6 +142,13 @@ const probe = await page.evaluate(() => ({
   }));
   if (after.length <= before) problems.push('clicking Send with a prompt produced no answer in the thread');
   if (!/hello from the smoke test/i.test(after.text)) problems.push('the answer did not echo the prompt');
+
+  // In the two failing scenarios the 5xx is tolerated below — but only because the
+  // page says what broke. Without this, "expected failure" would mean "the page may
+  // show nothing at all", which is the opposite of what these scenarios test.
+  const saysWhatBroke = /no model could answer|could not answer|no api key|failed|error/i.test(after.text);
+  if (scenario !== 'healthy' && !saysWhatBroke) problems.push('a failing route produced no explanation in the thread');
+  if (scenario === 'healthy' && saysWhatBroke) problems.push('a healthy route reported a failure in the thread');
   console.log(`  send button              ${after.length > before ? 'answered' : 'DEAD'}`);
 }
 
@@ -160,7 +167,23 @@ console.log('');
 // A console 404 carries no URL, so the response listener is what names it. Keep
 // the filter narrow: an aborted request is a page navigating away, nothing else
 // gets a free pass.
-const fatal = problems.filter((p) => !/net::ERR_ABORTED/i.test(p));
+//
+// The two failing scenarios are the exception, and they have to be: there the
+// gateway is configured to fail — no key in `empty`, an unreachable provider in
+// `degraded` — the page clicks Send, and a 5xx is the behaviour under test. The
+// page must *say* what broke, not avoid it. Counting that 5xx as a page problem
+// made the scenarios that matter impossible to pass, and this job had been red
+// for that reason alone.
+//
+// Narrow on purpose: only a 5xx from the chat endpoint, and only the exact console
+// line Chromium emits for it (that message carries no URL, so a wider pattern
+// would also excuse a broken /api route).
+const expectedFailure = (problem) =>
+  scenario !== 'healthy' &&
+  (/^HTTP 5\d\d: .*\/v1\/chat\/completions/.test(problem) ||
+    /^console: Failed to load resource: the server responded with a status of 5\d\d/.test(problem));
+
+const fatal = problems.filter((p) => !/net::ERR_ABORTED/i.test(p) && !expectedFailure(p));
 if (fatal.length) {
   console.log(`  ${fatal.length} problem(s):`);
   for (const problem of [...new Set(fatal)].slice(0, 20)) console.log(`   - ${problem}`);
