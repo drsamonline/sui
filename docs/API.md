@@ -255,6 +255,39 @@ An uncapped tenant reports `dailyUsd: null` and `pct: null` — not 0%. These fo
 
 Reading the console is never gated by the bind: it holds spend, limits and names, never prompt text or a key. The dashboard's Tenants panel uses this endpoint for its "Change cap" control, which states the current cap, takes the new one by hand, and says afterwards that the change is in memory only.
 
+## GET /api/providers
+
+The catalogue, joined to what this machine knows about it. Three sources say
+different things: the seed is what the project imported (an **identity**), the
+overlay written by `sui probe --write` is what a probe observed on this machine (a
+**route**), and the prober's snapshot is what this process has seen since it
+started.
+
+```json
+{ "summary": { "total": 41, "verified": 1, "awaitingProbe": 40, "identities": 0, "routable": 1 },
+  "providers": [{ "provider": "groq", "label": "Groq", "state": "verified",
+                  "baseUrl": "https://api.groq.com/openai/v1", "auth": "key", "tos": "allowed",
+                  "capabilities": ["chat", "streaming"], "catalogueModels": [],
+                  "verifiedAt": 1763000000000, "probeModel": "openai/gpt-oss-120b",
+                  "probe": { "weather": "thriving", "status": "healthy", "failures": 0,
+                             "lastProbeAt": 1763000000000, "lastOkAt": 1763000000000,
+                             "history": [{ "at": 1763000000000, "ok": true, "latencyMs": 412 }] },
+                  "configuredModels": ["groq-70b"], "combos": ["chat-default"] }] }
+```
+
+| `state` | Means |
+|---|---|
+| `verified` | a probe on this machine got an answer; this entry is routable |
+| `awaiting-probe` | an identity with an endpoint; `sui probe <provider> --write` is what promotes it |
+| `identity` | no endpoint is known, so there is nothing to probe |
+
+`probe` is `null` until this process has probed the entry. `configuredModels` and
+`combos` are what your config routes *to* it, which is how a provider with no
+route can still be the reason a combo fails. No field here is a credential —
+`auth` says `key`, never the key.
+
+The dashboard's Providers card renders this and opens a detail row per provider.
+
 ## Attribution (B7.1)
 
 Send `x-sui-user` and `x-sui-tool` and the ledger charges the turn to them. Without them, the API-key name is the user and the product part of the user agent is the tool; with neither, the row is `unattributed` rather than dropped.

@@ -273,18 +273,32 @@ export function startWorkers(deps) {
 }
 
 /**
- * The catalogue entries worth probing: only those with a resolved base_url.
- * An identity with no endpoint is not a probe target, and pretending otherwise
- * would produce a failure that says nothing.
+ * Where the catalogue lives, most specific first.
+ *
+ * `sui start` runs from the user's project directory, where `packages/catalog`
+ * does not exist — and neither does the path three levels above this file once the
+ * gateway is inside `node_modules`. Both fallbacks therefore pointed at nothing on
+ * an install, so the background prober found zero entries and quietly never ran:
+ * `sui probe` worked (it resolves the package) while the worker that is supposed
+ * to keep routes verified did nothing. The package is asked first now, because the
+ * package is the only thing that exists in both places.
  */
-export function loadProbeTargets(catalogDir) {
-  // `sui start` runs from the user's project directory, where packages/catalog
-  // does not exist. Fall back to the catalogue that shipped with the package.
-  const candidates = catalogDir
-    ? [catalogDir]
-    : [join(process.cwd(), 'packages', 'catalog'), join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'packages', 'catalog')];
+export function catalogueDirs(catalogDir) {
+  if (catalogDir) return [catalogDir];
+  const dirs = [];
+  try {
+    dirs.push(dirname(fileURLToPath(import.meta.resolve('@drsamonline/catalog/seed.json'))));
+  } catch {
+    // an older install may not export seed.json; the checkout path below still works
+  }
+  dirs.push(join(process.cwd(), 'packages', 'catalog'));
+  dirs.push(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'packages', 'catalog'));
+  return dirs;
+}
 
-  for (const dir of candidates) {
+/** Every catalogue entry, identities included. */
+export function loadCatalogue(catalogDir) {
+  for (const dir of catalogueDirs(catalogDir)) {
     const entries = [];
     let found = false;
     for (const file of ['seed.json', 'generated.json']) {
@@ -295,7 +309,16 @@ export function loadProbeTargets(catalogDir) {
         /* a missing file is not an error: a trimmed checkout still runs */
       }
     }
-    if (found) return dedupeEntries(entries).filter((e) => e.base_url);
+    if (found) return dedupeEntries(entries);
   }
   return [];
+}
+
+/**
+ * The catalogue entries worth probing: only those with a resolved base_url.
+ * An identity with no endpoint is not a probe target, and pretending otherwise
+ * would produce a failure that says nothing.
+ */
+export function loadProbeTargets(catalogDir) {
+  return loadCatalogue(catalogDir).filter((e) => e.base_url);
 }

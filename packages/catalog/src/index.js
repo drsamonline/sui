@@ -167,6 +167,32 @@ export function scoreEntry(entry, facts = {}) {
  * @param {any[]} entries
  * @param {any[]} observed
  */
+/**
+ * Read what *this* machine observed, from an overlay file the CLI writes.
+ *
+ * Two callers need it now — `sui catalog` and the gateway's provider routes — and
+ * a second implementation of the same parsing is a second place for the same bug
+ * (this repository has shipped that bug more than once). The paths are passed in
+ * rather than derived: the caller knows where its Sui home is, and this package
+ * does not depend on core to find out.
+ *
+ * @param {string[]} paths most specific first
+ * @returns {any[]} observations, empty when none is readable
+ */
+export function readVerifiedOverlay(paths = []) {
+  for (const path of paths) {
+    if (!path) continue;
+    try {
+      const parsed = JSON.parse(readFileSync(path, 'utf8'));
+      if (Array.isArray(parsed.entries) && parsed.entries.length) return parsed.entries;
+    } catch {
+      // a corrupt or missing overlay must not stop the catalogue loading: the
+      // seed is imported fact, the overlay is one machine's observation
+    }
+  }
+  return [];
+}
+
 export function applyVerified(entries, observed = []) {
   const byProvider = new Map(observed.map((row) => [row.provider, row]));
   return entries.map((entry) => {

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { ConfigError, defaultConfigPath, normalizeConfig, sanitizeConfig, suiHome } from '@drsamonline/core';
-import { applyVerified, freeBudget, formatTokens } from '@drsamonline/catalog';
+import { applyVerified, freeBudget, formatTokens, readVerifiedOverlay } from '@drsamonline/catalog';
 import { dedupeEntries, loadSeed, summarise } from '@drsamonline/catalog';
 import { loadKit, kitStatus } from '@drsamonline/kits';
 import { createVault } from '@drsamonline/vault';
@@ -155,16 +155,9 @@ function legacyVerifiedPath() {
 }
 
 function readVerified() {
-  for (const path of [verifiedPath(), legacyVerifiedPath()]) {
-    if (!existsSync(path)) continue;
-    try {
-      const parsed = JSON.parse(readFileSync(path, 'utf8'));
-      if (Array.isArray(parsed.entries) && parsed.entries.length) return parsed.entries;
-    } catch {
-      /* a corrupt overlay must not stop the catalogue loading */
-    }
-  }
-  return [];
+  // one reader, in the catalogue package, because the gateway's provider routes
+  // need the same overlay and a second copy is a second place to drift
+  return readVerifiedOverlay([verifiedPath(), legacyVerifiedPath()]);
 }
 
 /**

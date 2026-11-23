@@ -23,6 +23,8 @@ import { RunRegistry } from '@drsamonline/guardrails';
 import { createModelPlaneClient, createPlaneGuard, describePlane } from './planes.js';
 import { autoCombo, checkToggle, direction, normaliseLocale, sanitizeConfig, STRINGS, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary, suiHome } from '@drsamonline/core';
 import { SuiError } from '@drsamonline/core';
+import { applyVerified, readVerifiedOverlay } from '@drsamonline/catalog';
+import { loadCatalogue } from './workers.js';
 import { explainPlan } from '@drsamonline/router';
 import { PRESETS, compress as compressText } from '@drsamonline/compression';
 import { Admission, RateLimiter, checkKeyBudget } from './limits.js';
@@ -400,6 +402,14 @@ export function createSuiServer(deps) {
             note: 'Applied in memory for this process. Edit sui.config.json to make it permanent.',
           });
         }
+      }
+
+      // The catalogue, on the page. Until this existed the only way to see what
+      // this gateway *could* route to was `sui catalog` on a terminal: the
+      // dashboard showed the models that answered and nothing about the forty-odd
+      // identities waiting for a probe, which is the product's whole story.
+      if (req.method === 'GET' && path === '/api/providers') {
+        return sendJson(res, 200, providerReport(configRef, workers));
       }
 
       if (req.method === 'GET' && path === '/api/limits') {
@@ -888,6 +898,77 @@ function sinceParam(url) {
  * The console is admin surface: when SUI_ADMIN_TOKEN is set, every write and the
  * tenant list need it. Without one, it is loopback-only like the rest of /api.
  */
+/**
+ * The catalogue, joined to what this machine knows about it.
+ *
+ * Three sources, and they say different things: the seed is what the project
+ * imported (an identity), the overlay is what a probe observed on this machine (a
+ * route), and the prober's snapshot is what this process has seen since it
+ * started. Joining them is the only way to answer "is this a route, and if not,
+ * why not" without guessing.
+ */
+function providerReport(config, workers) {
+  const overlay = readVerifiedOverlay([
+    join(suiHome(process.env), 'catalog-verified.json'),
+    join(HERE, '..', '..', '..', 'packages', 'catalog', 'verified.json'),
+  ]);
+  const entries = applyVerified(loadCatalogue(), overlay);
+  const probes = new Map((workers?.snapshot?.().probes ?? []).map((p) => [p.provider, p]));
+
+  const combosFor = (modelIds) => {
+    const ids = new Set(modelIds);
+    return Object.entries(config.combos ?? {})
+      .filter(([, combo]) => (combo.targets ?? []).some((t) => ids.has(typeof t === 'string' ? t : t.model)))
+      .map(([id]) => id);
+  };
+
+  const providers = entries.map((entry) => {
+    const configured = Object.entries(config.models ?? {})
+      .filter(([, model]) => model.provider === entry.provider)
+      .map(([id]) => id);
+    const probe = probes.get(entry.provider) ?? null;
+
+    return {
+      provider: entry.provider,
+      label: entry.label ?? entry.provider,
+      // three states, and "identity" is the honest one for an entry with no
+      // endpoint: it is a name we know about, not a route we can call
+      state: entry.verified_at ? 'verified' : entry.base_url ? 'awaiting-probe' : 'identity',
+      baseUrl: entry.base_url ?? null,
+      auth: entry.auth ?? null,
+      tos: entry.tos ?? null,
+      capabilities: entry.capabilities ?? [],
+      catalogueModels: entry.models ?? [],
+      verifiedAt: entry.verified_at ?? null,
+      probeModel: entry.probe_model ?? null,
+      probe: probe
+        ? {
+            weather: probe.weather,
+            status: probe.status,
+            failures: probe.failures,
+            lastProbeAt: probe.lastProbeAt,
+            lastOkAt: probe.lastOkAt,
+            history: (probe.history ?? []).slice(-12),
+          }
+        : null,
+      configuredModels: configured,
+      combos: combosFor(configured),
+    };
+  });
+
+  const count = (state) => providers.filter((p) => p.state === state).length;
+  return {
+    summary: {
+      total: providers.length,
+      verified: count('verified'),
+      awaitingProbe: count('awaiting-probe'),
+      identities: count('identity'),
+      routable: providers.filter((p) => p.combos.length).length,
+    },
+    providers,
+  };
+}
+
 function requireAdmin(req, config, opts = {}) {
   const expected = config.env?.SUI_ADMIN_TOKEN ?? process.env.SUI_ADMIN_TOKEN;
   if (!expected) {

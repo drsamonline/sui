@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-23 · `0.12.40` · 633 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-23 · `0.12.41` · 633 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
@@ -46,7 +46,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 
 | # | What | Why | Effort |
 |---|---|---|---|
-| 5 | Per-provider dashboard page | there is one verified route and no probe history on this machine, so the page renders mostly empty until somebody runs `sui probe` on a networked box | medium |
+| 5 | A probe from the page | the providers list is read-only. Probing is a network action against forty endpoints on the operator's behalf, and needs its own consent design | medium |
 | 7 | Pool-deduped budget for every catalogue entry | 37 of 41 entries have no published budget recorded | data entry |
 
 ## Large — a decision, not a task
@@ -72,6 +72,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | **One `--json` contract everywhere** | shipped 0.12.38 — sixteen commands, checked as a contract by `test/cli-json.test.js` and documented field by field |
 | **Tenant console shows the pin and the rate** | shipped 0.12.39 — the panel names the cause of each refusal, and `--tenants` in the dashboard smoke test runs a keyed gateway |
 | **A cap control on the tenant panel** | shipped 0.12.40 — a form that states the current cap and says the change is in memory; writes off loopback now need the admin token |
+| **Per-provider view on the dashboard** | shipped 0.12.41 as a catalogue view rather than a history page — `GET /api/providers` plus a detail row per entry, because the gap was that the page could not show the catalogue at all |
 
 ## Needs a human, in this order
 

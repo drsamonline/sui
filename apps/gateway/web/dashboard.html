@@ -484,6 +484,26 @@
       </div>
     </section>
 
+    <section class="card flush" aria-labelledby="providers-h">
+      <header>
+        <h2 id="providers-h">Providers</h2>
+        <span class="hint" id="providers-note">the catalogue, and what is still only a name</span>
+      </header>
+      <div class="body" style="padding: 0">
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Provider</th><th scope="col">State</th><th scope="col">Endpoint</th>
+                <th scope="col">ToS</th><th scope="col">In your config</th><th scope="col"><span class="sr-only">Details</span></th>
+              </tr>
+            </thead>
+            <tbody id="providers-body"><tr><td colspan="6"><div class="skeleton line"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section class="card flush" aria-labelledby="traces-h">
       <header>
         <h2 id="traces-h">Prompt-free usage</h2>
@@ -614,6 +634,7 @@ function render() {
   renderWeather(state.probes ?? []);
   loadEval();
   loadTenants();
+  loadProviders();
   renderProbes(state.probes ?? []);
   renderTraces(promptUsage);
   renderRecent(metrics.recent);
@@ -829,6 +850,7 @@ async function loadEval() {
  * file. A gateway that refuses a request must be able to say why, on the page.
  */
 let tenantsEditing = false;
+let tenantsCache = [];
 /** The last thing a cap change said, kept across the 15s refresh. */
 let tenantsMessage = null;
 
@@ -850,6 +872,7 @@ async function loadTenants({ force = false } = {}) {
     }
     const json = await res.json();
     const tenants = json.tenants ?? [];
+    tenantsCache = tenants;
     if (!tenants.length) {
       if (note) note.textContent = 'no keys configured';
       body.innerHTML = empty('No API keys are configured, so every caller is the same anonymous tenant. Add an <code>apiKeys</code> entry to separate them.');
@@ -864,7 +887,7 @@ async function loadTenants({ force = false } = {}) {
         <td>${t.forcedModel ? `<span class="mono">${escapeHtml(t.forcedModel)}</span>` : '<span class="hint">the caller chooses</span>'}</td>
         <td>${reachCell(t)}</td>
         <td class="num">${t.lastSeenAt ? new Date(t.lastSeenAt).toLocaleTimeString('en-IN', { hour12: false }) : '—'}</td>
-        <td><button class="small" type="button" data-cap="${escapeHtml(t.name)}">Change cap</button></td>
+        <td><button class="small" type="button" data-cap="${escapeHtml(t.name)}">Change limits</button></td>
       </tr>`).join('');
   } catch {
     body.innerHTML = empty('Could not reach the gateway.');
@@ -903,7 +926,10 @@ function renderTenantMessage() {
  * memory for this process; the page says so afterwards, because a cap that
  * silently reverts on restart is worse than no control at all.
  */
-function openCapForm(name, currentUsd) {
+function openCapForm(name) {
+  const t = tenantsCache.find((x) => x.name === name);
+  const currentUsd = t?.dailyUsd ?? null;
+  const currentRpm = t?.rateLimit?.rpm ?? null;
   const tbody = document.querySelector('#tenants-body');
   const row = [...tbody.querySelectorAll('tr')].find((tr) => tr.querySelector(`button[data-cap="${name}"]`));
   if (!row) return;
@@ -917,8 +943,10 @@ function openCapForm(name, currentUsd) {
         <label for="cap-${escapeHtml(name)}" class="hint">Today's cap for <strong>${escapeHtml(name)}</strong>:
           ${currentUsd == null ? 'uncapped' : money(currentUsd)}.
           Enter a new daily cap in dollars (empty = uncapped).</label>
-        <input id="cap-${escapeHtml(name)}" name="cap" type="number" min="0" step="0.5" value="${currentUsd == null ? '' : currentUsd}" style="width:8rem" />
-        <button class="small" type="submit">Set cap</button>
+        <input id="cap-${escapeHtml(name)}" name="cap" type="number" min="0" step="0.5" value="${currentUsd == null ? '' : currentUsd}" style="width:8rem" aria-label="Daily cap in dollars for ${escapeHtml(name)}" />
+        <label for="rpm-${escapeHtml(name)}" class="hint">Requests per minute:</label>
+        <input id="rpm-${escapeHtml(name)}" name="rpm" type="number" min="0" step="1" value="${currentRpm == null ? '' : currentRpm}" style="width:6rem" aria-label="Requests per minute for ${escapeHtml(name)}" />
+        <button class="small" type="submit">Apply</button>
         <button class="small" type="button" data-cancel>Cancel</button>
         <span class="hint" data-error></span>
       </form>
@@ -931,18 +959,24 @@ function openCapForm(name, currentUsd) {
 async function submitCap(form) {
   const name = form.dataset.tenant;
   const raw = form.querySelector('input[name="cap"]').value.trim();
+  const rawRpm = form.querySelector('input[name="rpm"]').value.trim();
   const error = form.querySelector('[data-error]');
   const value = raw === '' ? null : Number(raw);
+  const rpm = rawRpm === '' ? null : Number(rawRpm);
 
   if (value !== null && (!Number.isFinite(value) || value < 0)) {
     error.textContent = 'A cap is a number of dollars, or empty for uncapped.';
+    return;
+  }
+  if (rpm !== null && (!Number.isFinite(rpm) || rpm < 0)) {
+    error.textContent = 'A rate is a whole number of requests per minute, or empty to leave it alone.';
     return;
   }
 
   const res = await fetch(`/api/tenants/${encodeURIComponent(name)}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ dailyUsd: value }),
+    body: JSON.stringify({ dailyUsd: value, ...(rpm === null ? {} : { rpm }) }),
   }).catch(() => null);
 
   if (!res || !res.ok) {
@@ -954,23 +988,22 @@ async function submitCap(form) {
   const json = await res.json();
   const from = json.changed?.dailyUsd?.from;
   const to = json.changed?.dailyUsd?.to;
-  tenantsMessage = {
-    state: 'ok',
-    text: `${name}: cap ${from == null ? 'uncapped' : money(from)} → ${to == null ? 'uncapped' : money(to)}. ${json.note ?? ''}`.trim(),
-  };
+  const said = [`cap ${from == null ? 'uncapped' : money(from)} → ${to == null ? 'uncapped' : money(to)}`];
+  if (json.changed?.rpm) said.push(`rate → ${json.changed.rpm.to}/min`);
+  tenantsMessage = { state: 'ok', text: `${name}: ${said.join(', ')}. ${json.note ?? ''}`.trim() };
   tenantsEditing = false;
   await loadTenants({ force: true });
 }
 
 document.addEventListener('click', (event) => {
+  const detail = event.target.closest?.('button[data-provider]');
+  if (detail) {
+    openProviderDetail(detail.dataset.provider);
+    return;
+  }
   const change = event.target.closest?.('button[data-cap]');
   if (change) {
-    const name = change.dataset.cap;
-    const row = change.closest('tr');
-    // the cap cell is the second one; read the number out of what is rendered
-    const cell = row?.children?.[1]?.innerText ?? '';
-    const match = /of \$([\d.]+)/.exec(cell);
-    openCapForm(name, match ? Number(match[1]) : null);
+    openCapForm(change.dataset.cap);
     return;
   }
   if (event.target.closest?.('button[data-cancel]')) {
@@ -989,6 +1022,98 @@ document.addEventListener('submit', (event) => {
     if (error) error.textContent = 'Could not reach the gateway.';
   });
 });
+
+/**
+ * The catalogue, on the page.
+ *
+ * `sui catalog` was the only way to see the forty-odd identities this gateway
+ * could route to. The dashboard showed the models that answered, so the product's
+ * central distinction — an identity is not a route — was invisible to anyone who
+ * only ever opened the page.
+ */
+let providersCache = [];
+
+async function loadProviders() {
+  const body = document.querySelector('#providers-body');
+  const note = document.querySelector('#providers-note');
+  if (!body) return;
+  try {
+    const res = await fetch('/api/providers');
+    const json = await res.json();
+    const providers = json.providers ?? [];
+    providersCache = providers;
+    if (note) {
+      const s = json.summary ?? {};
+      note.textContent = `${s.total ?? providers.length} entries · ${s.verified ?? 0} verified · ${s.awaitingProbe ?? 0} awaiting a probe`;
+    }
+    if (!providers.length) {
+      body.innerHTML = `<tr><td colspan="6" class="hint" style="padding: var(--space-4)">No catalogue is readable here. Run <code>sui catalog</code> to check.</td></tr>`;
+      return;
+    }
+    // verified first: the two entries worth acting on are at the top, not wherever
+    // the alphabet put them
+    const order = { verified: 0, 'awaiting-probe': 1, identity: 2 };
+    const sorted = [...providers].sort((a, b) => (order[a.state] ?? 3) - (order[b.state] ?? 3) || a.provider.localeCompare(b.provider));
+    body.innerHTML = sorted
+      .map((p) => `
+      <tr>
+        <td><strong>${escapeHtml(p.label)}</strong><div class="hint mono">${escapeHtml(p.provider)}</div></td>
+        <td>${providerStateCell(p)}</td>
+        <td class="mono" style="max-width:22rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.baseUrl ? escapeHtml(p.baseUrl) : '<span class="hint">no endpoint known</span>'}</td>
+        <td>${p.tos ? escapeHtml(p.tos) : '—'}</td>
+        <td>${p.configuredModels?.length ? `<span class="mono">${p.configuredModels.map(escapeHtml).join(', ')}</span>` : '<span class="hint">—</span>'}</td>
+        <td><button class="small" type="button" data-provider="${escapeHtml(p.provider)}">Details</button></td>
+      </tr>`)
+      .join('');
+  } catch {
+    body.innerHTML = `<tr><td colspan="6" class="hint" style="padding: var(--space-4)">Could not reach the gateway.</td></tr>`;
+  }
+}
+
+function providerStateCell(p) {
+  if (p.state === 'verified') return '<strong>verified</strong>';
+  if (p.state === 'awaiting-probe') return '<span class="hint">awaiting a probe</span>';
+  return '<span class="hint">identity only</span>';
+}
+
+/** Why this provider is or is not a route, in the provider's own words. */
+function providerVerdict(p) {
+  if (p.state === 'verified') {
+    const when = p.verifiedAt ? new Date(p.verifiedAt).toLocaleString('en-IN', { hour12: false }) : 'at some point';
+    return `Probed and answered here on ${when}${p.probeModel ? ` with ${p.probeModel}` : ''}. This is a route.`;
+  }
+  if (p.state === 'awaiting-probe') {
+    return `An identity with an endpoint. Nothing has probed it on this machine, so it is not routable: <code>sui probe ${escapeHtml(p.provider)} --write</code>.`;
+  }
+  return 'No endpoint is known for this provider yet, so there is nothing to probe.';
+}
+
+function openProviderDetail(name) {
+  const body = document.querySelector('#providers-body');
+  const p = providersCache.find((x) => x.provider === name);
+  if (!body || !p) return;
+  document.querySelectorAll('#providers-body tr.provider-detail').forEach((tr) => tr.remove());
+
+  const row = [...body.querySelectorAll('tr')].find((tr) => tr.querySelector(`button[data-provider="${name}"]`));
+  if (!row) return;
+
+  const history = (p.probe?.history ?? []).map((h) => `${h.ok ? 'ok' : 'fail'} ${h.latencyMs ?? '—'}ms`).join(' · ');
+  const detail = document.createElement('tr');
+  detail.className = 'provider-detail';
+  detail.innerHTML = `
+    <td colspan="6" style="background: var(--surface-2)">
+      <p style="margin: var(--space-2) 0">${providerVerdict(p)}</p>
+      <p class="hint" style="margin: 0 0 var(--space-2)">
+        ${p.capabilities?.length ? `claims ${p.capabilities.map(escapeHtml).join(', ')}` : 'claims nothing'}
+        ${p.catalogueModels?.length ? ` · catalogue models ${p.catalogueModels.map(escapeHtml).join(', ')}` : ''}
+        ${p.auth ? ` · auth ${escapeHtml(p.auth)}` : ''}
+        ${p.tos ? ` · tos ${escapeHtml(p.tos)}` : ''}
+      </p>
+      ${p.combos?.length ? `<p class="hint" style="margin: 0 0 var(--space-2)">Reachable through ${p.combos.map(escapeHtml).join(', ')}</p>` : ''}
+      ${p.probe ? `<p class="hint" style="margin: 0 0 var(--space-2)">Probe: ${escapeHtml(p.probe.weather ?? p.probe.status ?? 'unknown')} · ${p.probe.failures ?? 0} consecutive failure(s)${history ? ` · ${escapeHtml(history)}` : ''}</p>` : '<p class="hint" style="margin: 0">No probe has run against it in this process.</p>'}
+    </td>`;
+  row.after(detail);
+}
 
 function renderSavings(totals) {
   const el = $('#savings');

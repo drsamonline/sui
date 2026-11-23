@@ -168,6 +168,8 @@ const probe = await page.evaluate(() => ({
     await page.click('button[data-cap="team-a"]');
     await page.click('#cap-team-a', { clickCount: 3 });
     await page.type('#cap-team-a', '3.5');
+    await page.click('#rpm-team-a', { clickCount: 3 });
+    await page.type('#rpm-team-a', '45');
     await page.click('form.tenant-form button[type="submit"]');
     await new Promise((r) => setTimeout(r, 700));
     const changed = await page.evaluate(() => ({
@@ -175,12 +177,32 @@ const probe = await page.evaluate(() => ({
       msg: document.querySelector('#tenants-msg')?.innerText ?? '',
     }));
     if (!/\$3\.5/.test(changed.table)) problems.push('the new cap did not reach the table');
+    if (!/45\/min/.test(changed.table)) problems.push('the new rate did not reach the table');
     if (!/cap .*→/.test(changed.msg)) problems.push('the page did not say what the cap changed from and to');
     if (!/sui\.config\.json/.test(changed.msg)) problems.push('the page did not say the change is in memory only');
     console.log('  cap change               applied through the page, and explained');
   } else if (!/No API keys are configured/.test(rows.join(' '))) {
     problems.push('the tenant panel did not explain that no keys are configured');
   }
+}
+
+// ---- the catalogue, on the page ------------------------------------------
+// `sui catalog` was the only way to see what this gateway could route to. The
+// page has to say how many identities are waiting for a probe, and open one.
+{
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll('#providers-body tr')].map((tr) => tr.innerText.replace(/\s+/g, ' ').trim()),
+  );
+  if (rows.length < 10) problems.push(`the providers card listed ${rows.length} entries; the catalogue has more`);
+  const note = await page.evaluate(() => document.querySelector('#providers-note')?.innerText ?? '');
+  if (!/awaiting a probe/.test(note)) problems.push('the providers card did not say how many entries await a probe');
+
+  await page.click('button[data-provider]');
+  await new Promise((r) => setTimeout(r, 200));
+  const detail = await page.evaluate(() => document.querySelector('#providers-body tr.provider-detail')?.innerText.replace(/\s+/g, ' ') ?? '');
+  if (!detail) problems.push('clicking Details opened nothing');
+  else if (!/identity with an endpoint|route|nothing to probe/i.test(detail)) problems.push('the provider detail did not say whether it is a route');
+  console.log(`  providers card           ${rows.length} entries, detail opens`);
 }
 
 // ---- the Send button has to do something ---------------------------------

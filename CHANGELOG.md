@@ -2,6 +2,35 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.41 — 2026-11-23
+
+### Added
+
+- **The catalogue, on the dashboard.** `sui catalog` was the only way to see the forty-odd identities this gateway could route to, so the product's central distinction — an identity is not a route — was invisible to anyone who only opened the page. `GET /api/providers` joins the seed (what was imported), the overlay `sui probe --write` leaves (what a probe observed *here*) and the prober's snapshot (what this process has seen), and the page renders it with a detail row per provider that says which of the three it is and what would change it.
+- The tenant panel edits the rate as well as the cap, so both refusals the API enforces (`429 rate_limited`, `429 key_budget_reached`) are reachable from the page.
+
+### Fixed
+
+- **The background prober never ran from an install.** `loadProbeTargets` looked in `packages/catalog` relative to the working directory and then three levels above its own file — neither exists once the gateway is inside `node_modules`. It found zero entries, so the worker that is supposed to keep routes verified quietly did nothing, while `sui probe` worked because the CLI resolves the package. It asks `@drsamonline/catalog` first now, which is the only path that exists in both places.
+- **Two implementations of the verified-overlay parser.** The CLI had one and the new provider route needed another; it lives in `@drsamonline/catalog` now and both call it, because a second copy is a second place for the same bug.
+- The provider detail row used a raw hex colour, which I9 forbids outside the token block. The test caught it.
+
+### Known gaps
+
+- The providers list is read-only. Probing from the page would be a network action against forty endpoints on the operator's behalf, and that belongs behind an explicit command.
+- `probe.history` is what this process has seen since it started (up to 24 samples). Durable history is in `history.jsonl` and reaches the page through `/api/history`.
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 633 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios; the providers card and the cap control are both exercised |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.40 — 2026-11-23
 
 ### Added

@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.40`.
+Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.41`.
 
 ## What this is
 
@@ -14,7 +14,7 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.40`, 20 packages under `@drsamonline/*`, all published |
+| Version | `0.12.41`, 20 packages under `@drsamonline/*`, all published |
 | Tests | 633, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
@@ -96,6 +96,7 @@ Do not reintroduce any of these. Each has a test.
 | no package shipped a LICENSE file | MIT requires the notice in every copy |
 | `--port 0` printed `0` | the bound port was thrown away |
 | a cap could be raised by anyone on the network | tenant writes were open when no admin token was set, on any bind |
+| the background prober never ran from an install | the catalogue was resolved relative to the checkout, so it found zero entries inside `node_modules` |
 | an eval run where nothing answered reported `0%` and exit 0 | the exit-2 contract was in the header comment, never in the code — 0/50 there measures the network |
 | `sui probe` never finished on a network that drops packets | `AbortSignal.timeout` does not interrupt a DNS lookup, so `timed()` waited on a fetch that never settled; each level now has its own hard deadline |
 | `--concurrency -1` ran the sweep one entry at a time | a value starting with `-` is parsed as a bare flag, and `Number(true)` is 1 |
@@ -123,7 +124,7 @@ Do not reintroduce any of these. Each has a test.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | `rpm` on the tenant panel | the API accepts it; the page edits the daily cap only, because a rate throttles and a cap spends |
+| 1 | A probe from the page | the providers list is read-only: probing is a network action against forty endpoints on the operator's behalf |
 | 2 | Per-provider dashboard page | worth little until there is probe history: 1 verified route, none from this machine. Build it when a networked run has produced history |
 | 3 | More catalogue providers | 41 → hundreds needs LLM-specific sources; the vendored `app-endpoints` set is public-apis (2,214 general APIs), not providers, so it cannot be grown offline |
 | 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
@@ -154,6 +155,7 @@ Do not reintroduce any of these. Each has a test.
 - **One `--json` contract everywhere** (0.12.38) — sixteen commands, enforced by `test/cli-json.test.js`
 - **Tenant console shows the pin and the rate** (0.12.39) — plus a fourth smoke scenario that runs a keyed gateway
 - **A cap control on the tenant panel** (0.12.40) — a form, in-memory, and writes off loopback need the admin token
+- **The catalogue on the dashboard** (0.12.41) — `GET /api/providers`, and the install bug that kept the prober from running
 - Legal: LICENSE (MIT), NOTICE, OWNER_GRANT, DISCLAIMER, SECURITY — **reviewed and signed off by the owner, 2026-11-23**
 - Translation: **dropped** by the owner; 6 languages stand and the boundary is documented in `docs/LANGUAGES.md`
 

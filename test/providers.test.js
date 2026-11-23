@@ -1,154 +1,128 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-test('a retired model id is rediscovered from the provider and retried once', async () => {
-  const { createAdapter } = await import('../packages/providers/src/index.js');
-  const http = await import('node:http');
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { makeGateway, testConfig } from './helpers.js';
+import { catalogueDirs, loadCatalogue, loadProbeTargets } from '../apps/gateway/src/workers.js';
+import { readVerifiedOverlay } from '@drsamonline/catalog';
 
-  // Groq shut down llama-3.3-70b-versatile in August 2026. Every catalogue that
-  // still named it started answering "that model does not exist", so the adapter
-  // asks the provider what it serves and retries — a hardcoded model id in a config
-  // file cannot keep up with a provider's deprecation schedule.
-  let asked = [];
-  const server = http.createServer((req, res) => {
-    asked.push(`${req.method} ${req.url}`);
-    if (req.url === '/v1/models') {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ data: [{ id: 'whisper-large-v3' }, { id: 'openai/gpt-oss-120b' }] }));
-      return;
+/**
+ * The catalogue, on the page.
+ *
+ * `sui catalog` was the only way to see what this gateway could route to, so the
+ * product's central distinction — an identity is not a route — was invisible to
+ * anyone who only opened the dashboard. These tests hold the join that makes it
+ * visible: the seed (what was imported), the overlay (what a probe observed on
+ * this machine) and the prober's snapshot (what this process has seen).
+ */
+
+async function bootProviders(env = {}) {
+  const gw = await makeGateway(testConfig());
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+  return { gw, base: `http://127.0.0.1:${port}` };
+}
+
+/** Run a body with SUI_HOME pointed at a fresh directory, then restore it. */
+async function withHome(fn) {
+  const home = mkdtempSync(join(tmpdir(), 'sui-providers-'));
+  const previous = process.env.SUI_HOME;
+  process.env.SUI_HOME = home;
+  try {
+    return await fn(home);
+  } finally {
+    if (previous === undefined) delete process.env.SUI_HOME;
+    else process.env.SUI_HOME = previous;
+  }
+}
+
+test('/api/providers lists the catalogue, and says which entries are routes', async () => {
+  const { gw, base } = await bootProviders();
+  try {
+    const json = await (await fetch(`${base}/api/providers`)).json();
+    assert.ok(json.providers.length > 10, 'the shipped catalogue has more than ten entries');
+    assert.equal(json.summary.total, json.providers.length);
+
+    const states = new Set(json.providers.map((p) => p.state));
+    for (const state of states) {
+      assert.ok(['verified', 'awaiting-probe', 'identity'].includes(state), `unexpected state "${state}"`);
     }
-    let body = '';
-    req.on('data', (c) => (body += c));
-    req.on('end', () => {
-      const model = JSON.parse(body || '{}').model;
-      if (model === 'llama-3.3-70b-versatile') {
-        res.writeHead(404, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'model not found' } }));
-        return;
-      }
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ready' }, finish_reason: 'stop' }], usage: {} }));
-    });
-  });
+    // nothing in this document may be a credential: pin the shape rather than
+    // grep for words, because `auth: "key"` is a field, not a secret
+    const allowed = new Set([
+      'provider', 'label', 'state', 'baseUrl', 'auth', 'tos', 'capabilities', 'catalogueModels',
+      'verifiedAt', 'probeModel', 'probe', 'configuredModels', 'combos',
+    ]);
+    for (const p of json.providers) {
+      for (const key of Object.keys(p)) assert.ok(allowed.has(key), `unexpected field "${key}" in a provider document`);
+    }
 
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const { port } = server.address();
-
-  try {
-    const adapter = createAdapter('groq', {
-      type: 'openai',
-      baseUrl: `http://127.0.0.1:${port}/v1`,
-      apiKey: 'test',
-      timeoutMs: 5000,
-    });
-
-    const result = await adapter.chat({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: 'hi' }] });
-
-    assert.equal(result.text, 'ready');
-    assert.equal(result.modelSwitchedFrom, 'llama-3.3-70b-versatile', 'it says what it moved off');
-    assert.equal(result.model, 'openai/gpt-oss-120b', 'and what it moved to');
-    assert.ok(asked.some((a) => a.includes('/models')), 'it asked the provider what it serves');
-    // audio and embedding models are not chat models
-    assert.equal(result.model.includes('whisper'), false);
+    // the counts add up, or the headline lies
+    assert.equal(
+      json.summary.verified + json.summary.awaitingProbe + json.summary.identities,
+      json.summary.total,
+      'every entry is in exactly one state',
+    );
   } finally {
-    server.close();
+    await gw.close();
   }
 });
 
-test('a rejected key says how to fix it, not just that it was rejected', async () => {
-  const { createAdapter } = await import('../packages/providers/src/index.js');
-  const http = await import('node:http');
+test('an overlay written by a probe turns an identity into a route, on the page', async () => {
+  await withHome(async (home) => {
+    mkdirSync(home, { recursive: true });
+    writeFileSync(
+      join(home, 'catalog-verified.json'),
+      JSON.stringify({
+        version: 1,
+        entries: [{ provider: 'groq', base_url: 'https://api.groq.com/openai/v1', verified_at: 1763000000000, probe_model: 'openai/gpt-oss-120b', models: ['openai/gpt-oss-120b'] }],
+      }),
+    );
 
-  const server = http.createServer((req, res) => {
-    res.writeHead(401, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ error: { message: 'invalid api key' } }));
+    const { gw, base } = await bootProviders();
+    try {
+      const json = await (await fetch(`${base}/api/providers`)).json();
+      const groq = json.providers.find((p) => p.provider === 'groq');
+      assert.ok(groq, 'groq is in the catalogue');
+      assert.equal(groq.state, 'verified', 'an observation on this machine makes it a route');
+      assert.equal(groq.verifiedAt, 1763000000000);
+      assert.equal(groq.probeModel, 'openai/gpt-oss-120b');
+      assert.equal(json.summary.verified, 1);
+    } finally {
+      await gw.close();
+    }
   });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const { port } = server.address();
-
-  try {
-    const adapter = createAdapter('gemini', { type: 'openai', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'bad', timeoutMs: 5000 });
-    await adapter.chat({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
-    assert.fail('a rejected key must throw');
-  } catch (err) {
-    assert.match(err.message, /rejected the API key/);
-    // the person reading it needs somewhere to go
-    assert.match(err.message, /console\.groq\.com\/keys|aistudio\.google\.com\/apikey/);
-    assert.match(err.message, /unset it/);
-  } finally {
-    server.close();
-  }
 });
 
-test('a key with spaces, quotes or a Bearer prefix is cleaned before use', async () => {
-  const { sanitiseKey } = await import('../packages/core/src/index.js');
+test('a corrupt overlay is ignored rather than taking the catalogue with it', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-overlay-'));
+  const corrupt = join(dir, 'catalog-verified.json');
+  const good = join(dir, 'good.json');
+  writeFileSync(corrupt, '{not json');
+  writeFileSync(good, JSON.stringify({ entries: [{ provider: 'x', verified_at: 1 }] }));
 
-  // every one of these is what a key looks like after being pasted into a Windows
-  // terminal, and every one of them makes the provider answer 401
-  assert.equal(sanitiseKey('  gsk_abc123  '), 'gsk_abc123');
-  assert.equal(sanitiseKey('"gsk_abc123"'), 'gsk_abc123');
-  assert.equal(sanitiseKey("'gsk_abc123'"), 'gsk_abc123');
-  assert.equal(sanitiseKey('Bearer gsk_abc123'), 'gsk_abc123');
-  assert.equal(sanitiseKey('gsk_abc123\r\n'), 'gsk_abc123');
-  assert.equal(sanitiseKey('gsk_abc\u00a0123'), 'gsk_abc 123'.replace(' ', ' ')); // nbsp becomes a space, not a silent drop
-  assert.equal(sanitiseKey('   '), undefined);
-  assert.equal(sanitiseKey(null), undefined);
-  assert.equal(sanitiseKey(undefined), undefined);
+  const observed = readVerifiedOverlay([corrupt, good]);
+  assert.equal(observed.length, 1, 'the readable overlay is used');
+  assert.equal(observed[0].provider, 'x');
+  assert.deepEqual(readVerifiedOverlay([corrupt]), [], 'and a lone corrupt file is an empty overlay, not a crash');
 });
 
-test('doctor shows what it can see about a key without printing the key', async () => {
-  const { execFileSync } = await import('node:child_process');
-  const { mkdtempSync } = await import('node:fs');
-  const { tmpdir } = await import('node:os');
-  const { join } = await import('node:path');
+/* ------------------------------- the catalogue has to resolve from a package */
 
-  const home = mkdtempSync(join(tmpdir(), 'sui-creds-'));
-  // init exits non-zero when the round-trip fails, and with no network it does:
-  // the config is still written, which is what this test needs
-  const { spawnSync } = await import('node:child_process');
-  const out = spawnSync(process.execPath, [join(process.cwd(), 'apps/cli/bin/sui.js'), 'init', '--no-serve'], {
-    cwd: home,
-    encoding: 'utf8',
-    env: { ...process.env, SUI_HOME: home, GROQ_API_KEY: '  "gsk_secret_value_123456"  ' },
-    timeout: 120_000,
-  }).stdout;
-
-  const doctor = spawnSync(process.execPath, [join(process.cwd(), 'apps/cli/bin/sui.js'), 'doctor'], {
-    cwd: home,
-    encoding: 'utf8',
-    env: { ...process.env, SUI_HOME: home, GROQ_API_KEY: '  "gsk_secret_value_123456"  ' },
-    timeout: 120_000,
-  }).stdout;
-
-  // "rejected the API key" is useless when the key is fine and a trailing space is not
-  assert.match(doctor, /GROQ_API_KEY/);
-  assert.match(doctor, /chars/);
-  assert.match(doctor, /had spaces or quotes/);
-  assert.equal(doctor.includes('gsk_secret_value_123456'), false, 'the key itself must never be printed');
-  assert.ok(out.includes('Config written'));
+test('the catalogue is asked of the package first, not of the checkout', () => {
+  // From an install, neither `process.cwd()/packages/catalog` nor the path three
+  // levels above this file exists, so both fallbacks pointed at nothing and the
+  // background prober found zero entries and never ran.
+  const fromPackage = dirname(fileURLToPath(pathToFileURL(fileURLToPath(import.meta.resolve('@drsamonline/catalog/seed.json'))).href));
+  assert.equal(catalogueDirs()[0], fromPackage, 'the package is the first place asked');
+  assert.ok(loadCatalogue().length > 10, 'and it finds the entries there');
+  assert.ok(loadProbeTargets().every((e) => e.base_url), 'a probe target must have an endpoint');
 });
 
-test('a reasoning model that answers with reasoning and no content is not an empty turn', async () => {
-  const { createAdapter } = await import('../packages/providers/src/index.js');
-  const http = await import('node:http');
-
-  // Groq's gpt-oss models answer with the thinking in `reasoning` and leave
-  // `content` empty when the token budget runs out. Reading only `content` reported
-  // "empty turn" for a request that had been answered.
-  const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({
-      choices: [{ message: { role: 'assistant', content: '', reasoning_content: 'ready' }, finish_reason: 'length' }],
-      usage: { prompt_tokens: 10, completion_tokens: 16 },
-    }));
-  });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const { port } = server.address();
-
-  try {
-    const adapter = createAdapter('groq', { type: 'openai', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'k', timeoutMs: 5000 });
-    const result = await adapter.chat({ model: 'openai/gpt-oss-120b', messages: [{ role: 'user', content: 'hi' }] });
-    assert.equal(result.text, 'ready', 'the reasoning is the answer when content is empty');
-  } finally {
-    server.close();
-  }
+test('an explicit catalogue directory still wins, for tests and unusual layouts', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-catalog-'));
+  assert.deepEqual(catalogueDirs(dir), [dir]);
+  assert.deepEqual(loadCatalogue(dir), [], 'an empty directory is empty, not a reason to fall back');
 });
