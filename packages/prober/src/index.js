@@ -66,11 +66,13 @@ export const PROBE_FIXTURE_VERSION = '1.0.0';
 export const FIXTURES = {
   readiness: {
     messages: [{ role: 'user', content: 'Reply with the single word: ready' }],
-    max_tokens: 8,
+    // A reasoning model thinks before it speaks. 8 tokens were spent entirely on
+    // thinking, so the reply was empty and a working provider was marked unusable.
+    max_tokens: 256,
   },
   jsonSchema: {
     messages: [{ role: 'user', content: 'Return JSON with exactly one key "ok", set to true.' }],
-    max_tokens: 40,
+    max_tokens: 256,
     response_format: { type: 'json_object' },
   },
   tools: {
@@ -220,7 +222,11 @@ export async function probeTarget(entry, opts = {}) {
       return { ok: false, status: res.status, note: `HTTP ${res.status}: ${firstLine(body)}` };
     }
     const json = await res.json().catch(() => null);
-    sample = json?.choices?.[0]?.message?.content ?? '';
+    const message = json?.choices?.[0]?.message ?? {};
+    // a reasoning model leaves `content` empty and puts the answer in `reasoning`
+    const content = typeof message.content === 'string' ? message.content : '';
+    const reasoning = typeof message.reasoning_content === 'string' ? message.reasoning_content : message.reasoning;
+    sample = content || (typeof reasoning === 'string' ? reasoning : '');
     const ok = typeof sample === 'string' && sample.trim().length > 0;
     return { ok, status: res.status, note: ok ? 'returned text' : 'empty completion' };
   });

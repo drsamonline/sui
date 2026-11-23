@@ -2,6 +2,15 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.36 — 2026-11-23
+
+### Fixed
+
+- **The probe called a working provider an "empty completion".** Groq's `gpt-oss` answered the readiness probe with its thinking in `reasoning` and an empty `content`, and the probe read only `content` — the same bug fixed in the adapter in 0.12.32, still present in the prober. A provider that answers perfectly through the gateway was recorded unusable, so `sui probe --write` promoted nothing.
+- The probe's readiness fixture asked for **8 tokens**. A reasoning model spends them thinking and returns nothing. It asks for 256, the same as the adapter.
+
+The lesson is the one this project keeps relearning: a second implementation of the same parsing is a second place for the same bug.
+
 ## 0.12.35 — 2026-11-23
 
 ### Fixed

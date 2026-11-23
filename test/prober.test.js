@@ -464,3 +464,49 @@ test('suitability is probed with the model that answered readiness', async () =>
     server.close();
   }
 });
+
+test('a reasoning model that answers with reasoning is ready, not an empty completion', async () => {
+  const { probeTarget } = await import('../packages/prober/src/index.js');
+  const http = await import('node:http');
+
+  // Groq's gpt-oss answered the probe with its thinking in `reasoning` and an empty
+  // `content`, and the probe recorded "empty completion" — a working provider marked
+  // unusable, so nothing was ever promoted to a route.
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      if (req.url.includes('/models')) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ data: [{ id: 'openai/gpt-oss-120b' }] }));
+        return;
+      }
+      const parsed = JSON.parse(body || '{}');
+      if (parsed.stream) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write('data: {"choices":[{"delta":{"content":"ok"}}]}\n\n');
+        res.end('data: [DONE]\n\n');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        choices: [{ message: { content: '', reasoning_content: 'ready' }, finish_reason: 'length' }],
+        usage: { prompt_tokens: 12, completion_tokens: 40 },
+      }));
+    });
+  });
+
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+
+  try {
+    const result = await probeTarget(
+      { provider: 'groq', base_url: `http://127.0.0.1:${port}/v1`, model_family: 'openai-compatible', capabilities: ['chat'], local: true },
+      { timeoutMs: 5000 },
+    );
+    assert.equal(result.levels.readiness.ok, true, 'reasoning text is an answer');
+    assert.equal(result.verified, true, 'and the entry is verified, so a route can be promoted');
+  } finally {
+    server.close();
+  }
+});
