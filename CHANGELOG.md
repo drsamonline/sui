@@ -2,6 +2,13 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.35 — 2026-11-23
+
+### Fixed
+
+- **A working provider was recorded as unsuitable, so no route was ever promoted.** Groq answered readiness (`ready: yes`) and then all three suitability checks returned HTTP 404 — they asked for `modelFor(entry)`, a family name like `openai-compatible`, instead of the model that had just proved it works. Every later check uses the proven model now, which is the difference between `0 routable` and a route with a real provider behind it.
+- `doctor` asks for 256 tokens rather than 64: a reasoning model spends them thinking before it emits anything, and at 64 the "reply" was the model's own thinking.
+
 ## 0.12.34 — 2026-11-21
 
 ### Fixed

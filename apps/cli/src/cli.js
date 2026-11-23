@@ -375,9 +375,10 @@ async function cmdDoctor(flags) {
     try {
       const res = await router.chat({
         combo,
-        // 16 tokens is not enough for a reasoning model: it spends them thinking and
-        // returns empty content, which reads as "no model answered" when one did.
-        body: { messages: [{ role: 'user', content: 'Reply with the single word: ready' }], max_tokens: 64 },
+        // A reasoning model spends tokens thinking before it emits anything. 16 was
+        // not enough and returned empty content; 64 was enough to answer but the
+        // reply was the model's own thinking, which reads oddly in the table.
+        body: { messages: [{ role: 'user', content: 'Reply with the single word: ready' }], max_tokens: 256 },
       });
       anyOk = true;
       rows.push([

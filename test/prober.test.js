@@ -404,3 +404,63 @@ test('a catalogue entry marked local may be probed on loopback; a remote one may
   );
   assert.match(remote.reasons.join(' '), /refusing to probe/);
 });
+
+test('suitability is probed with the model that answered readiness', async () => {
+  const { probeTarget } = await import('../packages/prober/src/index.js');
+  const http = await import('node:http');
+
+  // Groq answered readiness and then 404'd all three suitability checks, because they
+  // asked for `modelFor(entry)` — a family name like "openai-compatible" — instead of
+  // the model that had just proved it works. A working provider was recorded as
+  // unsuitable, so no route was ever promoted.
+  const asked = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      if (req.url.includes('/models')) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ data: [{ id: 'tts-voice' }, { id: 'openai/gpt-oss-120b' }] }));
+        return;
+      }
+      const parsed = JSON.parse(body || '{}');
+      asked.push(parsed.model);
+      if (parsed.model !== 'openai/gpt-oss-120b') {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'model not found' } }));
+        return;
+      }
+      if (parsed.stream) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write('data: {"choices":[{"delta":{"content":"ok"}}]}\n\n');
+        res.end('data: [DONE]\n\n');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ message: { content: 'ready' } }] }));
+    });
+  });
+
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+
+  try {
+    const result = await probeTarget(
+      {
+        provider: 'groq',
+        base_url: `http://127.0.0.1:${port}/v1`,
+        model_family: 'openai-compatible',
+        capabilities: ['chat', 'streaming'],
+        local: true,
+      },
+      { timeoutMs: 5000 },
+    );
+
+    assert.equal(result.levels.readiness.ok, true, 'readiness must pass');
+    // every request after discovery used the chat model, never the family name
+    assert.equal(asked.includes('openai-compatible'), false, 'a family name was used as a model id');
+    assert.equal(asked.includes('tts-voice'), false, 'a text-to-speech model was used as a chat model');
+  } finally {
+    server.close();
+  }
+});

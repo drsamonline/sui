@@ -1,6 +1,6 @@
 {
   "mode": "real",
-  "ranAt": "2026-11-21T11:38:29.723Z",
+  "ranAt": "2026-11-23T07:42:54.162Z",
   "combo": "chat-default",
   "passRate": 0.42,
   "passed": 21,
@@ -201,5 +201,5 @@
     }
   ],
   "note": "Real run against combo \"chat-default\".",
-  "generatedAt": "2026-11-21T11:38:29.724Z"
+  "generatedAt": "2026-11-23T07:42:54.163Z"
 }

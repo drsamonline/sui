@@ -202,11 +202,17 @@ export async function probeTarget(entry, opts = {}) {
       reasons,
     };
   }
+  // The model that answered readiness is the model every later check must use. The
+  // suitability probes used to ask for `modelFor(entry)` — a family name like
+  // "openai-compatible" — so Groq answered readiness and then 404'd all three,
+  // and a working provider was recorded as unsuitable.
+  const provenModel = probeModel(entry, discoveredModels);
+
   levels.readiness = await timed(async () => {
     const res = await fetchImpl(`${base}/chat/completions`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model: probeModel(entry, discoveredModels), ...FIXTURES.readiness }),
+      body: JSON.stringify({ model: provenModel, ...FIXTURES.readiness }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
@@ -225,15 +231,15 @@ export async function probeTarget(entry, opts = {}) {
   const capabilities = opts.capabilities ?? entry.capabilities ?? [];
   if (levels.readiness.ok) {
     if (capabilities.includes('streaming')) {
-      levels.suitability.streaming = await probeStreaming({ fetchImpl, base, headers, entry, timeoutMs });
+      levels.suitability.streaming = await probeStreaming({ fetchImpl, base, headers, entry, timeoutMs, model: provenModel });
       if (!levels.suitability.streaming.ok) reasons.push(`streaming: ${levels.suitability.streaming.note}`);
     }
     if (capabilities.includes('json_schema')) {
-      levels.suitability.json_schema = await probeJson({ fetchImpl, base, headers, entry, timeoutMs });
+      levels.suitability.json_schema = await probeJson({ fetchImpl, base, headers, entry, timeoutMs, model: provenModel });
       if (!levels.suitability.json_schema.ok) reasons.push(`json_schema: ${levels.suitability.json_schema.note}`);
     }
     if (capabilities.includes('tools')) {
-      levels.suitability.tools = await probeTools({ fetchImpl, base, headers, entry, timeoutMs });
+      levels.suitability.tools = await probeTools({ fetchImpl, base, headers, entry, timeoutMs, model: provenModel });
       if (!levels.suitability.tools.ok) reasons.push(`tools: ${levels.suitability.tools.note}`);
     }
   }
@@ -260,12 +266,12 @@ export async function probeTarget(entry, opts = {}) {
 }
 
 /** Streaming must be a real event sequence, not one blob pretending to be SSE. */
-async function probeStreaming({ fetchImpl, base, headers, entry, timeoutMs }) {
+async function probeStreaming({ fetchImpl, base, headers, entry, timeoutMs, model }) {
   return timed(async () => {
     const res = await fetchImpl(`${base}/chat/completions`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model: modelFor(entry), stream: true, ...FIXTURES.readiness }),
+      body: JSON.stringify({ model, stream: true, ...FIXTURES.readiness }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return { ok: false, status: res.status, note: `HTTP ${res.status}` };
@@ -322,12 +328,12 @@ async function probeStreaming({ fetchImpl, base, headers, entry, timeoutMs }) {
 }
 
 /** A JSON request has to come back as JSON, not as a promise to be JSON. */
-async function probeJson({ fetchImpl, base, headers, entry, timeoutMs }) {
+async function probeJson({ fetchImpl, base, headers, entry, timeoutMs, model }) {
   return timed(async () => {
     const res = await fetchImpl(`${base}/chat/completions`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model: modelFor(entry), ...FIXTURES.jsonSchema }),
+      body: JSON.stringify({ model, ...FIXTURES.jsonSchema }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return { ok: false, status: res.status, note: `HTTP ${res.status}` };
@@ -349,12 +355,12 @@ async function probeJson({ fetchImpl, base, headers, entry, timeoutMs }) {
  * shape — not that the model chose to call the tool. Refusing to call a tool is a
  * legitimate answer; a 400 is not.
  */
-async function probeTools({ fetchImpl, base, headers, entry, timeoutMs }) {
+async function probeTools({ fetchImpl, base, headers, entry, timeoutMs, model }) {
   return timed(async () => {
     const res = await fetchImpl(`${base}/chat/completions`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model: modelFor(entry), ...FIXTURES.tools }),
+      body: JSON.stringify({ model, ...FIXTURES.tools }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return { ok: false, status: res.status, note: `HTTP ${res.status} — tools rejected` };
@@ -383,10 +389,6 @@ function probeModel(entry, discovered = []) {
   const family = entry.model_family;
   if (family && !/compatible|mixed|unknown/i.test(family)) return family;
   return 'default';
-}
-
-function modelFor(entry) {
-  return entry.probe_model ?? entry.model_family ?? 'default';
 }
 
 async function timed(fn) {
