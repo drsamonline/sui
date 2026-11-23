@@ -124,8 +124,8 @@ Do not reintroduce any of these. Each has a test.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | A sweep from the page | one endpoint per click is deliberate; forty at once is a sweep and belongs where its cost is visible |
-| 2 | Per-provider dashboard page | worth little until there is probe history: 1 verified route, none from this machine. Build it when a networked run has produced history |
+| 1 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once; only the "what shipped" half is generatable |
+| 2 | Per-provider probe history | the detail row shows what this process has seen; durable history is in `history.jsonl` and reaches the page through `/api/history`, which no panel renders yet |
 | 3 | More catalogue providers | 41 → hundreds needs LLM-specific sources; the vendored `app-endpoints` set is public-apis (2,214 general APIs), not providers, so it cannot be grown offline |
 | 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
 | 5 | `--json` on the last four narrating commands | `init`, `mcp`, `tools --set`, `config get` — each describes a process, so each needs a shape decided first |
@@ -157,6 +157,7 @@ Do not reintroduce any of these. Each has a test.
 - **A cap control on the tenant panel** (0.12.40) — a form, in-memory, and writes off loopback need the admin token
 - **The catalogue on the dashboard** (0.12.41) — `GET /api/providers`, and the install bug that kept the prober from running
 - **A probe from the page** (0.12.42) — `dashboard.allowProbe`, one endpoint per request, reports but never promotes
+- **A sweep from the page** — refused, and stated as refused: one click must not become forty outbound requests
 - Legal: LICENSE (MIT), NOTICE, OWNER_GRANT, DISCLAIMER, SECURITY — **reviewed and signed off by the owner, 2026-11-23**
 - Translation: **dropped** by the owner; 6 languages stand and the boundary is documented in `docs/LANGUAGES.md`
 
