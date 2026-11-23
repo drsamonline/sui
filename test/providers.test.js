@@ -212,6 +212,15 @@ test('a probe from the page reports, and never promotes', async () => {
   }
 });
 
+test('the timeout a caller asks for is clamped, so one click cannot hold a socket', async () => {
+  const { clampProbeTimeout } = await import('../apps/gateway/src/server.js');
+  assert.equal(clampProbeTimeout(999_999_999), 30_000, 'an hour is clamped to thirty seconds');
+  assert.equal(clampProbeTimeout(1), 100, 'and a millisecond is raised to the floor');
+  assert.equal(clampProbeTimeout('soon'), 8000, 'nonsense falls back to the default');
+  assert.equal(clampProbeTimeout(undefined), 8000, 'and so does silence');
+  assert.equal(clampProbeTimeout(2500), 2500, 'a reasonable value is left alone');
+});
+
 test('probing an unknown provider is a 404, not a silent nothing', async () => {
   const config = testConfig({ config: { dashboard: { allowProbe: true } } });
   const gw = await makeGateway(config);

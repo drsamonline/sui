@@ -1184,7 +1184,10 @@ function providerStateCell(p) {
 function providerVerdict(p) {
   if (p.state === 'verified') {
     const when = p.verifiedAt ? new Date(p.verifiedAt).toLocaleString('en-IN', { hour12: false }) : 'at some point';
-    return `Probed and answered here on ${when}${p.probeModel ? ` with ${p.probeModel}` : ''}. This is a route.`;
+    // `probeModel` came from the provider's own /models response, through
+    // `sui probe --write`. A provider can put anything in a model id, so this is
+    // the one field on the page that a third party controls: escape it.
+    return `Probed and answered here on ${when}${p.probeModel ? ` with ${escapeHtml(p.probeModel)}` : ''}. This is a route.`;
   }
   if (p.state === 'awaiting-probe') {
     return `An identity with an endpoint. Nothing has probed it on this machine, so it is not routable: <code>sui probe ${escapeHtml(p.provider)} --write</code>.`;

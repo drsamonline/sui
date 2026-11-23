@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.44`.
+Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.45`.
 
 ## What this is
 
@@ -14,8 +14,8 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.44`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 642, no network, no keys |
+| Version | `0.12.45`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 643, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | **green on every job** (test 20, test 22, eval, soak, dashboard, migration) at `fe67660` |
@@ -40,7 +40,7 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 642 tests
+npm test               # 643 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH
@@ -96,6 +96,8 @@ Do not reintroduce any of these. Each has a test.
 | no package shipped a LICENSE file | MIT requires the notice in every copy |
 | `--port 0` printed `0` | the bound port was thrown away |
 | a cap could be raised by anyone on the network | tenant writes were open when no admin token was set, on any bind |
+| a provider could execute script in the dashboard | `probeModel` came from the provider's `/models` and was interpolated unescaped |
+| one click could hold a socket for an hour | `/api/providers/probe` passed the caller's `timeoutMs` straight through |
 | the background prober never ran from an install | the catalogue was resolved relative to the checkout, so it found zero entries inside `node_modules` |
 | an eval run where nothing answered reported `0%` and exit 0 | the exit-2 contract was in the header comment, never in the code — 0/50 there measures the network |
 | `sui probe` never finished on a network that drops packets | `AbortSignal.timeout` does not interrupt a DNS lookup, so `timed()` waited on a fetch that never settled; each level now has its own hard deadline |

@@ -2,6 +2,29 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.45 — 2026-11-23
+
+### Fixed
+
+- **A stored XSS in the provider detail row.** `probeModel` came from the provider's own `/models` response, through `sui probe --write`, and was interpolated into the page unescaped — so a hostile provider could put markup in a model id and have it execute in the gateway's dashboard. It is the one field on that page a third party controls. The smoke test now seeds exactly that payload and fails if an element appears or the payload runs; reverting the fix makes it fail, which is how the test was checked.
+- **An unbounded probe timeout from the request body.** `/api/providers/probe` passed `timeoutMs` straight through, so one click could hold a socket for as long as the caller liked. Clamped to 100 ms–30 s, and the response reports what was used.
+
+### Known gaps
+
+- The escaping fix is one field deep. Every other value on that page goes through `escapeHtml`, but the rule is upheld by care rather than by a test that walks the renderers; the smoke test covers the one path a third party can reach.
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer (0.12.42's gap, unchanged).
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 643 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios, including a hostile model id that must render as text |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.44 — 2026-11-23
 
 ### Added

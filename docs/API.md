@@ -309,6 +309,8 @@ Send one real request to one catalogue endpoint, from this machine, and report w
   "note": "A probe reports. `sui probe --write` is what promotes a route." }
 ```
 
+`timeoutMs` in the response is what was used after clamping: 100 ms to 30 s, with 8 s as the default. A caller that asks for an hour is told it got thirty seconds, because an unbounded timeout is a socket held open for as long as the caller likes.
+
 **It reports; it does not promote.** Writing a verification is the step that makes an entry routable, and that stays on the command line — one provider per request, never a sweep, so the cost of a click is visible. The address guard is the same one `sui probe` uses: https only, and loopback, link-local, private and metadata addresses refused unless the catalogue entry says `local: true`.
 
 ## Attribution (B7.1)

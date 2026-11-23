@@ -432,9 +432,16 @@ export function createSuiServer(deps) {
         const entry = catalogueWithOverlay().find((e) => e.provider === name);
         if (!entry) throw new SuiError(`No catalogue entry called "${name}".`, { code: 'unknown_provider', status: 404 });
 
-        const result = await probeTarget(entry, { timeoutMs: Number(body.timeoutMs ?? 8000) });
+        // The timeout comes from the request, so it is clamped: an unbounded one
+        // holds a socket for as long as the caller likes, which turns one click
+        // into a way to keep this process busy.
+        const timeoutMs = clampProbeTimeout(body.timeoutMs);
+        const result = await probeTarget(entry, { timeoutMs });
         return sendJson(res, 200, {
           provider: name,
+          // what was actually used, after clamping: a caller that asked for an
+          // hour should be able to see it got thirty seconds
+          timeoutMs,
           result,
           // A probe reports; it does not promote. Promoting a route from a browser
           // click is the one step that stays deliberate.
@@ -1006,6 +1013,20 @@ function providerReport(config, workers) {
     },
     providers,
   };
+}
+
+/**
+ * How long a page-triggered probe may wait.
+ *
+ * The number comes from the request, so it is clamped: a caller that asks for an
+ * hour holds a socket for an hour, and one click becomes a way to keep the
+ * process busy. Exported because the alternative is a test that waits thirty
+ * seconds to prove the ceiling.
+ */
+export function clampProbeTimeout(raw, fallbackMs = 8000) {
+  const asked = Number(raw ?? fallbackMs);
+  if (!Number.isFinite(asked)) return fallbackMs;
+  return Math.min(30_000, Math.max(100, Math.round(asked)));
 }
 
 function requireAdmin(req, config, opts = {}) {

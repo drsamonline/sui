@@ -11,7 +11,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -122,6 +122,29 @@ writeFileSync(
     .join('\n') + '\n',
 );
 
+// A provider controls its own /models response, and `sui probe --write` stores a
+// model id from it in the overlay. This one carries markup: the page must render
+// it as text, not as an element.
+const hostileHome = join(tmpdir(), `sui-smoke-home-${process.pid}`);
+mkdirSync(hostileHome, { recursive: true });
+writeFileSync(
+  join(hostileHome, 'catalog-verified.json'),
+  JSON.stringify({
+    version: 1,
+    entries: [
+      {
+        provider: historyTarget.provider,
+        base_url: historyTarget.base_url,
+        verified_at: Date.now(),
+        probe_model: '<img src=x onerror="window.__xss = true">',
+        models: ['<img src=x onerror="window.__xss = true">'],
+      },
+    ],
+  }),
+);
+const previousHome = process.env.SUI_HOME;
+process.env.SUI_HOME = hostileHome;
+
 const gateway = await createGateway({ configObject: config, ledgerFile: null, startWorkers: true, historyFile });
 await new Promise((resolve) => gateway.server.listen(0, '127.0.0.1', resolve));
 const { port } = gateway.server.address();
@@ -229,6 +252,15 @@ const probe = await page.evaluate(() => ({
   if (!detail) problems.push('clicking Details opened nothing');
   else if (!/identity with an endpoint|route|nothing to probe/i.test(detail)) problems.push('the provider detail did not say whether it is a route');
 
+  const xss = await page.evaluate(() => ({
+    injected: Boolean(document.querySelector('#providers-body img')),
+    ran: Boolean(window.__xss),
+    text: document.querySelector('#providers-body tr.provider-detail')?.innerText ?? '',
+  }));
+  if (xss.injected) problems.push('a model id from a provider became an element in the page');
+  if (xss.ran) problems.push('a model id from a provider executed');
+  if (!/img src=x/.test(xss.text)) problems.push('the hostile model id did not render as text at all, so the test proved nothing');
+
   if (!/sample\(s\) over the last|No durable probe history/.test(detail)) problems.push('the provider detail said nothing about durable history');
   else if (!/4 sample\(s\)/.test(detail)) problems.push('the seeded probe history did not reach the provider detail');
   else console.log('  provider history         drawn from the history file');
@@ -295,6 +327,8 @@ const probe = await page.evaluate(() => ({
 
 await browser.close();
 await gateway.close();
+if (previousHome === undefined) delete process.env.SUI_HOME;
+else process.env.SUI_HOME = previousHome;
 
 console.log('');
 console.log(`Dashboard smoke test — ${scenario}`);
