@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.38`.
+Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.39`.
 
 ## What this is
 
@@ -14,8 +14,8 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.38`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 627, no network, no keys |
+| Version | `0.12.39`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 630, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | **green on every job** (test 20, test 22, eval, soak, dashboard, migration) at `fe67660` |
@@ -40,7 +40,7 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 627 tests
+npm test               # 630 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH
@@ -122,7 +122,7 @@ Do not reintroduce any of these. Each has a test.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | Tenant console shows `forcedModel` and per-key rate limits | the API enforces both; the dashboard shows neither, so a tenant's real limit is only readable in the config file |
+| 1 | A cap control on the tenant panel | `PATCH /api/tenants/<name>` is curl-only; a control that can raise a cap is a write and needs its own confirmation design |
 | 2 | Per-provider dashboard page | worth little until there is probe history: 1 verified route, none from this machine. Build it when a networked run has produced history |
 | 3 | More catalogue providers | 41 → hundreds needs LLM-specific sources; the vendored `app-endpoints` set is public-apis (2,214 general APIs), not providers, so it cannot be grown offline |
 | 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
@@ -151,6 +151,7 @@ Do not reintroduce any of these. Each has a test.
 
 - **`sui eval` as a command** (0.12.37), **probe concurrency** (0.12.37), **`doctor --json`** (0.12.37)
 - **One `--json` contract everywhere** (0.12.38) — sixteen commands, enforced by `test/cli-json.test.js`
+- **Tenant console shows the pin and the rate** (0.12.39) — plus a fourth smoke scenario that runs a keyed gateway
 - Legal: LICENSE (MIT), NOTICE, OWNER_GRANT, DISCLAIMER, SECURITY — **reviewed and signed off by the owner, 2026-11-23**
 - Translation: **dropped** by the owner; 6 languages stand and the boundary is documented in `docs/LANGUAGES.md`
 

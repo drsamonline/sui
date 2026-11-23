@@ -232,10 +232,18 @@ The tenant console: what each key has spent today, what is left, how fast it is 
 { "summary": { "tenants": 2, "capped": 1, "uncapped": 1, "spentUsd": 1.9, "nearestCap": "team-a" },
   "tenants": [{ "name": "team-a", "dailyUsd": 2, "spentUsd": 1.5, "remainingUsd": 0.5, "pct": 75,
                 "turns": 1, "failed": 0, "rateLimit": { "rpm": 60 }, "bucket": { "tokens": 58, "limited": 0 },
-                "allowedCombos": ["chat-default"], "hasKeyHash": true }] }
+                "forcedModel": "chat-default", "allowedCombos": ["chat-default"], "hasKeyHash": true }] }
 ```
 
-An uncapped tenant reports `dailyUsd: null` and `pct: null` — not 0%. The key itself is never returned; `hasKeyHash` says whether one is stored.
+| Field | Meaning |
+|---|---|
+| `dailyUsd`, `spentUsd`, `remainingUsd`, `pct` | the daily cap and what is left of it |
+| `rateLimit`, `bucket` | the requests-per-minute limit, and how many tokens are **left** this minute |
+| `forcedModel` | the model or combo this key is pinned to; `null` means the caller chooses |
+| `allowedCombos`, `allowedModels` | what the key may reach at all |
+| `hasKeyHash` | whether a key is stored — the key itself is never returned |
+
+An uncapped tenant reports `dailyUsd: null` and `pct: null` — not 0%. These four are exactly what a refusal cites: `403 forced_model` names `forcedModel`, `403 forbidden_model` names `allowedCombos`, `429 rate_limited` names `rateLimit.rpm`, and `429 key_budget_reached` names `dailyUsd`. The dashboard's Tenants panel and `sui tenants` render the same fields.
 
 `PATCH /api/tenants/<name>` with `{"dailyUsd": 5}` or `{"rpm": 120}` changes a limit **in memory for this process** and says so in `note`; edit `sui.config.json` to make it permanent. If `SUI_ADMIN_TOKEN` is set, every tenant route needs `x-sui-admin: <token>` (or a bearer token).
 

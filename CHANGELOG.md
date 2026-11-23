@@ -2,6 +2,36 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.39 — 2026-11-23
+
+### Added
+
+- **The tenant console, on the dashboard.** A key is a tenant, and four things are enforced per key: a daily cap, a requests-per-minute limit, a pinned model (`forcedModel`) and the combos it may reach. The page showed the spend and none of the other three, so the two that decide whether a request is *refused* — the pin and the rate — were only readable in the config file. A gateway that refuses a request must be able to say why, on the page.
+- The panel names the cause of each refusal next to the number that causes it: `403 forced_model` is the pinned column, `403 forbidden_model` is "may reach", `429 rate_limited` is the rate, `429 key_budget_reached` is the cap.
+- `sui tenants` gains a `pinned to` column, and `reaches` now falls back to `allowedModels` when no combos are named.
+- A fourth dashboard smoke scenario, `--tenants`, runs a keyed gateway: the page carries the key, the panel must show both tenants, the pin and the rate, and Send must still answer. It runs in CI.
+
+### Fixed
+
+- **`tenantSnapshot` did not include `forcedModel`**, so no consumer — CLI, API or page — could show the pin. The API enforced it with a 403 and the console had no way to mention it.
+- The smoke test's "does the page explain a failure" assertion treated any non-`healthy` scenario as failing, which the new keyed-but-working scenario is not. The two failing scenarios are named explicitly now.
+
+### Known gaps
+
+- The panel reads `/api/tenants`, which needs `SUI_ADMIN_TOKEN` when one is configured; without the token it says so rather than rendering empty.
+- `PATCH /api/tenants/<name>` is still curl-only. A control on the page would be a write that can raise a cap, and that needs its own confirmation design.
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 630 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios: healthy, empty, degraded, tenants |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.38 — 2026-11-23
 
 ### Added

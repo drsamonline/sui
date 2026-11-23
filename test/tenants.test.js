@@ -197,3 +197,34 @@ function post(port, headers, body) {
     req.end(payload);
   });
 }
+
+/* ------------------------------------- what the console must be able to explain */
+
+test('the snapshot carries the pin, so a 403 has a visible cause', () => {
+  // `forcedModel` decides which model a request may reach and is enforced with a
+  // 403. It was in the config and in the enforcement, and nowhere in the snapshot,
+  // so the console could show the spend but not the reason a request was refused.
+  const config = { apiKeys: [{ name: 'pinned', key_hash: 'x'.repeat(64), forcedModel: 'cheap', rateLimit: { rpm: 30 } }] };
+  const [tenant] = tenantSnapshot({ config, ledger: ledgerOf([]) });
+  assert.equal(tenant.forcedModel, 'cheap');
+  assert.equal(tenant.rateLimit.rpm, 30);
+});
+
+test('a key with no pin says null rather than an empty string', () => {
+  const config = { apiKeys: [{ name: 'free', key_hash: 'x'.repeat(64) }] };
+  const [tenant] = tenantSnapshot({ config, ledger: ledgerOf([]) });
+  assert.equal(tenant.forcedModel, null, 'a caller that may choose any model must read as null');
+});
+
+test('/api/tenants reports the pin and the rate a refusal would cite', async () => {
+  const config = testConfig();
+  config.apiKeys = [{ name: 'team-a', key_hash: hashApiKey('sk-a'), dailyUsd: 2, rateLimit: { rpm: 60 }, forcedModel: 'chain' }];
+  const { gw, base } = await bootTenants(config);
+
+  const json = await (await fetch(`${base}/api/tenants`)).json();
+  const tenant = json.tenants[0];
+  assert.equal(tenant.forcedModel, 'chain', 'the pin must reach the page');
+  assert.equal(tenant.rateLimit.rpm, 60, 'so must the rate');
+  assert.equal(JSON.stringify(json).includes('sk-a'), false, 'and never the key itself');
+  await gw.close();
+});

@@ -46,6 +46,10 @@ export function tenantSnapshot(input) {
       lastSeenAt,
       rateLimit: key.rateLimit ?? null,
       bucket,
+      // The pin decides which model a request may reach, and a request naming
+      // anything else is refused with a 403. Without it in the snapshot the
+      // console cannot say why, so the only place it was visible was the config.
+      forcedModel: key.forcedModel ?? null,
       allowedCombos: key.allowedCombos ?? null,
       allowedModels: key.allowedModels ?? null,
       guardrails: key.guardrails ?? null,

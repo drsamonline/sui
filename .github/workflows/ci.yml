@@ -111,6 +111,7 @@ jobs:
           CHROME_PATH="$CHROME_PATH" node scripts/smoke-dashboard.mjs
           CHROME_PATH="$CHROME_PATH" node scripts/smoke-dashboard.mjs --empty
           CHROME_PATH="$CHROME_PATH" node scripts/smoke-dashboard.mjs --degraded
+          CHROME_PATH="$CHROME_PATH" node scripts/smoke-dashboard.mjs --tenants
 
   soak:
     runs-on: ubuntu-latest

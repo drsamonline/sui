@@ -42,7 +42,23 @@ const { createGateway } = await import('@drsamonline/gateway');
  *             is the correct behaviour and not something to render.
  *   degraded  a provider that is configured and unreachable
  */
-const scenario = process.argv.includes('--empty') ? 'empty' : process.argv.includes('--degraded') ? 'degraded' : 'healthy';
+const scenario = process.argv.includes('--empty')
+  ? 'empty'
+  : process.argv.includes('--degraded')
+    ? 'degraded'
+    : process.argv.includes('--tenants')
+      ? 'tenants'
+      : 'healthy';
+
+/**
+ * In the tenants scenario the gateway needs a key, the way a shared deployment
+ * does. Sending it from the page is the point: the dashboard's own fetches have to
+ * carry it too, or every panel renders a 401.
+ */
+const SMOKE_KEY = scenario === 'tenants' ? 'smoke-tenant-key' : null;
+/** The two scenarios whose whole point is that the gateway cannot answer. */
+const failingScenario = scenario === 'empty' || scenario === 'degraded';
+const authHeaders = SMOKE_KEY ? { authorization: `Bearer ${SMOKE_KEY}` } : {};
 
 const base = {
   server: { host: '127.0.0.1', port: 0, cache: { enabled: true, ttlMs: 60000, maxEntries: 50 } },
@@ -67,7 +83,15 @@ const base = {
   budgets: { dailyUsd: 5, warnAtPct: 80 },
   guardrails: { logPrompts: false },
   paidTiers: { enabled: false },
-  apiKeys: [],
+  apiKeys:
+    scenario === 'tenants'
+      ? [
+          // one pinned tenant with a rate limit: the two refusals a console exists
+          // to explain are 403 (pinned elsewhere) and 429 (over the rate)
+          { name: 'team-a', key: SMOKE_KEY, dailyUsd: 2, rateLimit: { rpm: 60 }, forcedModel: 'chat-default' },
+          { name: 'team-b', key: 'smoke-second-key', allowedCombos: ['chat-default'], rateLimit: { rpm: 10 } },
+        ]
+      : [],
   workers: { enabled: true, kickoffMs: 50, prober: { enabled: false }, cacheSweepMs: 0, driftIntervalMs: 0, alertIntervalMs: 0 },
 };
 
@@ -83,7 +107,7 @@ if (scenario !== 'empty') {
   for (let i = 0; i < 3; i++) {
     await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-sui-user': 'smoke', 'x-sui-tool': 'dashboard-test' },
+      headers: { 'content-type': 'application/json', 'x-sui-user': 'smoke', 'x-sui-tool': 'dashboard-test', ...authHeaders },
       body: JSON.stringify({ model: 'chat-default', messages: [{ role: 'user', content: `hello ${i}` }] }),
     }).catch(() => {});
   }
@@ -106,6 +130,7 @@ page.on('response', (res) => {
   if (res.status() >= 400) problems.push(`HTTP ${res.status()}: ${res.url()}`);
 });
 
+if (SMOKE_KEY) await page.setExtraHTTPHeaders({ authorization: `Bearer ${SMOKE_KEY}` });
 await page.goto(`http://127.0.0.1:${port}/dashboard`, { waitUntil: 'networkidle0', timeout: 30_000 });
 
 // wait for the first status paint rather than a fixed sleep
@@ -120,6 +145,26 @@ const probe = await page.evaluate(() => ({
   hasTopology: Boolean(document.querySelector('#topology svg, svg')),
   bodyText: document.body.innerText.slice(0, 200),
 }));
+
+// ---- the tenant console ---------------------------------------------------
+// The API enforces a cap, a rate and a pinned model per key; the page showed the
+// spend and neither of the two that decide whether a request is refused.
+{
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll('#tenants-body tr')].map((tr) => tr.innerText.replace(/\s+/g, ' ').trim()),
+  );
+  if (!rows.length) problems.push('the tenant panel rendered no rows at all');
+
+  if (scenario === 'tenants') {
+    if (rows.length !== 2) problems.push(`the tenant panel showed ${rows.length} row(s), expected 2`);
+    if (!rows.some((r) => /team-a/.test(r))) problems.push('the tenant panel did not list team-a');
+    if (!rows.some((r) => /chat-default/.test(r))) problems.push('the tenant panel did not show the pinned model');
+    if (!rows.some((r) => /60\/min/.test(r))) problems.push('the tenant panel did not show the rate limit');
+    console.log(`  tenants panel            ${rows.length} key(s), pin and rate shown`);
+  } else if (!/No API keys are configured/.test(rows.join(' '))) {
+    problems.push('the tenant panel did not explain that no keys are configured');
+  }
+}
 
 // ---- the Send button has to do something ---------------------------------
 // It did not: send() threw ReferenceError on its first line (threadEl was never
@@ -147,8 +192,8 @@ const probe = await page.evaluate(() => ({
   // page says what broke. Without this, "expected failure" would mean "the page may
   // show nothing at all", which is the opposite of what these scenarios test.
   const saysWhatBroke = /no model could answer|could not answer|no api key|failed|error/i.test(after.text);
-  if (scenario !== 'healthy' && !saysWhatBroke) problems.push('a failing route produced no explanation in the thread');
-  if (scenario === 'healthy' && saysWhatBroke) problems.push('a healthy route reported a failure in the thread');
+  if (failingScenario && !saysWhatBroke) problems.push('a failing route produced no explanation in the thread');
+  if (!failingScenario && saysWhatBroke) problems.push('a working route reported a failure in the thread');
   console.log(`  send button              ${after.length > before ? 'answered' : 'DEAD'}`);
 }
 
@@ -179,7 +224,7 @@ console.log('');
 // line Chromium emits for it (that message carries no URL, so a wider pattern
 // would also excuse a broken /api route).
 const expectedFailure = (problem) =>
-  scenario !== 'healthy' &&
+  failingScenario &&
   (/^HTTP 5\d\d: .*\/v1\/chat\/completions/.test(problem) ||
     /^console: Failed to load resource: the server responded with a status of 5\d\d/.test(problem));
 

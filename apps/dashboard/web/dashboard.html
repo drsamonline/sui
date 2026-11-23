@@ -439,6 +439,26 @@
     </section>
 
 
+    <section class="card flush" aria-labelledby="tenants-h">
+      <header>
+        <h2 id="tenants-h">Tenants</h2>
+        <span class="hint" id="tenants-note">what each key may do</span>
+      </header>
+      <div class="body" style="padding: 0">
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Key</th><th scope="col">Today</th><th scope="col">Rate</th>
+                <th scope="col">Pinned to</th><th scope="col">May reach</th><th scope="col" class="num">Last seen</th>
+              </tr>
+            </thead>
+            <tbody id="tenants-body"><tr><td colspan="6"><div class="skeleton line"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section class="card" id="weather-card" aria-labelledby="weather-h" hidden>
       <header>
         <h2 id="weather-h">Free-tier weather</h2>
@@ -591,6 +611,7 @@ function render() {
   renderSavings(metrics.totals);
   renderWeather(state.probes ?? []);
   loadEval();
+  loadTenants();
   renderProbes(state.probes ?? []);
   renderTraces(promptUsage);
   renderRecent(metrics.recent);
@@ -794,6 +815,65 @@ async function loadEval() {
   } catch {
     body.innerHTML = '<p class="hint">Could not reach the gateway.</p>';
   }
+}
+
+/**
+ * B7.7 — the tenant console, on the page.
+ *
+ * A key is a tenant, and four things are enforced per key: a daily cap, a
+ * requests-per-minute limit, a pinned model (`forcedModel`) and the combos it may
+ * reach. The page showed spend and nothing else, so the two that decide whether a
+ * request is refused — the pin and the rate — were only readable in the config
+ * file. A gateway that refuses a request must be able to say why, on the page.
+ */
+async function loadTenants() {
+  const body = document.querySelector('#tenants-body');
+  const note = document.querySelector('#tenants-note');
+  if (!body) return;
+  const empty = (text) => `<tr><td colspan="6" class="hint" style="padding: var(--space-4)">${text}</td></tr>`;
+  try {
+    const res = await fetch('/api/tenants');
+    if (res.status === 403) {
+      if (note) note.textContent = 'needs the admin token';
+      body.innerHTML = empty('The tenant console needs <code>SUI_ADMIN_TOKEN</code>. Set it on the gateway and send it as <code>x-sui-admin</code>.');
+      return;
+    }
+    const json = await res.json();
+    const tenants = json.tenants ?? [];
+    if (!tenants.length) {
+      if (note) note.textContent = 'no keys configured';
+      body.innerHTML = empty('No API keys are configured, so every caller is the same anonymous tenant. Add an <code>apiKeys</code> entry to separate them.');
+      return;
+    }
+    if (note) note.textContent = `${json.summary?.tenants ?? tenants.length} key(s)`;
+    body.innerHTML = tenants.map((t) => `
+      <tr>
+        <td><strong>${escapeHtml(t.name)}</strong>${t.hasKeyHash ? '<div class="hint mono">key hashed</div>' : ''}</td>
+        <td>${t.dailyUsd == null ? '<span class="hint">uncapped</span>' : `${money(t.spentUsd)} of ${money(t.dailyUsd)}${t.pct == null ? '' : `<div class="hint">${t.pct}% of the cap</div>`}`}</td>
+        <td>${rateCell(t)}</td>
+        <td>${t.forcedModel ? `<span class="mono">${escapeHtml(t.forcedModel)}</span>` : '<span class="hint">the caller chooses</span>'}</td>
+        <td>${reachCell(t)}</td>
+        <td class="num">${t.lastSeenAt ? new Date(t.lastSeenAt).toLocaleTimeString('en-IN', { hour12: false }) : '—'}</td>
+      </tr>`).join('');
+  } catch {
+    body.innerHTML = empty('Could not reach the gateway.');
+  }
+}
+
+/** A bucket's `tokens` are what is left this minute, not what was used. Say so. */
+function rateCell(t) {
+  const rpm = t.rateLimit?.rpm;
+  if (!rpm) return '<span class="hint">unmetered</span>';
+  const left = typeof t.bucket?.tokens === 'number' ? ` · ${t.bucket.tokens} left` : '';
+  return `<span class="mono">${rpm}/min</span><div class="hint">${left ? left.replace(' · ', '') : 'not used yet'}</div>`;
+}
+
+function reachCell(t) {
+  const parts = [];
+  if (t.allowedCombos) parts.push(`combos ${t.allowedCombos.join(', ')}`);
+  if (t.allowedModels) parts.push(`models ${t.allowedModels.join(', ')}`);
+  if (!parts.length) return '<span class="hint">everything</span>';
+  return `<span class="mono">${escapeHtml(parts.join(' · '))}</span>`;
 }
 
 function renderSavings(totals) {

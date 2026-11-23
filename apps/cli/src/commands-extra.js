@@ -993,7 +993,7 @@ export async function cmdTenants(flags) {
   console.log('');
   console.log(
     table(
-      ['tenant', 'turns', 'failed', 'spent', 'cap', 'used', 'rpm', 'reaches'],
+      ['tenant', 'turns', 'failed', 'spent', 'cap', 'used', 'rpm', 'pinned to', 'reaches'],
       snapshot.map((t) => [
         t.name,
         String(t.turns),
@@ -1002,7 +1002,10 @@ export async function cmdTenants(flags) {
         t.dailyUsd == null ? 'uncapped' : `$${t.dailyUsd.toFixed(2)}`,
         t.pct == null ? '—' : `${t.pct}%`,
         t.rateLimit?.rpm ? String(t.rateLimit.rpm) : '—',
-        t.allowedCombos ? t.allowedCombos.join(',') : 'everything',
+        // the pin is why a request can be refused with a 403; it belongs next to
+        // the rate, which is why one can be refused with a 429
+        t.forcedModel ?? '—',
+        t.allowedCombos ? t.allowedCombos.join(',') : t.allowedModels ? t.allowedModels.join(',') : 'everything',
       ]),
     ),
   );

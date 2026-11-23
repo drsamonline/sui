@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-23 · `0.12.38` · 627 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-23 · `0.12.39` · 630 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
@@ -46,8 +46,8 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 
 | # | What | Why | Effort |
 |---|---|---|---|
-| 5 | **Tenant console shows `forcedModel` and per-key rate limits** | the API enforces both and the dashboard shows neither, so a tenant's real limit is only readable in the config file. Showing what is enforced is the point of this project | medium |
-| 6 | Per-provider dashboard page | **deliberately below 5**: there is one verified route and no probe history on this machine, so the page would render empty until somebody runs `sui probe` on a networked box | medium |
+| 5 | Per-provider dashboard page | there is one verified route and no probe history on this machine, so the page renders mostly empty until somebody runs `sui probe` on a networked box |
+| 6 | A cap control on the tenant panel | `PATCH /api/tenants/<name>` is curl-only. A control that can raise a cap is a write, and it needs its own confirmation design before it belongs on a page | medium |
 | 7 | Pool-deduped budget for every catalogue entry | 37 of 41 entries have no published budget recorded | data entry |
 
 ## Large — a decision, not a task
@@ -71,6 +71,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | **Probe concurrency** | shipped 0.12.37 — bounded at 8 by default, `--concurrency N`, and a hard deadline so a blackholed socket cannot hang a sweep |
 | **`sui doctor --json`** | shipped 0.12.37 — stdout is the document, exit 1 when no combo answered |
 | **One `--json` contract everywhere** | shipped 0.12.38 — sixteen commands, checked as a contract by `test/cli-json.test.js` and documented field by field |
+| **Tenant console shows the pin and the rate** | shipped 0.12.39 — the panel names the cause of each refusal, and `--tenants` in the dashboard smoke test runs a keyed gateway |
 
 ## Needs a human, in this order
 
