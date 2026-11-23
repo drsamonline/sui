@@ -674,6 +674,13 @@ async function cmdTools(flags, args) {
     return;
   }
 
+  if (flags.json) {
+    return emitJson('tools', {
+      tools: tools.map((t) => ({ id: t.id, name: t.name, detected: Boolean(t.detected), setup: t.setup, configPath: t.configPath ?? null })),
+      found: tools.filter((t) => t.detected).length,
+    });
+  }
+
   console.log('');
   console.log('Coding tools on this machine');
   console.log('');
@@ -813,6 +820,17 @@ async function cmdKeys(flags, args) {
 function cmdInvariants(flags) {
   const gatewayConfig = flags.config ? createGatewayConfig(flags.config) : createGatewayConfig();
   const audit = auditConfig(gatewayConfig);
+
+  if (flags.json) {
+    return emitJson('invariants', {
+      ok: audit.every((a) => a.ok),
+      total: INVARIANTS.length,
+      invariants: INVARIANTS.map((i) => ({ id: i.id, status: i.status, statement: i.statement, enforcedBy: i.enforcedBy, gap: i.gap ?? null })),
+      checked: audit.map((a) => ({ id: a.id, ok: Boolean(a.ok), detail: a.detail })),
+      gaps: INVARIANTS.filter((i) => i.gap).map((i) => ({ id: i.id, gap: i.gap })),
+    });
+  }
+
   console.log('');
   console.log('Invariants');
   console.log('');
@@ -873,6 +891,10 @@ sui ${VERSION} — ${t('app.tagline')}
   ${RUN_AS} tokens --check WCAG AA on the dashboard tokens, computed by tokens-kit
   ${RUN_AS} kits           the vendored kits and whether they load
 
+Every command that reports data takes --json: stdout is the document, stderr is
+for a person, and the exit code is the one the table would have used.
+See docs/API.md for each document's fields.
+
 Endpoint, once running:   http://127.0.0.1:8787/v1
 Dashboard:                http://127.0.0.1:8787/
 Docs:                     docs/ARCHITECTURE.md, docs/ROUTING.md, docs/MIGRATION.md
@@ -930,6 +952,22 @@ function table(headers, rows) {
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => String(r[i] ?? '').length)));
   const line = (cells) => '  ' + cells.map((c, i) => String(c ?? '').padEnd(widths[i])).join('  ').trimEnd();
   return [line(headers), '  ' + widths.map((w) => '─'.repeat(w)).join('  '), ...rows.map(line)].join('\n');
+}
+
+/**
+ * One JSON document on stdout, and nothing else.
+ *
+ * The contract every `--json` command keeps: stdout parses as exactly one
+ * document, a human reading the terminal gets nothing extra on stdout, and the
+ * exit code is the one the human path would have used. `command` is included so a
+ * caller can tell two documents apart without guessing at their fields.
+ *
+ * It is a transport contract, not a schema: each command's fields are documented
+ * in docs/API.md, because a `probe` document and a `doctor` document answer
+ * different questions and flattening them into one shape would help nobody.
+ */
+export function emitJson(command, payload) {
+  console.log(JSON.stringify({ command, ...payload }, null, 2));
 }
 
 function bar(ratio, width) {

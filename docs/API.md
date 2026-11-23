@@ -418,3 +418,41 @@ Empties the response cache. Returns the new cache stats.
 ## GET / and GET /dashboard
 
 The dashboard. Self-contained HTML, no external requests, no build step. Both paths serve the same file.
+
+## The CLI — `--json` documents
+
+Every command that reports data takes `--json`. The contract is one line, and it is
+the same everywhere:
+
+| Rule | |
+|---|---|
+| stdout | exactly one JSON document, nothing before or after it |
+| stderr | anything a person needs to read — progress, warnings, provider errors |
+| exit code | the one the human path would have used: `0` fine, `1` a problem, `2` not meaningful |
+| `command` | present on documents that carry it, so a caller can tell two apart without guessing |
+
+The **shapes differ on purpose**: a `probe` document and a `vault` document answer
+different questions, and forcing them into one envelope would mean inventing fields
+that are null most of the time. What is identical is the transport.
+
+| Command | Document |
+|---|---|
+| `sui doctor --json` | `command`, `ranAt`, `ok`, `node`, `platform`, `configPath`, `configFound`, `keys[]` (`env`, `length`, `state`, never the value), `catalogue`, `combos[]` (`combo`, `ok`, `modelId`, `provider`, `latencyMs`, `tokens`, `costUsd`, `error`), `models`, `kits`, `vault`, `invariants[]`, `warnings[]`, `exitCode` |
+| `sui eval --json` | the eval report: `mode` (`self-test` \| `real` \| `not-meaningful`), `ranAt`, `combo`, `passRate` (null when not meaningful), `passed`, `total`, `answered`, `byCategory`, `confidence`, `mismatches[]`, `note` |
+| `sui probe --json` | `fixtureVersion`, `results[]` (three levels, reasons, latency), `state[]` |
+| `sui invariants --json` | `command`, `ok`, `total`, `invariants[]` (`id`, `status`, `statement`, `enforcedBy`, `gap`), `checked[]` (`id`, `ok`, `detail`), `gaps[]` |
+| `sui catalog --json` | `summary` (`total`, `routable`, `awaiting_probe`, `tos_avoid`) and `rows[]` |
+| `sui free-budget --json` | `verifiedTokens`, `unverifiedTokens`, `verified[]`, `unverified[]`, `pools`, `withoutBudget`, `note` |
+| `sui cost --json` | the ledger aggregate; `--by user\|tool` groups it |
+| `sui savings --json` | what cache hits and compression did not spend |
+| `sui models --json` | the sanitised config: combos, models, provider status. Never a key |
+| `sui kits --json` | `command`, `ok`, `loaded`, `total`, `kits[]` (`name`, `loaded`, `version`, `error`) |
+| `sui tokens --check --json` | `command`, `ok`, `failures`, `standard`, `pairs[]` (`mode`, `pair`, `values`, `ratio`, `needs`, `ok`) |
+| `sui budget --json` | `command`, `fraction`, `chosen` (`preset`, `reason`), `presets` |
+| `sui tools --json` | `command`, `tools[]` (`id`, `name`, `detected`, `setup`, `configPath`), `found` |
+| `sui recipe list\|show\|apply --json` | `command`, `action`, then `recipes[]` / `patch` / `changes[]`, `conflicts[]`, `missingEnv[]`, `written` |
+| `sui local --json` | `command`, `ok`, `scanned`, `runtimes[]` (`kind`, `port`, `latencyMs`, `models`), `written` |
+| `sui vault status\|list --json` | `command`, `action`, `exists`, `path`, `passphrase` (source only), `gateOpen`, `providers[]` — never a key |
+| `sui lang --json` | the locales this build speaks |
+
+`sui config show` prints JSON without a flag, because the config *is* the document.

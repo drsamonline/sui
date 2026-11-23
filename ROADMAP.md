@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-23 · `0.12.37` · 623 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-23 · `0.12.38` · 627 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
@@ -40,7 +40,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | # | What | Why it matters | Effort |
 |---|---|---|---|
 | 1 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once | small |
-| 2 | `--json` on `catalog`, `free-budget` and `cost` already exist — a single `--json` contract across every command | two commands now keep it; the rest are ad hoc | small |
+| 2 | `--json` on the four commands that still narrate: `init`, `mcp`, `tools --set`, `config get` | the rest of the CLI keeps the contract now; these four print prose because they describe a process, not a result | small |
 
 ## Medium
 
@@ -70,6 +70,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | **`sui eval` as a command** | shipped 0.12.37 — the harness and the golden set travel in the CLI package, and `verify-published` runs it from the tarball |
 | **Probe concurrency** | shipped 0.12.37 — bounded at 8 by default, `--concurrency N`, and a hard deadline so a blackholed socket cannot hang a sweep |
 | **`sui doctor --json`** | shipped 0.12.37 — stdout is the document, exit 1 when no combo answered |
+| **One `--json` contract everywhere** | shipped 0.12.38 — sixteen commands, checked as a contract by `test/cli-json.test.js` and documented field by field |
 
 ## Needs a human, in this order
 

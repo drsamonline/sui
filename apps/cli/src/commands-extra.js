@@ -32,7 +32,7 @@ const VERSION = (() => {
   }
 })();
 import { PRESETS, RecallStore, choosePreset, compress } from '@drsamonline/compression';
-import { table } from './cli.js';
+import { emitJson, table } from './cli.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
@@ -277,12 +277,35 @@ export async function cmdVault(flags, args) {
 
   if (sub === 'list') {
     const providers = await vault.list();
+    if (flags.json) return emitJson('vault', { action: 'list', exists: vault.exists(), providers });
     console.log('');
     console.log(providers.length ? providers.join('\n') : 'The vault is empty.');
     return;
   }
 
   // status
+  if (flags.json) {
+    // Names, paths and a boolean gate — never a key, and never the passphrase.
+    let providers = null;
+    let error = null;
+    if (vault.exists()) {
+      try {
+        providers = await vault.list();
+      } catch (err) {
+        error = String(/** @type {any} */ (err).message ?? err);
+      }
+    }
+    return emitJson('vault', {
+      action: 'status',
+      exists: vault.exists(),
+      path: vaultPath,
+      passphrase: vault.source === 'env' ? 'env' : vault.source === 'keyfile' ? 'keyfile' : 'not found',
+      gateOpen: raw.paid_tiers?.enabled === true,
+      providers,
+      error,
+    });
+  }
+
   console.log('');
   console.log(`path        ${vaultPath}`);
   console.log(`exists      ${vault.exists() ? 'yes' : 'no'}`);
@@ -460,6 +483,17 @@ export function cmdTokens(flags) {
     }
   }
 
+  if (flags.json) {
+    emitJson('tokens', {
+      ok: failures === 0,
+      failures,
+      standard: 'WCAG 2.2 AA',
+      pairs: report.map(([mode, label, values, ratio, needs, result]) => ({ mode, pair: label, values, ratio: Number(ratio), needs, ok: result === 'pass' })),
+    });
+    if (failures) process.exitCode = 1;
+    return;
+  }
+
   console.log('');
   console.log('Token contrast — WCAG 2.2 AA, computed by tokens-kit');
   console.log('');
@@ -499,6 +533,14 @@ function readTokenBlock(source, _selector, _index) {
 
 export function cmdKits(flags) {
   const status = kitStatus();
+  if (flags.json) {
+    return emitJson('kits', {
+      ok: status.every((k) => k.loaded),
+      loaded: status.filter((k) => k.loaded).length,
+      total: status.length,
+      kits: status.map((k) => ({ name: k.name, loaded: Boolean(k.loaded), version: k.version ?? null, error: k.error ?? null })),
+    });
+  }
   console.log('');
   console.log('Vendored kits (vendor/kits)');
   console.log('');
@@ -627,10 +669,22 @@ export async function cmdSandbox(flags, args) {
 export async function cmdLocal(flags) {
   const { discoverLocalRuntimes, toConfigPatch } = await import('@drsamonline/prober');
 
-  console.log('');
-  console.log('Looking for local model servers on loopback (127.0.0.1)…');
+  const say = flags.json ? (...a) => console.error(...a) : (...a) => console.log(...a);
+  say('');
+  say('Looking for local model servers on loopback (127.0.0.1)…');
 
   const found = await discoverLocalRuntimes({ timeoutMs: Number(flags.timeout ?? 300) });
+
+  if (flags.json && (!found.length || !flags.write)) {
+    // A scan is a fact about this machine: which servers answered, on which port,
+    // with which models. Nothing is written unless --write says so.
+    return emitJson('local', {
+      ok: found.length > 0,
+      scanned: '127.0.0.1',
+      runtimes: found.map((r) => ({ kind: r.kind, port: r.port, latencyMs: r.latencyMs, models: r.models })),
+      written: false,
+    });
+  }
 
   if (!found.length) {
     console.log('');
@@ -683,6 +737,9 @@ export async function cmdLocal(flags) {
   }
 
   writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`);
+  if (flags.json) {
+    return emitJson('local', { ok: true, scanned: '127.0.0.1', runtimes: found.map((r) => ({ kind: r.kind, port: r.port, latencyMs: r.latencyMs, models: r.models })), written: true, path, changes: added });
+  }
   console.log('');
   console.log(`Wrote ${added} change(s) to ${path}. Restart the gateway to pick them up.`);
 }
@@ -724,6 +781,13 @@ export async function cmdRecipe(flags, args) {
   const recipes = loadRecipes();
 
   if (action === 'list') {
+    if (flags.json) {
+      return emitJson('recipe', {
+        action: 'list',
+        lookedIn: recipeDirs(),
+        recipes: [...recipes.values()].map((r) => ({ name: r.name, title: r.title, description: r.description })),
+      });
+    }
     if (!recipes.size) {
       console.log('No recipes found. Looked in:', recipeDirs().join(', '));
       return;
@@ -754,6 +818,7 @@ export async function cmdRecipe(flags, args) {
   }
 
   if (action === 'show') {
+    if (flags.json) return emitJson('recipe', { action: 'show', name: recipe.name, title: recipe.title, description: recipe.description, patch: recipe.patch });
     console.log('');
     console.log(`${recipe.title} (${recipe.name})`);
     console.log('');
@@ -772,6 +837,28 @@ export async function cmdRecipe(flags, args) {
   const { applyRecipe, describeRecipe } = await import('@drsamonline/core');
   const gateway = await createGateway({ configPath: flags.config });
   const result = applyRecipe(gateway.config, recipe, { force: Boolean(flags.force) });
+
+  if (flags.json) {
+    // A dry run and a real run differ in one field, so a script can decide from
+    // the document whether anything changed without reading prose.
+    let written = false;
+    if (result.changes.length && !flags['dry-run']) {
+      const path = flags.config ?? gateway.config.path ?? 'sui.config.json';
+      const onDisk = JSON.parse(readFileSync(path, 'utf8'));
+      const merged = applyRecipe(onDisk, recipe, { force: Boolean(flags.force) }).config;
+      writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`);
+      written = true;
+    }
+    return emitJson('recipe', {
+      action: 'apply',
+      name: recipe.name,
+      dryRun: Boolean(flags['dry-run']),
+      written,
+      changes: result.changes,
+      conflicts: result.conflicts,
+      missingEnv: result.missingEnv,
+    });
+  }
 
   console.log('');
   console.log(describeRecipe(recipe));
@@ -1054,6 +1141,13 @@ export function cmdCompress(flags, args) {
 export function cmdBudget(flags) {
   const fraction = Number(flags.fraction ?? 1);
   const chosen = choosePreset({ fraction });
+  if (flags.json) {
+    return emitJson('budget', {
+      fraction,
+      chosen: { preset: chosen.preset, reason: chosen.reason },
+      presets: Object.fromEntries(Object.entries(PRESETS).map(([name, p]) => [name, { target: p.target, floor: p.floor, engines: p.engines }])),
+    });
+  }
   console.log('');
   console.log(`quota fraction ${fraction} → preset ${chosen.preset}`);
   console.log(`  ${chosen.reason}`);

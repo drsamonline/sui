@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.37`.
+Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.38`.
 
 ## What this is
 
@@ -14,15 +14,15 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.37`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 623, no network, no keys |
+| Version | `0.12.38`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 627, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | **green on every job** (test 20, test 22, eval, soak, dashboard, migration) at `fe67660` |
 | Catalogue | 41 entries, each with a recorded source |
 | Verified routes | **1** — Groq, on the owner's machine (0 from CI: no provider egress) |
-| Tarball | `node scripts/verify-published.mjs` green at `0.12.37`: 11 checks, including `sui eval --self-test` (56/56) and `doctor --json` from an install |
-| Tarball | `node scripts/verify-published.mjs` green at `0.12.37`: 11 checks, including `sui eval --self-test` (56/56) and `doctor --json` from an install |
+| Tarball | `node scripts/verify-published.mjs` green at `0.12.38`: 12 checks, including `sui eval --self-test` (56/56), `doctor --json` and `kits --json` from an install |
+| Tarball | `node scripts/verify-published.mjs` green at `0.12.38`: 12 checks, including `sui eval --self-test` (56/56), `doctor --json` and `kits --json` from an install |
 | Languages | en, hi, gu, mr, ta, te |
 | Answer quality | measurable from the tarball: `sui eval --self-test` (56 grader checks), `sui eval` for a real combo |
 | Last commit | `fe67660` (`v0.12.37` tag at `edf8bf8`; the only later change is the smoke script, which ships in no package) |
@@ -40,7 +40,7 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 623 tests
+npm test               # 627 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH
@@ -122,10 +122,10 @@ Do not reintroduce any of these. Each has a test.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | More catalogue providers | 41 → hundreds is a grind; each needs a source in `sources.json` |
-| 2 | Per-provider dashboard page | the weather card is a list; a provider's page would carry its probe history |
-| 3 | One `--json` contract everywhere | `probe`, `eval` and `doctor` agree; `catalog`, `free-budget` and `cost` predate it |
-| 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
+| 1 | Per-provider dashboard page | the weather card is a list; a provider's page would carry its probe history. Needs a route, a view and a smoke case |
+| 2 | More catalogue providers | 41 → hundreds is a grind; each needs a source in `sources.json`, and none can be verified from this sandbox |
+| 3 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
+| 4 | `--json` on the last four narrating commands | `init`, `mcp`, `tools --set`, `config get` — each describes a process, so each needs a shape decided first |
 
 ### Needs the owner
 
@@ -149,6 +149,7 @@ Do not reintroduce any of these. Each has a test.
 ### Closed
 
 - **`sui eval` as a command** (0.12.37), **probe concurrency** (0.12.37), **`doctor --json`** (0.12.37)
+- **One `--json` contract everywhere** (0.12.38) — sixteen commands, enforced by `test/cli-json.test.js`
 - Legal: LICENSE (MIT), NOTICE, OWNER_GRANT, DISCLAIMER, SECURITY — **reviewed and signed off by the owner, 2026-11-23**
 - Translation: **dropped** by the owner; 6 languages stand and the boundary is documented in `docs/LANGUAGES.md`
 

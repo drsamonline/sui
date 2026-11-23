@@ -2,6 +2,34 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.38 — 2026-11-23
+
+### Added
+
+- **`--json` on every command that reports data.** It was on three, in three different styles, and absent from eleven — so "scriptable" was true of whichever command you happened to try. Now `invariants`, `kits`, `tokens`, `budget`, `tools`, `recipe list|show|apply`, `local`, and `vault status|list` join `probe`, `eval`, `doctor`, `catalog`, `free-budget`, `cost`, `savings`, `models` and `lang`.
+- **The contract is one line, and it is tested as a contract**: stdout parses as exactly one JSON document, diagnostics go to stderr, and the exit code is the one the human path would have used. `test/cli-json.test.js` runs twelve commands and asserts it, and asserts the tables are still printed when the flag is absent.
+- Each document is documented field by field in `docs/API.md`, because the shapes differ on purpose: a `probe` document and a `vault` document answer different questions.
+
+### Fixed
+
+- `sui local --json` and `sui vault status --json` were impossible: `local` printed its scan and returned, and `vault` printed a status block. Both are documents now — and `vault` reports the passphrase *source* and the provider names, never a key.
+- `sui recipe apply --json` reports `written: false` on a dry run, so a script can tell "nothing to do" from "changed the file" without reading prose.
+
+### Known gaps
+
+- `sui config get` still prints a bare value rather than a document. `config show` prints JSON without a flag, because the config is the document.
+- `sui init`, `start`, `mcp` and `tools --set` stay human: they are interactive or long-running, and a document from them would describe a process, not a result.
+- No eval baseline is recorded at this version; that still needs one working provider key.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 627 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `node scripts/verify-published.mjs` | installs the published tarball: 12 checks, including `sui eval --self-test`, `doctor --json` and `kits --json` |
+
 ## 0.12.37 — 2026-11-23
 
 ### Added

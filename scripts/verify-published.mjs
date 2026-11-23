@@ -165,6 +165,17 @@ await check('doctor answers a script, not only a person', () => {
   return `${json.combos.length} combo(s) checked, ${json.invariants.length} invariant(s)`;
 });
 
+await check('a machine can read the CLI, not just a person', () => {
+  // Every command that reports data takes --json, and the contract is that stdout
+  // is exactly one document. `kits` needs no config and no network, so it is the
+  // cheapest proof that the contract survives packing.
+  const out = run(['kits', '--json']);
+  const doc = JSON.parse(out);
+  if (doc.command !== 'kits') throw new Error('stdout was not a kits document');
+  if (!doc.total) throw new Error('the document reported no kits at all');
+  return `${doc.loaded}/${doc.total} kits, as one document`;
+});
+
 await check('streams a response, the way a coding tool asks for one', async () => {
   const { spawn } = await import('node:child_process');
   const home = join(dir, '.sui-home');
