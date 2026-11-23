@@ -186,6 +186,10 @@ export function normalizeConfig(raw, opts = {}) {
     // unknown keys, so a flag missing from here silently does nothing — which is
     // exactly what happened on the first attempt.
     headless: raw.headless === true,
+    // Probing from the dashboard is a network action taken on the operator's
+    // behalf, so it is off unless asked for. A flag rather than a convention: a
+    // page that can send requests to forty endpoints by itself is not a default.
+    dashboard: { allowProbe: raw.dashboard?.allowProbe === true },
     // which language the CLI and dashboard speak; anything unknown means English
     locale: String(raw.locale ?? raw.language ?? 'en'),
     // I4: the paid air-gap. Closed by default; a paid provider's credentials are

@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.41`.
+Everything needed to pick this up cold. Last updated 2026-11-23 at `0.12.42`.
 
 ## What this is
 
@@ -14,8 +14,8 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.41`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 633, no network, no keys |
+| Version | `0.12.42`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 637, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | **green on every job** (test 20, test 22, eval, soak, dashboard, migration) at `fe67660` |
@@ -40,7 +40,7 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 633 tests
+npm test               # 637 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH
@@ -124,7 +124,7 @@ Do not reintroduce any of these. Each has a test.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | A probe from the page | the providers list is read-only: probing is a network action against forty endpoints on the operator's behalf |
+| 1 | A sweep from the page | one endpoint per click is deliberate; forty at once is a sweep and belongs where its cost is visible |
 | 2 | Per-provider dashboard page | worth little until there is probe history: 1 verified route, none from this machine. Build it when a networked run has produced history |
 | 3 | More catalogue providers | 41 → hundreds needs LLM-specific sources; the vendored `app-endpoints` set is public-apis (2,214 general APIs), not providers, so it cannot be grown offline |
 | 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
@@ -156,6 +156,7 @@ Do not reintroduce any of these. Each has a test.
 - **Tenant console shows the pin and the rate** (0.12.39) — plus a fourth smoke scenario that runs a keyed gateway
 - **A cap control on the tenant panel** (0.12.40) — a form, in-memory, and writes off loopback need the admin token
 - **The catalogue on the dashboard** (0.12.41) — `GET /api/providers`, and the install bug that kept the prober from running
+- **A probe from the page** (0.12.42) — `dashboard.allowProbe`, one endpoint per request, reports but never promotes
 - Legal: LICENSE (MIT), NOTICE, OWNER_GRANT, DISCLAIMER, SECURITY — **reviewed and signed off by the owner, 2026-11-23**
 - Translation: **dropped** by the owner; 6 languages stand and the boundary is documented in `docs/LANGUAGES.md`
 

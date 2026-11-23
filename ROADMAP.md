@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-23 · `0.12.41` · 633 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-23 · `0.12.42` · 637 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
@@ -46,7 +46,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 
 | # | What | Why | Effort |
 |---|---|---|---|
-| 5 | A probe from the page | the providers list is read-only. Probing is a network action against forty endpoints on the operator's behalf, and needs its own consent design | medium |
+| 5 | A sweep from the page | one endpoint per click is deliberate; forty at once is a sweep, and a sweep belongs where its cost is visible | small |
 | 7 | Pool-deduped budget for every catalogue entry | 37 of 41 entries have no published budget recorded | data entry |
 
 ## Large — a decision, not a task
@@ -73,6 +73,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | **Tenant console shows the pin and the rate** | shipped 0.12.39 — the panel names the cause of each refusal, and `--tenants` in the dashboard smoke test runs a keyed gateway |
 | **A cap control on the tenant panel** | shipped 0.12.40 — a form that states the current cap and says the change is in memory; writes off loopback now need the admin token |
 | **Per-provider view on the dashboard** | shipped 0.12.41 as a catalogue view rather than a history page — `GET /api/providers` plus a detail row per entry, because the gap was that the page could not show the catalogue at all |
+| **A probe from the page** | shipped 0.12.42 — one endpoint per request, off by default, admin token off loopback, and it reports rather than promotes |
 
 ## Needs a human, in this order
 

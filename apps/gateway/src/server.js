@@ -24,6 +24,7 @@ import { createModelPlaneClient, createPlaneGuard, describePlane } from './plane
 import { autoCombo, checkToggle, direction, normaliseLocale, sanitizeConfig, STRINGS, providerHasCredentials, providerMeetsPrivacyTier, verifyApiKey, hashApiKey, INVARIANTS, auditConfig, BUDGETS, PRIVACY_TIERS, REGIONS, tenantSnapshot, tenantSummary, suiHome } from '@drsamonline/core';
 import { SuiError } from '@drsamonline/core';
 import { applyVerified, readVerifiedOverlay } from '@drsamonline/catalog';
+import { probeTarget } from '@drsamonline/prober';
 import { loadCatalogue } from './workers.js';
 import { explainPlan } from '@drsamonline/router';
 import { PRESETS, compress as compressText } from '@drsamonline/compression';
@@ -409,7 +410,37 @@ export function createSuiServer(deps) {
       // dashboard showed the models that answered and nothing about the forty-odd
       // identities waiting for a probe, which is the product's whole story.
       if (req.method === 'GET' && path === '/api/providers') {
-        return sendJson(res, 200, providerReport(configRef, workers));
+        return sendJson(res, 200, { ...providerReport(configRef, workers), probeEnabled: configRef.dashboard?.allowProbe === true });
+      }
+
+      // Probing from the page: a network action taken on the operator's behalf, so
+      // it needs consent twice — a config flag that is off by default, and the
+      // admin token unless the gateway is on loopback. One provider per request,
+      // because forty at once is a sweep, and a sweep belongs on the command line
+      // where its cost is visible.
+      if (req.method === 'POST' && path === '/api/providers/probe') {
+        if (configRef.dashboard?.allowProbe !== true) {
+          throw new SuiError(
+            'Probing from the dashboard is off. Set dashboard.allowProbe = true in sui.config.json, or run `sui probe <provider>` in a terminal.',
+            { code: 'probe_disabled', status: 403 },
+          );
+        }
+        requireAdmin(req, configRef, { write: true });
+
+        const body = await readJson(req);
+        const name = String(body.provider ?? '');
+        const entry = catalogueWithOverlay().find((e) => e.provider === name);
+        if (!entry) throw new SuiError(`No catalogue entry called "${name}".`, { code: 'unknown_provider', status: 404 });
+
+        const result = await probeTarget(entry, { timeoutMs: Number(body.timeoutMs ?? 8000) });
+        return sendJson(res, 200, {
+          provider: name,
+          result,
+          // A probe reports; it does not promote. Promoting a route from a browser
+          // click is the one step that stays deliberate.
+          promoted: false,
+          note: 'A probe reports. `sui probe --write` is what promotes a route.',
+        });
       }
 
       if (req.method === 'GET' && path === '/api/limits') {
@@ -907,12 +938,17 @@ function sinceParam(url) {
  * started. Joining them is the only way to answer "is this a route, and if not,
  * why not" without guessing.
  */
-function providerReport(config, workers) {
+/** The catalogue as this machine knows it: the seed, with the probe overlay applied. */
+function catalogueWithOverlay() {
   const overlay = readVerifiedOverlay([
     join(suiHome(process.env), 'catalog-verified.json'),
     join(HERE, '..', '..', '..', 'packages', 'catalog', 'verified.json'),
   ]);
-  const entries = applyVerified(loadCatalogue(), overlay);
+  return applyVerified(loadCatalogue(), overlay);
+}
+
+function providerReport(config, workers) {
+  const entries = catalogueWithOverlay();
   const probes = new Map((workers?.snapshot?.().probes ?? []).map((p) => [p.provider, p]));
 
   const combosFor = (modelIds) => {

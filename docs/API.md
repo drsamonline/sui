@@ -286,7 +286,30 @@ started.
 route can still be the reason a combo fails. No field here is a credential —
 `auth` says `key`, never the key.
 
+`probeEnabled` says whether the page may probe at all — see below.
+
 The dashboard's Providers card renders this and opens a detail row per provider.
+
+## POST /api/providers/probe
+
+Send one real request to one catalogue endpoint, from this machine, and report what came back. It is a network action taken on the operator's behalf, so it needs consent twice:
+
+| Condition | Result |
+|---|---|
+| `dashboard.allowProbe` is not `true` | `403 probe_disabled` — the refusal names the setting |
+| allowed, but the gateway is bound off loopback and no `SUI_ADMIN_TOKEN` | `403 admin_required` |
+| allowed, loopback, or the token presented | the probe runs |
+
+```json
+{ "provider": "groq",
+  "result": { "ok": false, "verified": false, "latencyMs": 812,
+              "levels": { "liveness": { "ok": false, "note": "timed out" }, "readiness": { "ok": false, "note": "not attempted: endpoint unreachable" }, "suitability": {} },
+              "reasons": ["liveness: timed out"] },
+  "promoted": false,
+  "note": "A probe reports. `sui probe --write` is what promotes a route." }
+```
+
+**It reports; it does not promote.** Writing a verification is the step that makes an entry routable, and that stays on the command line — one provider per request, never a sweep, so the cost of a click is visible. The address guard is the same one `sui probe` uses: https only, and loopback, link-local, private and metadata addresses refused unless the catalogue entry says `local: true`.
 
 ## Attribution (B7.1)
 

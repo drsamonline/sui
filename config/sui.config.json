@@ -291,5 +291,8 @@
     "role": "both",
     "modelPlaneUrl": null,
     "serviceTokenEnv": "SUI_PLANE_TOKEN"
+  },
+  "dashboard": {
+    "allowProbe": false
   }
 }

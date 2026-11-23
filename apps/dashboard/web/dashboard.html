@@ -995,7 +995,41 @@ async function submitCap(form) {
   await loadTenants({ force: true });
 }
 
+async function probeProvider(button) {
+  const name = button.dataset.probe;
+  const row = button.closest('tr');
+  const out = row?.querySelector('[data-probe-result]');
+  button.disabled = true;
+  if (out) out.textContent = 'probing…';
+  try {
+    const res = await fetch('/api/providers/probe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ provider: name }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      if (out) out.textContent = json?.error?.message ?? `HTTP ${res.status}`;
+      return;
+    }
+    const r = json.result ?? {};
+    const why = (r.reasons ?? [])[0];
+    if (out) out.textContent = `${r.ok ? 'answered' : 'no answer'} · ${r.latencyMs ?? '—'} ms${why ? ` · ${why}` : ''} · not promoted`;
+    // a fresh probe changes what this process knows, so redraw the list behind it
+    await loadProviders();
+  } catch {
+    if (out) out.textContent = 'Could not reach the gateway.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
 document.addEventListener('click', (event) => {
+  const probe = event.target.closest?.('button[data-probe]');
+  if (probe) {
+    probeProvider(probe);
+    return;
+  }
   const detail = event.target.closest?.('button[data-provider]');
   if (detail) {
     openProviderDetail(detail.dataset.provider);
@@ -1032,6 +1066,7 @@ document.addEventListener('submit', (event) => {
  * only ever opened the page.
  */
 let providersCache = [];
+let providersProbeEnabled = false;
 
 async function loadProviders() {
   const body = document.querySelector('#providers-body');
@@ -1042,6 +1077,7 @@ async function loadProviders() {
     const json = await res.json();
     const providers = json.providers ?? [];
     providersCache = providers;
+    providersProbeEnabled = json.probeEnabled === true;
     if (note) {
       const s = json.summary ?? {};
       note.textContent = `${s.total ?? providers.length} entries · ${s.verified ?? 0} verified · ${s.awaitingProbe ?? 0} awaiting a probe`;
@@ -1110,7 +1146,14 @@ function openProviderDetail(name) {
         ${p.tos ? ` · tos ${escapeHtml(p.tos)}` : ''}
       </p>
       ${p.combos?.length ? `<p class="hint" style="margin: 0 0 var(--space-2)">Reachable through ${p.combos.map(escapeHtml).join(', ')}</p>` : ''}
-      ${p.probe ? `<p class="hint" style="margin: 0 0 var(--space-2)">Probe: ${escapeHtml(p.probe.weather ?? p.probe.status ?? 'unknown')} · ${p.probe.failures ?? 0} consecutive failure(s)${history ? ` · ${escapeHtml(history)}` : ''}</p>` : '<p class="hint" style="margin: 0">No probe has run against it in this process.</p>'}
+      ${p.probe ? `<p class="hint" style="margin: 0 0 var(--space-2)">Probe: ${escapeHtml(p.probe.weather ?? p.probe.status ?? 'unknown')} · ${p.probe.failures ?? 0} consecutive failure(s)${history ? ` · ${escapeHtml(history)}` : ''}</p>` : '<p class="hint" style="margin: 0 0 var(--space-2)">No probe has run against it in this process.</p>'}
+      <p style="margin: 0; display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap">
+        ${providersProbeEnabled && p.baseUrl
+          ? `<button class="small" type="button" data-probe="${escapeHtml(p.provider)}">Probe now</button>
+             <span class="hint">Sends one real request to <span class="mono">${escapeHtml(p.baseUrl)}</span> from this machine. It reports; it does not promote.</span>`
+          : `<span class="hint">${p.baseUrl ? 'Probing from the page is off (<code>dashboard.allowProbe</code>). Run <code>sui probe ' + escapeHtml(p.provider) + '</code> in a terminal.' : 'Nothing to probe: no endpoint is known.'}</span>`}
+        <span class="hint" data-probe-result></span>
+      </p>
     </td>`;
   row.after(detail);
 }

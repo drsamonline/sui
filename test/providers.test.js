@@ -126,3 +126,89 @@ test('an explicit catalogue directory still wins, for tests and unusual layouts'
   assert.deepEqual(catalogueDirs(dir), [dir]);
   assert.deepEqual(loadCatalogue(dir), [], 'an empty directory is empty, not a reason to fall back');
 });
+
+/* ----------------------------- probing from the page needs consent, twice */
+
+test('probing from the dashboard is off unless the config says otherwise', async () => {
+  const { gw, base } = await bootProviders();
+  try {
+    const json = await (await fetch(`${base}/api/providers`)).json();
+    assert.equal(json.probeEnabled, false, 'the page must be able to tell it cannot probe');
+
+    const res = await fetch(`${base}/api/providers/probe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ provider: 'groq' }),
+    });
+    assert.equal(res.status, 403);
+    const body = await res.json();
+    assert.equal(body.error.type, 'probe_disabled');
+    assert.match(body.error.message, /dashboard\.allowProbe/, 'the refusal names the setting');
+  } finally {
+    await gw.close();
+  }
+});
+
+test('with the flag on but a public bind, the probe still needs the admin token', async () => {
+  const config = testConfig({ config: { dashboard: { allowProbe: true }, server: { host: '0.0.0.0', port: 0 } } });
+  const gw = await makeGateway(config);
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/providers/probe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ provider: 'groq' }),
+    });
+    assert.equal(res.status, 403);
+    assert.equal((await res.json()).error.type, 'admin_required');
+  } finally {
+    await gw.close();
+  }
+});
+
+test('a probe from the page reports, and never promotes', async () => {
+  // No provider egress here, so the answer is "no answer" — which is the honest
+  // result and exercises the whole path: guard, catalogue lookup, probe, report.
+  const config = testConfig({ config: { dashboard: { allowProbe: true } } });
+  const gw = await makeGateway(config);
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/providers/probe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ provider: 'groq', timeoutMs: 300 }),
+    });
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.provider, 'groq');
+    assert.equal(json.promoted, false, 'a probe from a page must not promote a route');
+    assert.match(json.note, /--write/);
+    assert.equal(typeof json.result.ok, 'boolean');
+    assert.ok(json.result.reasons.length || json.result.ok, 'a failure must say why');
+
+    // and the catalogue is unchanged: no verification was written
+    const after = await (await fetch(`http://127.0.0.1:${port}/api/providers`)).json();
+    assert.equal(after.summary.verified, 0, 'nothing was promoted by probing');
+  } finally {
+    await gw.close();
+  }
+});
+
+test('probing an unknown provider is a 404, not a silent nothing', async () => {
+  const config = testConfig({ config: { dashboard: { allowProbe: true } } });
+  const gw = await makeGateway(config);
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/providers/probe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ provider: 'not-a-provider' }),
+    });
+    assert.equal(res.status, 404);
+  } finally {
+    await gw.close();
+  }
+});

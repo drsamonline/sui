@@ -92,6 +92,8 @@ const base = {
           { name: 'team-b', key: 'smoke-second-key', allowedCombos: ['chat-default'], rateLimit: { rpm: 10 } },
         ]
       : [],
+  // one scenario turns page probing on, so the button is exercised where it exists
+  dashboard: { allowProbe: scenario === 'tenants' },
   workers: { enabled: true, kickoffMs: 50, prober: { enabled: false }, cacheSweepMs: 0, driftIntervalMs: 0, alertIntervalMs: 0 },
 };
 
@@ -202,6 +204,18 @@ const probe = await page.evaluate(() => ({
   const detail = await page.evaluate(() => document.querySelector('#providers-body tr.provider-detail')?.innerText.replace(/\s+/g, ' ') ?? '');
   if (!detail) problems.push('clicking Details opened nothing');
   else if (!/identity with an endpoint|route|nothing to probe/i.test(detail)) problems.push('the provider detail did not say whether it is a route');
+
+  // Probing from the page is a network action, so it is off unless asked for, and
+  // the page has to say which of the two it is.
+  const probeButton = await page.evaluate(() => Boolean(document.querySelector('button[data-probe]')));
+  if (scenario === 'tenants') {
+    if (!probeButton) problems.push('probing was allowed but the page offered no probe button');
+    if (!/reports; it does not promote|does not promote/i.test(detail)) problems.push('the probe control did not say it will not promote');
+  } else if (probeButton) {
+    problems.push('the page offered a probe button with dashboard.allowProbe off');
+  } else if (!/allowProbe|terminal/i.test(detail)) {
+    problems.push('the provider detail did not say why it cannot probe');
+  }
   console.log(`  providers card           ${rows.length} entries, detail opens`);
 }
 

@@ -835,6 +835,18 @@
           "default": "SUI_PLANE_TOKEN"
         }
       }
+    },
+    "dashboard": {
+      "type": "object",
+      "description": "What the dashboard may do on your behalf. Everything here is a network or spend action, so it is off unless you ask.",
+      "additionalProperties": false,
+      "properties": {
+        "allowProbe": {
+          "type": "boolean",
+          "default": false,
+          "description": "Let the Providers card send one real probe request to one endpoint per click. It reports what answered; it never promotes a route. Off the loopback interface it also needs SUI_ADMIN_TOKEN."
+        }
+      }
     }
   }
 }

@@ -2,6 +2,36 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.42 — 2026-11-23
+
+### Added
+
+- **One endpoint can be probed from the Providers card** — the last network action that was terminal-only. It needed a consent design rather than a button, and it has two conditions: `dashboard.allowProbe` must be `true` (off by default, in the schema and the template), and off the loopback interface the admin token is required, the same rule cap writes follow.
+- One provider per request, never a sweep: forty endpoints at once is a sweep, and a sweep belongs on the command line where its cost is visible.
+- **A probe from the page reports; it does not promote.** `promoted: false` is in the response and the page says so next to the button. Promotion stays `sui probe --write`, because making an entry routable is the step that deserves a deliberate command.
+- The detail row states the address a click would contact, so the consent is about a named host rather than "the internet".
+
+### Fixed
+
+- `config/sui.schema.json` had `additionalProperties: false` and no `dashboard` section, so the new key would have been an editor error in every config that used it. It is in the schema now, with the rest of the template's keys.
+- The smoke test asserted nothing about the probe control, so a page that offered it with the flag off would have passed. Both directions are checked now: present in `--tenants` (flag on), absent with an explanation everywhere else.
+
+### Known gaps
+
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer arrives. The answer is on time; the exit is not. Cancelling `getaddrinfo` is not something Node offers, and the fix is to stop using `fetch` for probing, which is its own release.
+- The probe control cannot be exercised end to end in CI: it needs provider egress, which CI does not have. The refusal paths and the request path are tested; the "a provider answered" path is not.
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 637 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios; the probe control is asserted present and absent in the right places |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.41 — 2026-11-23
 
 ### Added
