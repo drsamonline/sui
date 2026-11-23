@@ -29,7 +29,7 @@ Every entry names what shipped and what it costs you to adopt. Nothing is listed
 
 | Gate | Result |
 |---|---|
-| `npm test` | 621 tests, no network, no keys |
+| `npm test` | 623 tests, no network, no keys |
 | `npm run audit` | 8/8 static checks |
 | `npm run adr:check` | 10/10 decisions honoured |
 | `node scripts/verify-published.mjs` | installs the published tarball and runs `sui eval --self-test`, `sui doctor --json`, the catalogue, the dashboard and a stream |

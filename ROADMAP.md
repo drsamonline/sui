@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-23 · `0.12.37` · 621 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-23 · `0.12.37` · 623 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 

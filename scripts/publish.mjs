@@ -128,7 +128,12 @@ for (const dir of ORDER) {
   const out = execFileSync('npm', ['pack', '--dry-run', '--json'], { cwd: join(ROOT, dir), encoding: 'utf8' });
   const info = JSON.parse(out)[0];
   const files = info.files.map((f) => f.path);
-  const bad = files.filter((f) => /(^|\/)(test|tests|fixtures|\.env|\.npmrc)/.test(f));
+  // One exception, named exactly rather than pattern-matched: `sui eval --self-test`
+  // grades known-good and known-bad answers, and those answers are product data —
+  // without them an install cannot check that its graders grade. A wildcard would
+  // let a real test fixture through, which is what this guard is for.
+  const SHIPPED_ON_PURPOSE = new Set(['evals/fixtures/self-test.json']);
+  const bad = files.filter((f) => /(^|\/)(test|tests|fixtures|\.env|\.npmrc)/.test(f) && !SHIPPED_ON_PURPOSE.has(f));
   if (bad.length) problems.push(`${info.name}: tarball includes ${bad.join(', ')}`);
   packs.push({ name: info.name, version: info.version, files: files.length, sizeKb: Math.round(info.size / 1024) });
 }

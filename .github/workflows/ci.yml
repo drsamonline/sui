@@ -37,10 +37,10 @@ jobs:
       # `sui eval` is the command the product's answer-quality claim rests on. It
       # runs from the package now, so this proves the command works — the tarball
       # itself is proved by verify-published at publish time.
-      - name: `sui eval` is a command, and the graders still grade
+      - name: sui eval is a command, and the graders still grade
         run: node apps/cli/bin/sui.js eval --self-test
 
-      - name: `sui doctor --json` answers a script, not only a person
+      - name: sui doctor --json answers a script, not only a person
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/first-run" && cd "$RUNNER_TEMP/first-run"

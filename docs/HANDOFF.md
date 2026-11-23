@@ -15,7 +15,7 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 | | |
 |---|---|
 | Version | `0.12.37`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 621, no network, no keys |
+| Tests | 623, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | green on Node 20 and 22 |
@@ -38,7 +38,7 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 621 tests
+npm test               # 623 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH

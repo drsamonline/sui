@@ -717,3 +717,39 @@ test('the handoff document exists and states the things a new session needs', as
   assert.match(doc, /Verified routes \| \*\*\d+\*\*/);
   assert.match(doc, /Deliberately not built/);
 });
+
+/* ------------------------------------ the workflow file must be valid YAML */
+
+test('no workflow step name starts a YAML plain scalar with an illegal character', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const dir = join(process.cwd(), '.github', 'workflows');
+
+  // A plain YAML scalar cannot begin with a backtick, `@`, `*`, `&`, `!`, `%`, `#`,
+  // `{`, `[`, `|`, `>`, `?`, `:` or `-`. One step name began with a backtick and
+  // GitHub answered "this run likely failed because of a workflow file issue" —
+  // the run failed before a single step, so nothing in it could say why.
+  const illegal = /^\s*(?:-\s*)?name:\s*([`@&*!%#{}\[\]|>?:,-])/;
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith('.yml') && !file.endsWith('.yaml')) continue;
+    const lines = readFileSync(join(dir, file), 'utf8').split('\n');
+    lines.forEach((line, index) => {
+      const match = illegal.exec(line);
+      assert.equal(match, null, `${file}:${index + 1} starts a name with "${match?.[1]}" — quote it`);
+    });
+  }
+});
+
+test('the publisher refuses a test fixture, with one named exception', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const publish = readFileSync(join(process.cwd(), 'scripts', 'publish.mjs'), 'utf8');
+
+  // `sui eval --self-test` grades known-good and known-bad answers, and those
+  // answers are product data: an install cannot check its graders without them.
+  // The exception is one exact path, so the guard still refuses every other
+  // fixture — and still refuses this one if it moves.
+  assert.match(publish, /SHIPPED_ON_PURPOSE = new Set\(\['evals\/fixtures\/self-test\.json'\]\)/);
+  assert.match(publish, /\(test\|tests\|fixtures/, 'the guard must still name fixtures');
+  assert.match(publish, /&& !SHIPPED_ON_PURPOSE\.has\(f\)/, 'the exception must be subtracted, not a widened pattern');
+});
