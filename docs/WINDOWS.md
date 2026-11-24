@@ -1,6 +1,6 @@
 # Windows, from nothing
 
-Sui is not on npm yet, so **`npx sui` will not work** — there is nothing for npm to download. You run it from the folder instead, using a wrapper script that ships with the code.
+**`npx sui` will not work** — the package is published as `@drsamonline/cli`, so the bare name `sui` resolves to nothing (or to somebody else's package). Either run it from this folder with the wrapper script that ships with the code, or use `npx @drsamonline/cli`.
 
 Follow this once. After it, everything is one command.
 
@@ -87,13 +87,13 @@ In **PowerShell** use `.\sui.ps1` instead of `.\sui.cmd` — both work. If Power
 
 ## Why not `npx sui`?
 
-`npx` downloads a package from npm. Sui is not published yet, so there is nothing to download — you get `404 Not Found`. Two ways forward:
+`npx` downloads a package from npm by its exact name, and this one is scoped: `@drsamonline/cli`. The bare `sui` is a different name, so `npx sui` downloads something else or nothing.
 
 | Want | Do this |
 |---|---|
-| run it now, from this folder | `.\sui.cmd <command>` — works today, no npm account needed |
+| run it from this folder | `.\sui.cmd <command>` — no npm account needed |
 | a global `sui` command | `npm link` in the folder, then `sui <command>` anywhere |
-| `npx @drsamonline/cli` | publish first: `npm login` then `npm run publish:real` |
+| the published copy, no checkout | `npx @drsamonline/cli <command>` |
 
 `npm link` is the middle option and takes one command:
 
@@ -117,7 +117,8 @@ sui doctor    # then tests every combo against your key
 | `package.json is not here` | you are one folder too high | `cd` into the folder that has `package.json` |
 | `.\sui.cmd : cannot be found` | you are not in the Sui folder | `cd` to it, or use the full path |
 | port 8787 already in use | something else is on it | `.\sui.cmd start --port 8788` |
-| `npx sui` returns 404 | not published | see "Why not npx" above |
+| `npx sui` returns 404 or installs something odd | the package is `@drsamonline/cli` | use `npx @drsamonline/cli`, or `.\sui.cmd` |
+| `sui eval` says "not meaningful" (exit 2) | no route answered | `sui doctor`, then `sui probe --write` |
 
 ---
 
@@ -127,5 +128,5 @@ sui doctor    # then tests every combo against your key
 |---|---|
 | one provider key (free) | from https://console.groq.com, then `$env:GROQ_API_KEY="…"` |
 | verify the endpoints | `.\sui.cmd probe --write` |
-| record an eval baseline | `npm run eval -- --update-baseline` |
-| publish to npm | `npm login` then `npm run publish:real` |
+| record an eval baseline | `.\sui.cmd eval --update-baseline` |
+| see it | `.\sui.cmd start`, then http://127.0.0.1:8787/ |
