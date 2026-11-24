@@ -2,6 +2,29 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.49 — 2026-11-24
+
+### Fixed
+
+- **A corrupt eval baseline aborted the run with a raw JSON error and exit 2.** The pass rate had already been measured — every prompt answered and graded — and a file on the user's disk then turned a finished measurement into "not meaningful", with a message naming no file. It is a warning now: the rate stands, the report carries `baseline: { read: false, problem }`, and the regression gate simply has nothing to compare against. Same rule as the catalogue overlay: a file that cannot be read must not stop the thing that can still be done.
+- **`--limit abc` sliced the golden set to nothing** and reported "0 of 0 prompts got an answer" — a measurement of the argument, not of a model. It is refused, with the value quoted back.
+- A baseline with no `passedIds` list is reported as such rather than silently gating nothing.
+
+### Known gaps
+
+- The eval engine was the first thing written this session and the last reviewed; the same read over `apps/cli/evals/index.js` is what found these. Nothing about that file was wrong when it shipped — the bugs were in the paths that only happen when a file on disk is damaged.
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer (0.12.42's gap, unchanged).
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 654 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.48 — 2026-11-24
 
 ### Added

@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-24 at `0.12.48`.
+Everything needed to pick this up cold. Last updated 2026-11-24 at `0.12.49`.
 
 ## What this is
 
@@ -14,8 +14,8 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.48`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 651, no network, no keys |
+| Version | `0.12.49`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 654, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | **green on every job** (test 20, test 22, eval, soak, dashboard, migration) at `fe67660` |
@@ -40,7 +40,7 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 651 tests
+npm test               # 654 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH

@@ -106,6 +106,25 @@ export function wilson(passed, total, z = 1.96) {
   return { low: Math.max(0, centre - spread), high: Math.min(1, centre + spread) };
 }
 
+/**
+ * Read a recorded baseline, or say why it cannot be read.
+ *
+ * @param {string} path
+ * @returns {{baseline: any|null, problem: string|null}}
+ */
+export function readBaseline(path) {
+  if (!existsSync(path)) return { baseline: null, problem: null };
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8'));
+    if (!Array.isArray(parsed?.passedIds)) {
+      return { baseline: null, problem: `${path} has no passedIds list, so it cannot gate anything` };
+    }
+    return { baseline: parsed, problem: null };
+  } catch (err) {
+    return { baseline: null, problem: `${path} is not readable JSON (${/** @type {any} */ (err)?.message ?? err})` };
+  }
+}
+
 function writeReport(path, report) {
   try {
     mkdirSync(dirname(path), { recursive: true });
@@ -212,7 +231,12 @@ export async function runReal(opts = {}) {
   const paths = opts.paths ?? evalPaths();
   const golden = opts.golden ?? loadGolden(paths.golden);
   const combo = opts.combo ?? 'chat-default';
-  const limit = opts.limit ? Number(opts.limit) : golden.length;
+  const limit = opts.limit == null ? golden.length : Number(opts.limit);
+  if (!Number.isInteger(limit) || limit < 1) {
+    // `--limit abc` used to slice the golden set to nothing, and the run then
+    // reported "0 of 0 prompts got an answer" — a measurement of the argument
+    throw new Error(`--limit must be a whole number of prompts, at least 1, not "${opts.limit}".`);
+  }
 
   // imported lazily: `sui eval --self-test` must work with no gateway, no config
   // and no keys, and this is the only part of the file that needs one
@@ -279,7 +303,11 @@ export async function runReal(opts = {}) {
   }
 
   const passRate = graded.length ? passed / graded.length : 0;
-  const previous = existsSync(paths.baseline) ? JSON.parse(readFileSync(paths.baseline, 'utf8')) : null;
+  // A baseline is a file on the user's disk, and a corrupt one used to abort the
+  // run with a raw JSON parse error and exit 2 — "not meaningful" for a run that
+  // had already measured every prompt. It is a warning now: the numbers stand, and
+  // the regression gate simply has nothing to compare against.
+  const { baseline: previous, problem: baselineProblem } = readBaseline(paths.baseline);
   const previousPassing = new Set(previous?.passedIds ?? []);
   const regressions = graded.filter((g) => previousPassing.has(g.id) && !g.pass);
 
@@ -304,7 +332,12 @@ export async function runReal(opts = {}) {
     lines.push(`  ${regressions.length} regression(s) against the baseline:`);
     for (const r of regressions) lines.push(`    ${r.id}: ${r.reason}`);
   }
-  if (!previous) {
+  if (baselineProblem) {
+    lines.push('');
+    lines.push(`  WARNING  the baseline could not be read: ${baselineProblem}`);
+    lines.push(`  the pass rate above stands; there is no regression gate this run.`);
+    lines.push(`  Re-record it with: sui eval --update-baseline`);
+  } else if (!previous) {
     lines.push('');
     lines.push(`  no baseline recorded — nothing to compare against. Record one with: sui eval --update-baseline`);
   }
@@ -320,6 +353,7 @@ export async function runReal(opts = {}) {
     byCategory,
     confidence: { low: Math.round(ci.low * 1000) / 1000, high: Math.round(ci.high * 1000) / 1000, method: 'wilson', n: graded.length },
     mismatches: graded.filter((g) => !g.pass).map((g) => ({ id: g.id, category: g.category, reason: g.reason })),
+    baseline: baselineProblem ? { read: false, problem: baselineProblem } : { read: Boolean(previous) },
     note: `Real run against combo "${combo}".`,
   };
 

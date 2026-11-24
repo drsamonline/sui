@@ -234,3 +234,39 @@ test('/api/evals finds the report an install wrote, not only a checkout copy', a
     if (previousReport !== undefined) process.env.SUI_EVAL_REPORT = previousReport;
   }
 });
+
+/* ------------------- a file on the user's disk must not abort a measurement */
+
+test('a corrupt baseline is a warning, not a dead run', () => {
+  const box = sandbox();
+  const config = mockConfig(box.dir);
+  writeFileSync(box.baseline, '{not json');
+
+  const { stdout, code } = runEval(['--config', config, '--limit', '5'], box.env);
+  assert.equal(code, 0, 'the run measured every prompt; a bad baseline must not turn that into "not meaningful"');
+  assert.match(stdout, /pass rate \d+%/, 'the number stands');
+  assert.match(stdout, /WARNING {2}the baseline could not be read/);
+  assert.match(stdout, /sui eval --update-baseline/, 'and it names the fix');
+
+  const report = JSON.parse(readFileSync(box.report, 'utf8'));
+  assert.equal(report.baseline.read, false);
+  assert.match(report.baseline.problem, /not readable JSON/);
+});
+
+test('a baseline with no passedIds cannot gate anything, and says so', () => {
+  const box = sandbox();
+  const config = mockConfig(box.dir);
+  writeFileSync(box.baseline, JSON.stringify({ createdAt: 'then', combo: 'chat-default' }));
+
+  const { stdout, code } = runEval(['--config', config, '--limit', '5'], box.env);
+  assert.equal(code, 0);
+  assert.match(stdout, /has no passedIds list/);
+});
+
+test('an unusable --limit is refused instead of measuring nothing', () => {
+  const box = sandbox();
+  const config = mockConfig(box.dir);
+  const { stderr, code } = runEval(['--config', config, '--limit', 'abc'], box.env);
+  assert.equal(code, 2);
+  assert.match(stderr, /--limit must be a whole number of prompts/);
+});
