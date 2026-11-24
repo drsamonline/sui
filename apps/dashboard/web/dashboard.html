@@ -609,7 +609,7 @@ function render() {
   if (!state) return;
   const { budget, pool, combos, metrics, cache, promptUsage, server, unconfigured } = state;
 
-  $('#endpoint-url').textContent = `http://${location.host}/v1`;
+  $('#endpoint-url').textContent = `http://${escapeHtml(location.host)}/v1`;
   $('#config-path').textContent = state.configPath ? state.configPath.replace(/^.*\//, '') : '';
   $('#uptime').textContent = `up ${Math.floor(server.uptimeSeconds / 60)}m ${server.uptimeSeconds % 60}s`;
   const warnings = state.invariantWarnings ?? [];
@@ -721,10 +721,10 @@ function renderGlance(payload) {
   row.innerHTML = cells
     .map(
       (c) => `
-      <div class="glance-cell" data-state="${c.state}">
-        <div class="k">${c.k}</div>
-        <div class="v">${c.v}</div>
-        <div class="f">${c.f}</div>
+      <div class="glance-cell" data-state="${escapeHtml(c.state)}">
+        <div class="k">${escapeHtml(c.k)}</div>
+        <div class="v">${escapeHtml(c.v)}</div>
+        <div class="f">${escapeHtml(c.f)}</div>
       </div>`,
     )
     .join('');
@@ -775,8 +775,8 @@ function renderPool(pool) {
   $('#pool-body').innerHTML = pool.length
     ? pool.map((m) => `
       <tr>
-        <td><strong>${m.label}</strong><div class="hint mono">${m.modelId}</div></td>
-        <td>${m.provider}</td>
+        <td><strong>${escapeHtml(m.label)}</strong><div class="hint mono">${escapeHtml(m.modelId)}</div></td>
+        <td>${escapeHtml(m.provider)}</td>
         <td>${healthCell(m)}${m.lastError ? `<div class="hint">${escapeHtml(m.lastError)}</div>` : ''}</td>
         <td class="num">${num(m.turnsToday)}</td>
         <td class="num">${money(m.costToday)}</td>
@@ -789,8 +789,8 @@ function renderPool(pool) {
 function renderCombos(combos) {
   $('#combos-body').innerHTML = combos.map((c) => `
     <tr>
-      <td><strong>${c.label}</strong><div class="hint mono">${c.id}</div></td>
-      <td>${c.strategy}</td>
+      <td><strong>${escapeHtml(c.label)}</strong><div class="hint mono">${escapeHtml(c.id)}</div></td>
+      <td>${escapeHtml(c.strategy)}</td>
       <td class="mono">${c.targets.join(' → ')}</td>
       <td class="num">${num(c.turnsToday)}</td>
       <td class="num">${money(c.costToday)}</td>
@@ -1367,7 +1367,7 @@ function weatherSentence(p) {
   if ((p.weather ?? 'unverified') === 'unverified') return `${name}: not probed yet, so it is not in the pool.`;
   if (p.weather === 'thriving') return `${name}: thriving — ${(p.history ?? []).length} probe(s) on record, last one answered in ${p.latencyMs ?? '—'} ms.`;
   const why = (p.reasons ?? [])[0] ?? 'no reason recorded';
-  return `${name}: ${p.weather} — ${p.failures} consecutive failure(s). ${why}.`;
+  return `${escapeHtml(name)}: ${escapeHtml(p.weather)} — ${p.failures} consecutive failure(s). ${why}.`;
 }
 
 function renderProbes(probes) {
@@ -1381,7 +1381,7 @@ function renderProbes(probes) {
   document.querySelector('#probes-body').innerHTML = probes.map((p) => `
     <tr>
       <td><strong>${escapeHtml(p.provider)}</strong></td>
-      <td><span class="status" data-state="${p.status === 'healthy' ? 'closed' : p.status === 'disabled' ? 'open' : 'half-open'}"><span class="dot" aria-hidden="true"></span>${p.status}</span></td>
+      <td><span class="status" data-state="${p.status === 'healthy' ? 'closed' : p.status === 'disabled' ? 'open' : 'half-open'}"><span class="dot" aria-hidden="true"></span>${escapeHtml(p.status)}</span></td>
       <td class="num">${p.failures}</td>
       <td class="num">${p.lastProbeAt ? new Date(p.lastProbeAt).toLocaleTimeString('en-IN', { hour12: false }) : '—'}</td>
       <td class="num">${p.latencyMs == null ? '—' : `${p.latencyMs} ms`}</td>
@@ -1396,7 +1396,7 @@ function renderTraces(prompts) {
   $('#traces-body').innerHTML = prompts.length
     ? shown.map((p) => `
       <tr>
-        <td class="mono">${p.promptHash}</td>
+        <td class="mono">${escapeHtml(p.promptHash)}</td>
         <td class="num">${p.turns}</td>
         <td class="num">${num(p.chars)}</td>
         <td class="num">${money(p.costUsd)}</td>
@@ -1413,8 +1413,8 @@ function renderRecent(recent) {
     ? recent.map((r) => `
       <tr>
         <td class="num">${new Date(r.ts).toLocaleTimeString('en-IN', { hour12: false })}</td>
-        <td class="mono">${r.combo}</td>
-        <td>${r.modelId}<div class="hint">${r.provider}</div></td>
+        <td class="mono">${escapeHtml(r.combo)}</td>
+        <td>${escapeHtml(r.modelId)}<div class="hint">${escapeHtml(r.provider)}</div></td>
         <td>${r.ok ? (r.cached ? 'cached' : r.verified ? 'answered' : 'demo answer') : `<span title="${escapeHtml(r.error ?? '')}">failed</span>`}</td>
         <td class="num">${ms(r.latencyMs)}</td>
         <td class="num">${money(r.costUsd)}</td>
@@ -1484,7 +1484,7 @@ function renderComboSelect(combos, pool) {
 
   select.innerHTML = combos.map((c) => {
     const anyReady = c.targets.some((t) => available.has(t));
-    return `<option value="${c.id}">${c.label}${anyReady ? '' : ' — nothing available yet'}</option>`;
+    return `<option value="${escapeHtml(c.id)}">${escapeHtml(c.label)}${anyReady ? '' : ' — nothing available yet'}</option>`;
   }).join('');
 
   // Restore the last combo only if it still exists; otherwise take the first one that
@@ -1519,7 +1519,7 @@ function renderComboMeta(combos, pool) {
   const cost = first ? `$${first.costPer1kIn}/1k in` : 'cost unknown';
   const speed = first ? ms(first.avgLatencyMs) : 'unmeasured';
   const quality = first?.quality ? `${first.quality}/5 quality` : 'quality unrated';
-  meta.textContent = `${combo.strategy} · ${speed} · ${quality} · ${cost}`;
+  meta.textContent = `${escapeHtml(combo.strategy)} · ${speed} · ${quality} · ${cost}`;
 }
 
 /* ------------------------------------------------------------- playground */
@@ -1674,7 +1674,7 @@ $('#clear').addEventListener('click', () => {
 $('#refresh').addEventListener('click', () => { load(); toast('Refreshed'); });
 $('#copy-endpoint').addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText(`http://${location.host}/v1`);
+    await navigator.clipboard.writeText(`http://${escapeHtml(location.host)}/v1`);
     toast('Endpoint copied');
   } catch {
     toast('Copy failed — select the address manually');

@@ -283,3 +283,35 @@ test('a headline is read, not audited: no five-decimal money at the top', () => 
   const glance = html.slice(html.indexOf('function renderGlance'), html.indexOf('function renderKpis'));
   assert.equal(/\$\{money\(/.test(glance), false, 'the strip must use the short form');
 });
+
+/* ---------------------- no raw value reaches the page through innerHTML */
+
+test('no bare value reaches the page unescaped', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const html = readFileSync(join(process.cwd(), 'apps', 'dashboard', 'web', 'dashboard.html'), 'utf8');
+
+  // The bug this exists for: `probeModel` came from a provider's own /models
+  // response and was interpolated straight into a row, so a hostile provider
+  // could execute script in the dashboard. It was *inside a helper* that returned
+  // HTML, so checking only `innerHTML = …` sites would not have caught it — the
+  // rule is file-wide instead, and textContent sites escape too rather than
+  // carrying an exception nobody would remember.
+  //
+  // Only bare dotted paths are checked: `${escapeHtml(x)}`, `${num(x)}` and any
+  // other call is a decision someone made, which is the review this enforces.
+  const NUMERIC = /\.(length|entries|turns|failed|attempts|samples|hours|buckets|rpm|to|tokens|failures|quality|pct|warnAtPct|latencyMs|costPer1kIn|costPer1kOut|maxOutputTokens|cacheHits|compressedTurns|status)$/;
+
+  const offenders = [];
+  let checked = 0;
+  for (const expr of html.matchAll(/\$\{([^{}]*)\}/g)) {
+    const value = expr[1].trim();
+    checked += 1;
+    if (!/^[A-Za-z_$][\w$]*(\.[\w$]+)+$/.test(value)) continue;
+    if (NUMERIC.test(value)) continue;
+    offenders.push(value);
+  }
+
+  assert.ok(checked > 200, `found only ${checked} interpolations; the scan is broken`);
+  assert.deepEqual([...new Set(offenders)], [], 'these reach the page unescaped — wrap them in escapeHtml()');
+});

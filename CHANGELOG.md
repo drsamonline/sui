@@ -2,6 +2,30 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.46 — 2026-11-24
+
+### Fixed
+
+- **The escaping rule is enforced now, not upheld by care.** `probeModel` reached the page raw because the value was interpolated *inside a helper that returns HTML*, where checking `innerHTML = …` sites would never have looked. The test is file-wide instead: any bare dotted path in any template literal must be a number by suffix, and everything else goes through `escapeHtml`.
+- Twelve more sites were escaped on the way: pool labels and model ids, combo labels and strategies, probe status and hashes, recent turns, the combo selector and the glance cards. All of them were config- or app-derived rather than third-party, which is why they were not exploitable — but "not exploitable today" is the argument that shipped the first one.
+- The rule was verified by reverting the fix and watching it fail. A lint that has never failed is a lint nobody has checked.
+
+### Known gaps
+
+- The rule covers bare paths only. `${helper(x)}` is a decision someone made, and the test cannot tell a helper that escapes from one that does not — that needs types, not a regex. The smoke test's hostile model id covers the one path a third party reaches.
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer (0.12.42's gap, unchanged).
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 644 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios, including the hostile model id |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.45 — 2026-11-23
 
 ### Fixed
