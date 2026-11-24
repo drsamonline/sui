@@ -122,7 +122,10 @@ export async function createGateway(opts = {}) {
           historyFile: opts.historyFile === null ? null : opts.historyFile ?? join(home, 'history.jsonl'),
         })
       : { jobs: [], prober: null, history: null, snapshot: () => ({ enabled: false, jobs: [], probes: [] }), stop() {} };
-  const server = createSuiServer({ router, config, ledger, breaker, cache, logger, workers, canary });
+  // `catalogDir` reaches the server too: the prober and the providers route read
+  // the same catalogue, and two readers resolving it differently is how they end
+  // up disagreeing about which providers exist.
+  const server = createSuiServer({ router, config, ledger, breaker, cache, logger, workers, canary, catalogDir: opts.catalogDir });
 
   return {
     config,

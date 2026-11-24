@@ -1146,12 +1146,21 @@ async function loadProviders() {
     const providers = json.providers ?? [];
     providersCache = providers;
     providersProbeEnabled = json.probeEnabled === true;
+    const problems = json.problems ?? [];
     if (note) {
       const s = json.summary ?? {};
-      note.textContent = `${s.total ?? providers.length} entries · ${s.verified ?? 0} verified · ${s.awaitingProbe ?? 0} awaiting a probe`;
+      note.textContent = problems.length
+        ? `${problems.length} catalogue file(s) could not be read`
+        : `${s.total ?? providers.length} entries · ${s.verified ?? 0} verified · ${s.awaitingProbe ?? 0} awaiting a probe`;
     }
     if (!providers.length) {
-      body.innerHTML = `<tr><td colspan="6" class="hint" style="padding: var(--space-4)">No catalogue is readable here. Run <code>sui catalog</code> to check.</td></tr>`;
+      // an empty list with no explanation is what a broken catalogue used to look
+      // like: say which file, and what it said
+      body.innerHTML = `<tr><td colspan="6" class="hint" style="padding: var(--space-4)">${
+        problems.length
+          ? problems.map((p) => `${escapeHtml(p.file)}: ${escapeHtml(p.message)}`).join('<br>')
+          : 'No catalogue is readable here. Run <code>sui catalog</code> to check.'
+      }</td></tr>`;
       return;
     }
     // verified first: the two entries worth acting on are at the top, not wherever

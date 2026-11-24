@@ -25,7 +25,7 @@ import { autoCombo, checkToggle, direction, normaliseLocale, sanitizeConfig, STR
 import { SuiError } from '@drsamonline/core';
 import { applyVerified, poolKey, readVerifiedOverlay } from '@drsamonline/catalog';
 import { probeTarget } from '@drsamonline/prober';
-import { loadCatalogue } from './workers.js';
+import { loadCatalogueDetailed } from './workers.js';
 import { explainPlan } from '@drsamonline/router';
 import { PRESETS, compress as compressText } from '@drsamonline/compression';
 import { Admission, RateLimiter, checkKeyBudget } from './limits.js';
@@ -50,6 +50,8 @@ const DASHBOARD = [
  */
 export function createSuiServer(deps) {
   const { router, config, ledger, breaker, cache, workers, canary } = deps;
+  // the catalogue directory the prober was given, so both read one catalogue
+  const catalogDir = deps.catalogDir;
   // B5.5: one run registry per process. A run is a caller-supplied id with
   // bounds; a request that names one is counted, costed and gated.
   const runs = new RunRegistry({});
@@ -410,7 +412,7 @@ export function createSuiServer(deps) {
       // dashboard showed the models that answered and nothing about the forty-odd
       // identities waiting for a probe, which is the product's whole story.
       if (req.method === 'GET' && path === '/api/providers') {
-        return sendJson(res, 200, { ...providerReport(configRef, workers), probeEnabled: configRef.dashboard?.allowProbe === true });
+        return sendJson(res, 200, { ...providerReport(configRef, workers, catalogDir), probeEnabled: configRef.dashboard?.allowProbe === true });
       }
 
       // Probing from the page: a network action taken on the operator's behalf, so
@@ -429,7 +431,7 @@ export function createSuiServer(deps) {
 
         const body = await readJson(req);
         const name = String(body.provider ?? '');
-        const entry = catalogueWithOverlay().find((e) => e.provider === name);
+        const entry = catalogueWithOverlay(catalogDir).entries.find((e) => e.provider === name);
         if (!entry) throw new SuiError(`No catalogue entry called "${name}".`, { code: 'unknown_provider', status: 404 });
 
         // The timeout comes from the request, so it is clamped: an unbounded one
@@ -945,17 +947,33 @@ function sinceParam(url) {
  * started. Joining them is the only way to answer "is this a route, and if not,
  * why not" without guessing.
  */
-/** The catalogue as this machine knows it: the seed, with the probe overlay applied. */
-function catalogueWithOverlay() {
+/** A pool key, or null when the entry's endpoint cannot be parsed. */
+function safePoolKey(entry) {
+  try {
+    return poolKey(entry);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The catalogue as this machine knows it: the seed, with the probe overlay applied.
+ *
+ * Returns the problems too. A catalogue file that cannot be read used to be
+ * indistinguishable from one that is not there, so a single malformed entry made
+ * every provider disappear from the page with no explanation.
+ */
+function catalogueWithOverlay(catalogDir) {
   const overlay = readVerifiedOverlay([
     join(suiHome(process.env), 'catalog-verified.json'),
     join(HERE, '..', '..', '..', 'packages', 'catalog', 'verified.json'),
   ]);
-  return applyVerified(loadCatalogue(), overlay);
+  const { entries, problems } = loadCatalogueDetailed(catalogDir);
+  return { entries: applyVerified(entries, overlay), problems };
 }
 
-function providerReport(config, workers) {
-  const entries = catalogueWithOverlay();
+function providerReport(config, workers, catalogDir) {
+  const { entries, problems } = catalogueWithOverlay(catalogDir);
   const probes = new Map((workers?.snapshot?.().probes ?? []).map((p) => [p.provider, p]));
 
   const combosFor = (modelIds) => {
@@ -974,8 +992,10 @@ function providerReport(config, workers) {
     return {
       provider: entry.provider,
       // the prober writes its history under the pool key, so the page needs it to
-      // find this provider's durable samples
-      poolKey: poolKey(entry),
+      // find this provider's durable samples. `poolKey` parses the base_url, and a
+      // catalogue is data: one malformed endpoint must not take the whole list
+      // down with a 500
+      poolKey: safePoolKey(entry),
       label: entry.label ?? entry.provider,
       // three states, and "identity" is the honest one for an entry with no
       // endpoint: it is a name we know about, not a route we can call
@@ -1004,6 +1024,9 @@ function providerReport(config, workers) {
 
   const count = (state) => providers.filter((p) => p.state === state).length;
   return {
+    // a file that could not be read is said out loud, rather than looking like an
+    // empty catalogue
+    problems,
     summary: {
       total: providers.length,
       verified: count('verified'),

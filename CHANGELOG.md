@@ -2,6 +2,30 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.47 — 2026-11-24
+
+### Fixed
+
+- **One malformed entry made the whole catalogue vanish, silently.** `loadSeed` throws on an entry whose `base_url` will not parse, and the loader treated every throw as "file missing" — so a broken `generated.json` left the prober with no targets and the providers page with no rows, and nothing said why. A missing file is still not an error; a broken one is now reported, and the page names the file and the parse error.
+- **`/api/providers` ignored the catalogue directory the prober was given.** Two readers of one file resolving it differently is how they end up disagreeing about which providers exist; the directory is threaded to the server now.
+- **A hand-edited overlay could 500 the provider list.** `applyVerified` copies `base_url` from the overlay, so a bad URL can arrive after the seed was validated, and `poolKey` throws on it. One unparseable endpoint now reports a null pool key instead of taking the route down.
+
+### Known gaps
+
+- The prober still treats a broken catalogue as an empty one: `loadProbeTargets` has no channel to report it. It logs nothing, so a broken file looks like an empty one in the worker log.
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer (0.12.42's gap, unchanged).
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 646 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `npm run smoke:dashboard` | four scenarios |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.46 — 2026-11-24
 
 ### Fixed

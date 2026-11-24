@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/catalog",
-  "version": "0.12.46",
+  "version": "0.12.47",
   "description": "Provider catalog: schema, dedupe, ToS policy, scoring.",
   "type": "module",
   "license": "MIT",

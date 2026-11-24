@@ -237,3 +237,65 @@ test('probing an unknown provider is a 404, not a silent nothing', async () => {
     await gw.close();
   }
 });
+
+/* -------------------- the catalogue is data: one bad entry is not a 500 */
+
+test('a broken catalogue file is reported, not silently an empty catalogue', async () => {
+  // `loadSeed` throws on an entry whose base_url will not parse, and the loader
+  // used to treat any throw as "file missing" — so one malformed entry made every
+  // provider disappear, from the prober and from the page, with no explanation.
+  const dir = mkdtempSync(join(tmpdir(), 'sui-catalog-bad-'));
+  writeFileSync(
+    join(dir, 'seed.json'),
+    JSON.stringify({
+      version: 1,
+      entries: [
+        { provider: 'good', label: 'Good', base_url: 'https://good.example/v1', auth: 'none', tos: 'allowed', capabilities: ['chat'], model_family: 'good', needs_probe: true },
+        { provider: 'bad', label: 'Bad', base_url: 'not a url', auth: 'none', tos: 'allowed', capabilities: ['chat'], model_family: 'bad', needs_probe: true },
+      ],
+    }),
+  );
+
+  const { loadCatalogueDetailed } = await import('../apps/gateway/src/workers.js');
+  const loaded = loadCatalogueDetailed(dir);
+  assert.equal(loaded.entries.length, 0, 'a file that will not parse yields no entries');
+  assert.equal(loaded.problems.length, 1, 'but it is not silent');
+  assert.match(loaded.problems[0].file, /seed\.json$/);
+  assert.match(loaded.problems[0].message, /Invalid URL/);
+
+  const gw = await makeGateway(testConfig(), { catalogDir: dir });
+  await new Promise((r) => gw.server.listen(0, '127.0.0.1', r));
+  const { port } = gw.server.address();
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/providers`);
+    assert.equal(res.status, 200, 'a broken catalogue is a report, not a 500');
+    const json = await res.json();
+    assert.equal(json.providers.length, 0);
+    assert.equal(json.problems.length, 1, 'the page is told why the list is empty');
+  } finally {
+    await gw.close();
+  }
+});
+
+test('an unparseable endpoint from the overlay does not take the list down', async () => {
+  // The overlay is hand-editable and `applyVerified` copies `base_url` from it, so
+  // a bad URL can arrive after the seed has been validated.
+  await withHome(async (home) => {
+    mkdirSync(home, { recursive: true });
+    writeFileSync(
+      join(home, 'catalog-verified.json'),
+      JSON.stringify({ version: 1, entries: [{ provider: 'groq', base_url: 'not a url', verified_at: 1763000000000 }] }),
+    );
+
+    const { gw, base } = await bootProviders();
+    try {
+      const res = await fetch(`${base}/api/providers`);
+      assert.equal(res.status, 200, 'one bad overlay row must not 500 the list');
+      const json = await res.json();
+      assert.ok(json.providers.length > 10);
+      assert.equal(json.providers.find((p) => p.provider === 'groq').poolKey, null, 'no pool key for an unparseable endpoint');
+    } finally {
+      await gw.close();
+    }
+  });
+});

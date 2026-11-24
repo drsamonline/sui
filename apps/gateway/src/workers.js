@@ -13,6 +13,7 @@
  * quota_telemetry (B2.3 follow-on), red_team_self_test (B6.2), canary_rollout (B9.2).
  */
 
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Prober } from '@drsamonline/prober';
@@ -296,22 +297,40 @@ export function catalogueDirs(catalogDir) {
   return dirs;
 }
 
-/** Every catalogue entry, identities included. */
-export function loadCatalogue(catalogDir) {
+/**
+ * Every catalogue entry, identities included — and what could not be read.
+ *
+ * A missing file is not an error: a trimmed checkout still runs. A *broken* file
+ * is, and it used to be indistinguishable from a missing one, so a single
+ * malformed entry in `generated.json` made the whole catalogue vanish and both the
+ * prober and the providers page report zero providers. The two are told apart
+ * here, and the caller decides how loudly to say it.
+ *
+ * @returns {{entries: any[], problems: Array<{file: string, message: string}>}}
+ */
+export function loadCatalogueDetailed(catalogDir) {
   for (const dir of catalogueDirs(catalogDir)) {
     const entries = [];
+    const problems = [];
     let found = false;
     for (const file of ['seed.json', 'generated.json']) {
+      const path = join(dir, file);
+      if (!existsSync(path)) continue;
+      found = true;
       try {
-        entries.push(...loadSeed(join(dir, file)));
-        found = true;
-      } catch {
-        /* a missing file is not an error: a trimmed checkout still runs */
+        entries.push(...loadSeed(path));
+      } catch (err) {
+        problems.push({ file: path, message: String(/** @type {any} */ (err)?.message ?? err) });
       }
     }
-    if (found) return dedupeEntries(entries);
+    if (found) return { entries: dedupeEntries(entries), problems };
   }
-  return [];
+  return { entries: [], problems: [] };
+}
+
+/** Every catalogue entry, identities included. */
+export function loadCatalogue(catalogDir) {
+  return loadCatalogueDetailed(catalogDir).entries;
 }
 
 /**
