@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { draft, groupCommits } from '../scripts/changelog-draft.mjs';
 
@@ -57,14 +58,34 @@ test('a range with nothing conventional says so instead of printing an empty ent
 });
 
 test('running it writes nothing: CHANGELOG.md is unchanged', () => {
-  const before = readFileSync(join(process.cwd(), 'CHANGELOG.md'), 'utf8');
-  const out = execFileSync(process.execPath, ['scripts/changelog-draft.mjs', '--from', 'v0.12.36', '--to', 'HEAD'], {
+  // A throwaway repository, because the alternative is depending on this
+  // checkout's tags and depth — and CI checks out shallow, where the tag this test
+  // named did not exist. It passed here and failed there, which is the whole
+  // reason a test should not read the history it happens to be sitting in.
+  const dir = mkdtempSync(join(tmpdir(), 'sui-changelog-'));
+  const git = (...args) =>
+    execFileSync('git', ['-c', 'user.name=draft', '-c', 'user.email=draft@example', ...args], { cwd: dir, encoding: 'utf8' });
+  git('init', '-q');
+  writeFileSync(join(dir, 'CHANGELOG.md'), '# Changelog\n');
+  for (const [file, subject] of [
+    ['a.txt', 'feat: a feature'],
+    ['b.txt', 'fix: a fix'],
+    ['c.txt', 'Merge branch main'],
+  ]) {
+    writeFileSync(join(dir, file), file);
+    git('add', '-A');
+    git('commit', '-qm', subject);
+  }
+
+  const out = execFileSync(process.execPath, [join(process.cwd(), 'scripts', 'changelog-draft.mjs'), '--to', 'HEAD'], {
+    cwd: dir,
     encoding: 'utf8',
     timeout: 60_000,
   });
-  const after = readFileSync(join(process.cwd(), 'CHANGELOG.md'), 'utf8');
 
-  assert.equal(after, before, 'a draft tool that rewrites the changelog is a tool that can rewrite a judgement');
+  assert.equal(readFileSync(join(dir, 'CHANGELOG.md'), 'utf8'), '# Changelog\n', 'a draft tool that rewrites the changelog is a tool that can rewrite a judgement');
   assert.match(out, /Draft only — nothing was written/);
-  assert.match(out, /### Added|### Fixed/, 'this session has both');
+  assert.match(out, /### Added\n\n- a feature/);
+  assert.match(out, /### Fixed\n\n- a fix/);
+  assert.match(out, /1 commit\(s\) not conventional|not conventional, left out/);
 });

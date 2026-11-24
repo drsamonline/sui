@@ -11,6 +11,7 @@ Every entry names what shipped and what it costs you to adopt. Nothing is listed
 
 ### Known gaps
 
+- The draft test builds its own throwaway repository. The first version read this checkout's history and passed here, where every tag exists, then failed in CI, which checks out shallow: `fatal: ambiguous argument 'v0.12.36..HEAD'`.
 - The draft is only as good as the commit subjects. Compare "one endpoint can be probed from the Providers card" with the bullet a human wrote for 0.12.42, which explains the two consents and why it reports rather than promotes. The draft saves the grouping, not the writing.
 - A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer (0.12.42's gap, unchanged).
 - No eval baseline is recorded at this version.
