@@ -2,6 +2,28 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.48 — 2026-11-24
+
+### Added
+
+- **`npm run changelog:draft`** prints a draft entry from the commits since the last tag, and stops where a commit log stops being evidence. `### Added`, `### Fixed`, `### Changed` and `### Docs` are grouped by conventional-commit type; `### Known gaps` and `### Verified at this version` come out as TODO blocks, so a draft cannot be pasted as a finished entry.
+- It writes nothing. `CHANGELOG.md` is hand-written on purpose, and the two sections this cannot fill — what the version does not do, and the gate output — are exactly the two that have been wrong before. A tool that filled them would replace a judgement with a list of commit subjects that reads like one.
+
+### Known gaps
+
+- The draft is only as good as the commit subjects. Compare "one endpoint can be probed from the Providers card" with the bullet a human wrote for 0.12.42, which explains the two consents and why it reports rather than promotes. The draft saves the grouping, not the writing.
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer (0.12.42's gap, unchanged).
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 651 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.47 — 2026-11-24
 
 ### Fixed

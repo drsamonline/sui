@@ -1,6 +1,6 @@
 # Handoff
 
-Everything needed to pick this up cold. Last updated 2026-11-24 at `0.12.47`.
+Everything needed to pick this up cold. Last updated 2026-11-24 at `0.12.48`.
 
 ## What this is
 
@@ -14,8 +14,8 @@ Sui — a verification-first, privacy-aware gateway for LLM providers, MIT licen
 
 | | |
 |---|---|
-| Version | `0.12.47`, 20 packages under `@drsamonline/*`, all published |
-| Tests | 646, no network, no keys |
+| Version | `0.12.48`, 20 packages under `@drsamonline/*`, all published |
+| Tests | 651, no network, no keys |
 | Audit | 8/8 static checks |
 | ADR | 10/10 compliant |
 | CI | **green on every job** (test 20, test 22, eval, soak, dashboard, migration) at `fe67660` |
@@ -40,14 +40,14 @@ dashboard     → "Hello! How can I assist you today?" 1468 ms · $0.00007 · ve
 
 ```bash
 npm install            # after every pod restart
-npm test               # 646 tests
+npm test               # 651 tests
 npm run audit          # 8 static checks
 npm run adr:check      # 10 ADRs
 npm run smoke:dashboard  # needs CHROME_PATH + PUPPETEER_PATH
 node scripts/verify-published.mjs   # installs the real tarball and runs the flow
 ```
 
-Release: bump every `package.json`, add a CHANGELOG entry, commit, then create the tag through the API (the App cannot push tags):
+Release: bump every `package.json`, add a CHANGELOG entry (`npm run changelog:draft` prints a draft and fills the mechanical half only), commit, then create the tag through the API (the App cannot push tags):
 
 ```bash
 git push origin main
@@ -127,7 +127,6 @@ Do not reintroduce any of these. Each has a test.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once; only the "what shipped" half is generatable |
 | 3 | More catalogue providers | 41 → hundreds needs LLM-specific sources; the vendored `app-endpoints` set is public-apis (2,214 general APIs), not providers, so it cannot be grown offline |
 | 4 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once |
 | 5 | `--json` on the last four narrating commands | `init`, `mcp`, `tools --set`, `config get` — each describes a process, so each needs a shape decided first |

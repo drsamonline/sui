@@ -2,7 +2,7 @@
 
 Status is only `done` when a command proves it. Every row names the command that would change it.
 
-Last audit: 2026-11-24 · `0.12.47` · 646 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
+Last audit: 2026-11-24 · `0.12.48` · 651 tests · audit 8/8 · ADR 10/10 · 1 verified route (owner's machine).
 
 ## Where the product stands
 
@@ -39,7 +39,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 
 | # | What | Why it matters | Effort |
 |---|---|---|---|
-| 1 | A `CHANGELOG` entry generated from commit subjects | the changelog is hand-written and has been wrong once; only the "what shipped" half is generatable | small |
+| — | nothing unblocked | the next items all need a machine with provider egress, or a decision | — |
 
 ## Medium
 
@@ -73,6 +73,7 @@ The one-line difference: they optimise for breadth and savings, this optimises f
 | **Per-provider view on the dashboard** | shipped 0.12.41 as a catalogue view rather than a history page — `GET /api/providers` plus a detail row per entry, because the gap was that the page could not show the catalogue at all |
 | **`--json` on the whole CLI** | shipped 0.12.44 — `init`, `config get` and `tools --set` answer a script; `mcp` refuses with a reason |
 | **A probe from the page** | shipped 0.12.42 — one endpoint per request, off by default, admin token off loopback, and it reports rather than promotes |
+| **A `CHANGELOG` draft from commit subjects** | shipped 0.12.48 — it drafts Added/Fixed/Changed/Docs and leaves Known gaps and Verified as TODO blocks, because those two are judgement |
 | **An `innerHTML` escaping rule** | shipped 0.12.46 — a file-wide test, verified by reverting the fix it exists for |
 | **A sweep from the page** | refused: forty endpoints from one click is a sweep, and a sweep belongs where its cost is visible. The page probes one endpoint at a time, on purpose |
 

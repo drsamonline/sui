@@ -1,6 +1,6 @@
 {
   "name": "sui",
-  "version": "0.12.47",
+  "version": "0.12.48",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -35,7 +35,8 @@
     "import:all": "node scripts/import-9router.mjs && node scripts/import-endpoints.mjs",
     "catalog:sync": "node scripts/sync-catalog.mjs",
     "catalog:sync:online": "node scripts/sync-catalog.mjs --online",
-    "smoke:dashboard": "node scripts/smoke-dashboard.mjs"
+    "smoke:dashboard": "node scripts/smoke-dashboard.mjs",
+    "changelog:draft": "node scripts/changelog-draft.mjs"
   },
   "bin": {
     "sui": "./apps/cli/bin/sui.js"
