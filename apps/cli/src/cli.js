@@ -57,6 +57,13 @@ const VERSION = (() => {
 })();
 
 export async function run(argv = process.argv.slice(2)) {
+  // A key in `.env` is a key for *every* command, not only the ones that happened
+  // to load the file. `sui probe` sent no Authorization header for a key that
+  // `sui doctor` had just used to answer, and the doctor's own key table said
+  // "not set" while the combo above it answered — the same key, two answers.
+  // loadEnvFile never overrides a variable that is already set.
+  loadEnvFile(process.env.SUI_ENV_FILE ?? '.env', process.env);
+
   const { command, args, flags } = parse(argv);
 
   // `sui --version` and `sui --help` are the two things anyone types first, and

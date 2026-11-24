@@ -1,6 +1,6 @@
 {
   "name": "@drsamonline/canary",
-  "version": "0.12.49",
+  "version": "0.12.50",
   "description": "Canary rollout with SLO-tied automatic rollback (B9.2).",
   "type": "module",
   "license": "MIT",

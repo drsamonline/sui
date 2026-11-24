@@ -2,6 +2,29 @@
 
 Every entry names what shipped and what it costs you to adopt. Nothing is listed here that a command does not prove.
 
+## 0.12.50 — 2026-11-24
+
+### Fixed
+
+- **A key in `.env` never reached `sui probe`.** The prober read `process.env` directly while every other command read a copy of `.env`, so on an install with the key in `.env` — which is what `sui init` writes and what `sui doctor` uses — a probe sent no `Authorization` header at all and every provider answered 401. The sweep then reported "0 of 41 answered" and looked like forty dead endpoints.
+- **`sui doctor` contradicted itself on the same key.** Its key table read `process.env`, so it printed `GROQ_API_KEY not set` directly above `chat-default ok` — the same key, two answers, one line apart.
+- Both come from one cause: `.env` was loaded into a copy, per command. It is loaded into the process environment once, before dispatch, and `loadEnvFile`'s own rule still holds — a real environment variable always wins.
+
+### Known gaps
+
+- A gateway created programmatically (not through the CLI) still has to populate `process.env` itself if it wants the prober to authenticate from a file. The CLI does it; an embedder has to.
+- A probe against a network that blackholes DNS still holds the process open for ~20 s after the answer (0.12.42's gap, unchanged).
+- No eval baseline is recorded at this version.
+
+### Verified at this version
+
+| Gate | Result |
+|---|---|
+| `npm test` | 656 tests, no network, no keys |
+| `npm run audit` | 8/8 static checks |
+| `npm run adr:check` | 10/10 decisions honoured |
+| `node scripts/verify-published.mjs` | installs the published tarball and runs the flow |
+
 ## 0.12.49 — 2026-11-24
 
 ### Fixed

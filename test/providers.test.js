@@ -299,3 +299,49 @@ test('an unparseable endpoint from the overlay does not take the list down', asy
     }
   });
 });
+
+/* -------------------- a key in .env has to reach the command that needs it */
+
+test('a key in .env reaches the probe, not only the commands that load the file', async () => {
+  // `sui probe` sent no Authorization header for a key that `sui doctor` had just
+  // used to answer, because the prober read process.env while every other command
+  // read a copy of .env. Two answers about the same key.
+  const dir = mkdtempSync(join(tmpdir(), 'sui-dotenv-'));
+  const envFile = join(dir, '.env');
+  writeFileSync(envFile, 'GROQ_API_KEY=gsk_from_the_env_file_123456\n');
+
+  const previous = process.env.GROQ_API_KEY;
+  const previousFile = process.env.SUI_ENV_FILE;
+  delete process.env.GROQ_API_KEY;
+  process.env.SUI_ENV_FILE = envFile;
+  try {
+    const { run } = await import('@drsamonline/cli/src/cli.js');
+    await run(['lang']); // any command: the load happens before dispatch
+    assert.equal(process.env.GROQ_API_KEY, 'gsk_from_the_env_file_123456', 'the file must reach the process environment');
+  } finally {
+    if (previous === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = previous;
+    if (previousFile === undefined) delete process.env.SUI_ENV_FILE;
+    else process.env.SUI_ENV_FILE = previousFile;
+  }
+});
+
+test('a real environment variable still wins over the file', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sui-dotenv-'));
+  const envFile = join(dir, '.env');
+  writeFileSync(envFile, 'GROQ_API_KEY=from_the_file\n');
+  const previous = process.env.GROQ_API_KEY;
+  const previousFile = process.env.SUI_ENV_FILE;
+  process.env.GROQ_API_KEY = 'from_the_shell';
+  process.env.SUI_ENV_FILE = envFile;
+  try {
+    const { run } = await import('@drsamonline/cli/src/cli.js');
+    await run(['lang']);
+    assert.equal(process.env.GROQ_API_KEY, 'from_the_shell', 'the shell wins: loadEnvFile never overrides');
+  } finally {
+    if (previous === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = previous;
+    if (previousFile === undefined) delete process.env.SUI_ENV_FILE;
+    else process.env.SUI_ENV_FILE = previousFile;
+  }
+});
